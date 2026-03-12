@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { BrandMetrics, BrandSummary, SkuMetrics, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate } from './types'
+import type { BrandMetrics, BrandSummary, SkuMetrics, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent } from './types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
@@ -53,6 +53,10 @@ export const deleteSupplier = (id: number) =>
 // Hazardous
 export const toggleHazardous = (stockItemName: string, isHazardous: boolean) =>
   api.patch(`/api/skus/${encodeURIComponent(stockItemName)}/hazardous`, { is_hazardous: isHazardous }).then(r => r.data)
+
+// Reorder Intent
+export const updateReorderIntent = (stockItemName: string, reorderIntent: ReorderIntent) =>
+  api.patch(`/api/skus/${encodeURIComponent(stockItemName)}/reorder-intent`, { reorder_intent: reorderIntent }).then(r => r.data)
 
 // Overrides
 export const fetchOverrides = (params?: Record<string, string | boolean>): Promise<Override[]> =>

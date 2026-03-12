@@ -9,6 +9,7 @@ def compute_brand_metrics(
     sku_metrics_list: list[dict],
     supplier: dict | None,
     dead_stock_threshold: int = 30,
+    slow_mover_threshold: float = 0.1,
     today: date_type | None = None,
 ) -> dict:
     """Aggregate SKU metrics to brand level (single-pass)."""
@@ -23,18 +24,24 @@ def compute_brand_metrics(
     ok = 0
     no_data = 0
     dead_stock = 0
+    slow_mover = 0
     weighted_sum = 0.0
     weight_total = 0.0
 
     for s in sku_metrics_list:
         stock = s.get("current_stock", 0)
         status = s.get("reorder_status")
+        vel = s.get("total_velocity", 0)
         if stock > 0:
             in_stock += 1
             # Dead stock check: has stock but no recent demand sales
             lsd = s.get("last_sale_date")
             if lsd is None or (today - lsd).days >= dead_stock_threshold:
                 dead_stock += 1
+            # Slow mover: has stock, has some velocity but low, not already classified
+            if (vel > 0 and vel < slow_mover_threshold
+                    and s.get("reorder_intent", "normal") == "normal"):
+                slow_mover += 1
         else:
             out_of_stock += 1
         if status == "critical":
@@ -46,7 +53,6 @@ def compute_brand_metrics(
         elif status == "no_data":
             no_data += 1
         dts = s.get("days_to_stockout")
-        vel = s.get("total_velocity", 0)
         if dts is not None and vel > 0:
             weighted_sum += dts * vel
             weight_total += vel
@@ -63,6 +69,7 @@ def compute_brand_metrics(
         "ok_skus": ok,
         "no_data_skus": no_data,
         "dead_stock_skus": dead_stock,
+        "slow_mover_skus": slow_mover,
         "avg_days_to_stockout": avg_days,
         "primary_supplier": supplier.get("name") if supplier else None,
         "supplier_lead_time": supplier.get("lead_time_default") if supplier else None,

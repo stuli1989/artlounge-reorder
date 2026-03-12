@@ -49,13 +49,16 @@ CREATE TABLE IF NOT EXISTS stock_items (
     closing_balance     NUMERIC DEFAULT 0,
     closing_value       NUMERIC DEFAULT 0,
     part_no             TEXT,
+    reorder_intent      TEXT DEFAULT 'normal',
     is_hazardous        BOOLEAN DEFAULT FALSE,
     is_active           BOOLEAN DEFAULT TRUE,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ DEFAULT NOW()
+    updated_at          TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT valid_reorder_intent CHECK (reorder_intent IN ('must_stock', 'normal', 'do_not_reorder'))
 );
 CREATE INDEX IF NOT EXISTS idx_stock_items_category ON stock_items(category_name);
 CREATE INDEX IF NOT EXISTS idx_stock_items_name ON stock_items(tally_name);
+CREATE INDEX IF NOT EXISTS idx_stock_items_intent ON stock_items(reorder_intent);
 
 -- ============================================================
 -- 4. parties — Customers, suppliers, internal entities
@@ -171,6 +174,7 @@ CREATE TABLE IF NOT EXISTS brand_metrics (
     no_data_skus                INTEGER DEFAULT 0,
     avg_days_to_stockout        NUMERIC,
     dead_stock_skus             INTEGER DEFAULT 0,
+    slow_mover_skus             INTEGER DEFAULT 0,
     primary_supplier            TEXT,
     supplier_lead_time          INTEGER,
     computed_at                 TIMESTAMPTZ DEFAULT NOW()
@@ -186,6 +190,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
 INSERT INTO app_settings (key, value) VALUES ('dead_stock_threshold_days', '30') ON CONFLICT DO NOTHING;
+INSERT INTO app_settings (key, value) VALUES ('slow_mover_velocity_threshold', '0.1') ON CONFLICT DO NOTHING;
 
 -- ============================================================
 -- 10. sync_log — Sync audit trail

@@ -1,7 +1,7 @@
 import { useState, useMemo, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchSkus, toggleHazardous } from '@/lib/api'
+import { fetchSkus, toggleHazardous, updateReorderIntent } from '@/lib/api'
 import type { SkuMetrics } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import StockTimelineChart from '@/components/StockTimelineChart'
 import TransactionHistory from '@/components/TransactionHistory'
 import CalculationBreakdown from '@/components/CalculationBreakdown'
+import ReorderIntentSelector from '@/components/ReorderIntentSelector'
+import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar, Flame, Snowflake } from 'lucide-react'
 
 function formatDateForInput(d: Date): string {
@@ -73,6 +75,8 @@ export default function SkuDetail() {
       else if (statusFilter === 'out_of_stock') params.status = 'out_of_stock'
       else if (statusFilter === 'dead_stock') params.dead_stock = 'true'
       else if (statusFilter === 'hazardous') params.hazardous = 'true'
+      else if (statusFilter === 'must_stock') params.reorder_intent = 'must_stock'
+      else if (statusFilter === 'do_not_reorder') params.reorder_intent = 'do_not_reorder'
       if (search) params.search = search
       if (analysisRange) {
         if (analysisRange.from) params.from_date = analysisRange.from
@@ -211,6 +215,8 @@ export default function SkuDetail() {
               <SelectItem value="out_of_stock">Out of Stock</SelectItem>
               <SelectItem value="dead_stock">Dead Stock</SelectItem>
               <SelectItem value="hazardous">Hazardous</SelectItem>
+              <SelectItem value="must_stock">Must Stock</SelectItem>
+              <SelectItem value="do_not_reorder">Do Not Reorder</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -228,6 +234,7 @@ export default function SkuDetail() {
                   <TableHead>Part No</TableHead>
                   <TableHead className="w-10">Haz</TableHead>
                   <TableHead>SKU Name</TableHead>
+                  <TableHead>Intent</TableHead>
                   <TableHead className="text-right">Stock</TableHead>
                   <TableHead className="text-right">Wholesale /mo</TableHead>
                   <TableHead className="text-right">Online /mo</TableHead>
@@ -264,6 +271,12 @@ export default function SkuDetail() {
                         <TableCell className="max-w-[250px] truncate" title={s.stock_item_name}>
                           <span className="inline-flex items-center gap-1">
                             {s.stock_item_name}
+                            {s.reorder_intent === 'must_stock' && (
+                              <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px] px-1 py-0">Must Stock</Badge>
+                            )}
+                            {s.reorder_intent === 'do_not_reorder' && (
+                              <Badge className="bg-gray-100 text-gray-500 hover:bg-gray-100 text-[10px] px-1 py-0">DNR</Badge>
+                            )}
                             {s.is_dead_stock && (
                               <Tooltip>
                                 <TooltipTrigger>
@@ -281,6 +294,12 @@ export default function SkuDetail() {
                               </Tooltip>
                             )}
                           </span>
+                        </TableCell>
+                        <TableCell onClick={e => e.stopPropagation()}>
+                          <ReorderIntentSelector
+                            stockItemName={s.stock_item_name}
+                            currentIntent={s.reorder_intent || 'normal'}
+                          />
                         </TableCell>
                         <TableCell className={`text-right ${(s.effective_stock ?? s.current_stock) <= 0 ? 'text-red-600 font-medium' : ''}`}>
                           <span className="inline-flex items-center gap-1 justify-end">
@@ -331,7 +350,7 @@ export default function SkuDetail() {
                       </TableRow>
                       {expandedRow === s.stock_item_name && (
                         <TableRow key={`${s.stock_item_name}-detail`}>
-                          <TableCell colSpan={12} className="bg-muted/30 p-4">
+                          <TableCell colSpan={13} className="bg-muted/30 p-4">
                             <Tabs defaultValue="timeline">
                               <TabsList>
                                 <TabsTrigger value="timeline">Stock Timeline</TabsTrigger>
@@ -361,7 +380,7 @@ export default function SkuDetail() {
                 })}
                 {(skus || []).length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                       No SKUs found
                     </TableCell>
                   </TableRow>

@@ -14,7 +14,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import StatusBadge from '@/components/StatusBadge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Download, Calendar, Flame, AlertTriangle } from 'lucide-react'
+import type { ReorderStatus, ReorderIntent } from '@/lib/types'
 
 interface PoRow {
   stock_item_name: string
@@ -23,8 +25,9 @@ interface PoRow {
   current_stock: number
   total_velocity: number
   days_to_stockout: number | null
-  reorder_status: string
+  reorder_status: ReorderStatus
   suggested_qty: number | null
+  reorder_intent: ReorderIntent
   included: boolean
   order_qty: number
   notes: string
@@ -265,7 +268,7 @@ export default function PoBuilder() {
             </TableHeader>
             <TableBody>
               {rows.map(r => (
-                <TableRow key={r.stock_item_name} className={cn(!r.included && 'opacity-40', hasHazardousConflict && r.is_hazardous && r.included && 'bg-amber-50')}>
+                <TableRow key={r.stock_item_name} className={cn(!r.included && 'opacity-40', hasHazardousConflict && r.is_hazardous && r.included && 'bg-amber-50', r.reorder_intent === 'must_stock' && 'border-l-2 border-l-purple-400')}>
                   <TableCell>
                     <Checkbox checked={r.included} onCheckedChange={() => toggleRow(r.stock_item_name)} />
                   </TableCell>
@@ -277,6 +280,9 @@ export default function PoBuilder() {
                     <span className="inline-flex items-center gap-1">
                       {r.is_hazardous && <Flame className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
                       {r.stock_item_name}
+                      {r.reorder_intent === 'must_stock' && (
+                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px] px-1 py-0">Must Stock</Badge>
+                      )}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">{r.current_stock}</TableCell>

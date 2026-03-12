@@ -6,6 +6,11 @@ from datetime import date
 DEFAULT_LEAD_TIME = 180  # days (sea freight default)
 
 
+def must_stock_fallback_qty(lead_time: int) -> int:
+    """Minimum order quantity for must_stock items with no velocity data."""
+    return max(1, round(lead_time / 30))
+
+
 def calculate_days_to_stockout(current_stock: float, total_velocity: float) -> float | None:
     """Calculate days until stock runs out at current velocity."""
     if total_velocity <= 0:

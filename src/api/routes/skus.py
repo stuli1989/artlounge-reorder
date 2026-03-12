@@ -1,5 +1,6 @@
 """SKU detail API endpoints."""
 from datetime import date, timedelta
+from typing import Literal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from api.database import get_db
@@ -29,6 +30,8 @@ def list_skus(
     search: str = Query(None),
     hazardous: bool = Query(None, description="Filter by hazardous flag"),
     dead_stock: bool = Query(None, description="Filter by dead stock status"),
+    reorder_intent: str = Query(None, description="Filter by reorder intent: must_stock, normal, do_not_reorder"),
+    slow_mover: bool = Query(None, description="Filter by slow mover status"),
     from_date: str = Query(None, description="Analysis period start (YYYY-MM-DD)"),
     to_date: str = Query(None, description="Analysis period end (YYYY-MM-DD)"),
 ):
@@ -56,6 +59,10 @@ def list_skus(
         conditions.append("COALESCE(si.is_hazardous, FALSE) = %s")
         params.append(hazardous)
 
+    if reorder_intent is not None:
+        conditions.append("COALESCE(si.reorder_intent, 'normal') = %s")
+        params.append(reorder_intent)
+
     where = " AND ".join(conditions)
 
     # Sanitize sort column
@@ -66,6 +73,7 @@ def list_skus(
         SELECT sm.*,
                si.part_no,
                si.is_hazardous,
+               si.reorder_intent,
                os.override_value AS stock_override_value,
                os.note AS stock_override_note,
                os.is_stale AS stock_override_stale,
@@ -94,10 +102,11 @@ def list_skus(
 
     with get_db() as conn:
         with conn.cursor() as cur:
-            # Get dead stock threshold
-            cur.execute("SELECT value FROM app_settings WHERE key = 'dead_stock_threshold_days'")
-            _thr_row = cur.fetchone()
-            dead_stock_threshold = int(_thr_row["value"]) if _thr_row else 30
+            # Get thresholds in one query
+            cur.execute("SELECT key, value FROM app_settings WHERE key IN ('dead_stock_threshold_days', 'slow_mover_velocity_threshold')")
+            _settings = {r["key"]: r["value"] for r in cur.fetchall()}
+            dead_stock_threshold = int(_settings.get("dead_stock_threshold_days", "30"))
+            slow_mover_threshold = float(_settings.get("slow_mover_velocity_threshold", "0.1"))
 
             # Get supplier lead time for status recalculation
             cur.execute(
@@ -168,6 +177,11 @@ def list_skus(
         d["days_since_last_sale"] = days_since
         d["total_zero_activity_days"] = d.get("total_zero_activity_days", 0)
         d["is_dead_stock"] = eff_stock > 0 and (days_since is None or days_since >= dead_stock_threshold)
+        d["reorder_intent"] = d.get("reorder_intent", "normal")
+        eff_vel = d["effective_velocity"]
+        d["is_slow_mover"] = (eff_stock > 0 and eff_vel > 0
+                              and eff_vel < slow_mover_threshold
+                              and not d["is_dead_stock"])
 
         # Clean up internal join columns
         for key in ("stock_override_value", "stock_override_note", "total_vel_override_value",
@@ -191,6 +205,10 @@ def list_skus(
     if dead_stock is not None:
         results = [r for r in results if r["is_dead_stock"] == dead_stock]
 
+    # Slow mover filter
+    if slow_mover is not None:
+        results = [r for r in results if r["is_slow_mover"] == slow_mover]
+
     return results
 
 
@@ -206,6 +224,27 @@ def toggle_hazardous(stock_item_name: str, req: HazardousUpdate):
             cur.execute(
                 "UPDATE stock_items SET is_hazardous = %s, updated_at = NOW() WHERE tally_name = %s RETURNING tally_name, is_hazardous",
                 (req.is_hazardous, stock_item_name),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(404, "Stock item not found")
+        conn.commit()
+    return dict(row)
+
+
+class ReorderIntentUpdate(BaseModel):
+    reorder_intent: Literal['must_stock', 'normal', 'do_not_reorder']
+
+
+@router.patch("/skus/{stock_item_name}/reorder-intent")
+def update_reorder_intent(stock_item_name: str, req: ReorderIntentUpdate):
+    """Update reorder intent classification on a stock item."""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE stock_items SET reorder_intent = %s, updated_at = NOW() "
+                "WHERE tally_name = %s RETURNING tally_name, reorder_intent",
+                (req.reorder_intent, stock_item_name),
             )
             row = cur.fetchone()
             if not row:

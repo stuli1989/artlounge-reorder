@@ -1,4 +1,5 @@
 export type ReorderStatus = 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'
+export type ReorderIntent = 'must_stock' | 'normal' | 'do_not_reorder'
 
 export interface BrandMetrics {
   category_name: string
@@ -11,6 +12,7 @@ export interface BrandMetrics {
   no_data_skus: number
   avg_days_to_stockout: number | null
   dead_stock_skus: number
+  slow_mover_skus: number
   primary_supplier: string | null
   supplier_lead_time: number | null
   computed_at: string
@@ -22,6 +24,7 @@ export interface BrandSummary {
   brands_with_warning: number
   total_skus_out_of_stock: number
   total_dead_stock_skus: number
+  total_slow_mover_skus: number
 }
 
 export interface SkuMetrics {
@@ -63,6 +66,8 @@ export interface SkuMetrics {
   days_since_last_sale: number | null
   total_zero_activity_days: number
   is_dead_stock: boolean
+  reorder_intent: ReorderIntent
+  is_slow_mover: boolean
 }
 
 export interface DailyPosition {
@@ -265,4 +270,5 @@ export interface PoDataItem {
   suggested_qty: number | null
   lead_time: number
   buffer: number
+  reorder_intent: ReorderIntent
 }

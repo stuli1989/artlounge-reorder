@@ -9,6 +9,7 @@ from openpyxl.styles import Font, Border, Side
 
 from api.database import get_db
 from engine.effective_values import compute_effective_values, compute_effective_status
+from engine.reorder import must_stock_fallback_qty
 from engine.velocity import resolve_date_range, fetch_batch_velocities, velocities_from_batch_row, opt_float
 
 router = APIRouter(tags=["po"])
@@ -56,6 +57,7 @@ def po_data(
                        sm.days_to_stockout, sm.reorder_status,
                        si.part_no,
                        si.is_hazardous,
+                       si.reorder_intent,
                        os.override_value AS stock_override,
                        ov.override_value AS total_vel_override,
                        owv.override_value AS wholesale_vel_override,
@@ -85,7 +87,7 @@ def po_data(
     result = []
     for r in rows:
         d = dict(r)
-        if d["hold_from_po"]:
+        if d["hold_from_po"] or d.get("reorder_intent") == "do_not_reorder":
             continue
 
         # Base velocities: recalculated from positions or stored metrics
@@ -111,7 +113,12 @@ def po_data(
         )
         st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time)
 
-        suggested = round(vals["eff_total"] * lead_time * buffer) if vals["eff_total"] > 0 else None
+        if vals["eff_total"] > 0:
+            suggested = round(vals["eff_total"] * lead_time * buffer)
+        elif d.get("reorder_intent") == "must_stock":
+            suggested = must_stock_fallback_qty(lead_time)
+        else:
+            suggested = None
         result.append({
             "stock_item_name": d["stock_item_name"],
             "part_no": d.get("part_no"),
@@ -124,6 +131,7 @@ def po_data(
             "buffer": buffer,
             "has_override": vals["has_stock_override"] or vals["has_velocity_override"],
             "is_hazardous": d.get("is_hazardous") or False,
+            "reorder_intent": d.get("reorder_intent", "normal"),
         })
 
     # Post-recalculation status filter when custom range is active
