@@ -1,0 +1,8 @@
+requests
+lxml
+psycopg2-binary
+fastapi
+uvicorn[standard]
+openpyxl
+pandas
+python-dotenv

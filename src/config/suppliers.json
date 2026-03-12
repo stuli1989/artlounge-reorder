@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Speedball Art Products",
+    "tally_party": "Speedball Art Products, LLC",
+    "lead_time_sea": 90,
+    "lead_time_air": 30,
+    "lead_time_default": 90,
+    "currency": "USD",
+    "typical_order_months": 3,
+    "notes": "Default 90-day lead time — update with actual values via Supplier Management"
+  },
+  {
+    "name": "Winsor & Newton",
+    "tally_party": "Winsor & Newton",
+    "lead_time_sea": 90,
+    "lead_time_air": 21,
+    "lead_time_default": 90,
+    "currency": "GBP",
+    "typical_order_months": 3,
+    "notes": "Default 90-day lead time — update with actual values via Supplier Management"
+  }
+]

@@ -1,0 +1,260 @@
+export type ReorderStatus = 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'
+
+export interface BrandMetrics {
+  category_name: string
+  total_skus: number
+  in_stock_skus: number
+  out_of_stock_skus: number
+  critical_skus: number
+  warning_skus: number
+  ok_skus: number
+  no_data_skus: number
+  avg_days_to_stockout: number | null
+  primary_supplier: string | null
+  supplier_lead_time: number | null
+  computed_at: string
+}
+
+export interface BrandSummary {
+  total_brands: number
+  brands_with_critical: number
+  brands_with_warning: number
+  total_skus_out_of_stock: number
+}
+
+export interface SkuMetrics {
+  stock_item_name: string
+  part_no: string | null
+  category_name: string
+  current_stock: number
+  wholesale_velocity: number
+  online_velocity: number
+  total_velocity: number
+  total_in_stock_days: number
+  velocity_start_date: string | null
+  velocity_end_date: string | null
+  days_to_stockout: number | null
+  estimated_stockout_date: string | null
+  last_import_date: string | null
+  last_import_qty: number | null
+  last_import_supplier: string | null
+  reorder_status: ReorderStatus
+  reorder_qty_suggested: number | null
+  computed_at: string
+  // Override effective values
+  effective_stock: number
+  effective_wholesale_velocity: number
+  effective_online_velocity: number
+  effective_store_velocity: number
+  effective_velocity: number
+  effective_days_to_stockout: number | null
+  effective_status: ReorderStatus
+  effective_suggested_qty: number | null
+  has_stock_override: boolean
+  has_velocity_override: boolean
+  has_note: boolean
+  stock_override_stale: boolean
+  velocity_override_stale: boolean
+  hold_from_po: boolean
+}
+
+export interface DailyPosition {
+  position_date: string
+  opening_qty: number
+  closing_qty: number
+  inward_qty: number
+  outward_qty: number
+  wholesale_out: number
+  online_out: number
+  store_out: number
+  is_in_stock: boolean
+}
+
+export interface Transaction {
+  txn_date: string
+  quantity: number
+  is_inward: boolean
+  channel: string
+  voucher_type: string
+  party_name: string
+  rate: number | null
+  amount: number | null
+  voucher_number: string
+}
+
+export interface SyncStatus {
+  last_sync_completed: string | null
+  status: string
+  categories_synced: number
+  items_synced: number
+  transactions_synced: number
+  new_parties_found: number
+  freshness: 'fresh' | 'stale' | 'critical'
+  unclassified_parties_count: number
+}
+
+export interface Party {
+  tally_name: string
+  tally_parent: string | null
+  created_at: string
+  transaction_count: number
+}
+
+export interface Supplier {
+  id: number
+  name: string
+  tally_party: string
+  lead_time_sea: number | null
+  lead_time_air: number | null
+  lead_time_default: number
+  currency: string
+  min_order_value: number | null
+  typical_order_months: number | null
+  notes: string
+}
+
+export interface OverrideInfo {
+  id: number
+  value: number | null
+  note: string
+  hold_from_po: boolean
+  is_stale: boolean
+  stale_since: string | null
+  computed_at_creation: number | null
+  computed_latest: number | null
+  drift_pct: number | null
+  created_at: string | null
+  created_by: string
+}
+
+export interface Override {
+  id: number
+  stock_item_name: string
+  field_name: string
+  override_value: number | null
+  note: string
+  hold_from_po: boolean
+  created_by: string
+  created_at: string
+  expires_at: string | null
+  is_active: boolean
+  is_stale: boolean
+  stale_since: string | null
+  computed_value_at_creation: number | null
+  computed_value_latest: number | null
+  drift_pct: number | null
+  last_reviewed_at: string | null
+  // Joined from sku_metrics
+  computed_current_stock?: number | null
+  computed_total_velocity?: number | null
+  computed_wholesale_velocity?: number | null
+  computed_online_velocity?: number | null
+  category_name?: string
+}
+
+export interface OverrideCreate {
+  stock_item_name: string
+  field_name: string
+  override_value?: number | null
+  note: string
+  hold_from_po?: boolean
+  created_by?: string
+  expires_at?: string | null
+}
+
+export interface BreakdownVelocityChannel {
+  total_units: number
+  daily_velocity: number
+  monthly_velocity: number
+}
+
+export interface BreakdownInStockPeriod {
+  from: string
+  to: string
+  days: number
+}
+
+export interface BreakdownTransactionRow {
+  channel: string
+  direction: string
+  count: number
+  total_qty: number
+  included_in_demand: boolean
+  explanation: string
+}
+
+export interface BreakdownResponse {
+  stock_item_name: string
+  data_source: {
+    closing_balance_from_tally: number | null
+    last_computed: string | null
+    data_as_of: string | null
+    fy_period: string
+    overrides: Record<string, OverrideInfo>
+  }
+  effective_values: {
+    current_stock: number
+    stock_source: 'override' | 'computed'
+    total_velocity: number
+    velocity_source: 'override' | 'computed'
+    wholesale_velocity: number
+    online_velocity: number
+    store_velocity: number
+  }
+  position_reconstruction: {
+    implied_opening: number
+    total_inward: number
+    total_outward: number
+    closing_balance: number | null
+    formula: string
+  }
+  transaction_summary: BreakdownTransactionRow[]
+  date_range: {
+    from_date: string
+    to_date: string
+    total_days_in_range: number
+  }
+  velocity: {
+    in_stock_days: number
+    out_of_stock_days: number
+    in_stock_pct: number
+    in_stock_periods: BreakdownInStockPeriod[]
+    out_of_stock_exclusion_reason: string
+    wholesale: BreakdownVelocityChannel
+    online: BreakdownVelocityChannel
+    store: BreakdownVelocityChannel
+    total: BreakdownVelocityChannel
+    formula: string
+    confidence: 'high' | 'medium' | 'low'
+    confidence_reason: string
+  }
+  stockout: {
+    current_stock: number
+    daily_burn_rate: number
+    days_to_stockout: number | null
+    estimated_stockout_date: string | null
+    formula: string
+  }
+  reorder: {
+    supplier_name: string | null
+    supplier_lead_time: number
+    buffer_multiplier: number
+    suggested_qty: number | null
+    formula: string
+    status: string
+    status_reason: string
+    status_thresholds: string
+  }
+}
+
+export interface PoDataItem {
+  stock_item_name: string
+  part_no: string | null
+  current_stock: number
+  total_velocity: number
+  days_to_stockout: number | null
+  reorder_status: ReorderStatus
+  suggested_qty: number | null
+  lead_time: number
+  buffer: number
+}

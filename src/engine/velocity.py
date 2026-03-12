@@ -1,0 +1,128 @@
+"""
+Velocity calculation — units per day during in-stock periods only.
+
+Velocity = total demand during in-stock days / count of in-stock days
+
+Out-of-stock days are excluded from both numerator and denominator,
+so backorders don't dilute the velocity estimate.
+"""
+from datetime import date
+
+from config.settings import FY_START_DATE, FY_END_DATE
+
+
+def find_in_stock_periods(daily_positions: list[dict]) -> list[dict]:
+    """
+    Group contiguous in-stock days into periods.
+
+    Returns list of {"from": date, "to": date, "days": int}.
+    """
+    periods = []
+    current_start = None
+
+    for p in daily_positions:
+        if p["is_in_stock"]:
+            if current_start is None:
+                current_start = p["position_date"]
+        else:
+            if current_start is not None:
+                # Previous day was the end of an in-stock period
+                prev_date = p["position_date"]
+                from datetime import timedelta
+                end_date = prev_date - timedelta(days=1)
+                days = (end_date - current_start).days + 1
+                periods.append({"from": current_start, "to": end_date, "days": days})
+                current_start = None
+
+    # Close final period if still in stock at end of range
+    if current_start is not None:
+        end_date = daily_positions[-1]["position_date"]
+        days = (end_date - current_start).days + 1
+        periods.append({"from": current_start, "to": end_date, "days": days})
+
+    return periods
+
+
+def calculate_velocity(stock_item_name: str, daily_positions: list[dict]) -> dict:
+    """
+    Calculate wholesale, online, and total velocity from daily positions.
+
+    Only in-stock days (closing_qty > 0) are included.
+    Returns units/day values (multiply by 30 for monthly display).
+    """
+    in_stock_days = [p for p in daily_positions if p["is_in_stock"]]
+
+    if not in_stock_days:
+        return {
+            "wholesale_velocity": 0,
+            "online_velocity": 0,
+            "total_velocity": 0,
+            "total_in_stock_days": 0,
+            "velocity_start_date": None,
+            "velocity_end_date": None,
+        }
+
+    total_wholesale_out = sum(p["wholesale_out"] for p in in_stock_days)
+    total_online_out = sum(p["online_out"] for p in in_stock_days)
+    total_store_out = sum(p["store_out"] for p in in_stock_days)
+    num_days = len(in_stock_days)
+
+    wholesale_v = total_wholesale_out / num_days
+    online_v = total_online_out / num_days
+    store_v = total_store_out / num_days
+
+    return {
+        "wholesale_velocity": round(wholesale_v, 4),
+        "online_velocity": round(online_v, 4),
+        "total_velocity": round(wholesale_v + online_v + store_v, 4),
+        "total_in_stock_days": num_days,
+        "velocity_start_date": in_stock_days[0]["position_date"],
+        "velocity_end_date": in_stock_days[-1]["position_date"],
+    }
+
+
+def resolve_date_range(from_date: str | None, to_date: str | None) -> tuple[date, date]:
+    """Resolve optional date strings to actual range, defaulting to FY start/today."""
+    range_start = date.fromisoformat(from_date) if from_date else FY_START_DATE
+    range_end = date.fromisoformat(to_date) if to_date else min(date.today(), FY_END_DATE)
+    return range_start, range_end
+
+
+def fetch_batch_velocities(cur, category_name: str, range_start: date, range_end: date) -> dict[str, dict]:
+    """Batch-query daily_stock_positions for per-SKU velocity aggregates in a date range.
+
+    Returns {stock_item_name: {in_stock_days, wholesale_total, online_total, store_total}}.
+    """
+    cur.execute("""
+        SELECT dsp.stock_item_name,
+               COUNT(*) FILTER (WHERE dsp.is_in_stock) AS in_stock_days,
+               COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.wholesale_out ELSE 0 END), 0) AS wholesale_total,
+               COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.online_out ELSE 0 END), 0) AS online_total,
+               COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.store_out ELSE 0 END), 0) AS store_total
+        FROM daily_stock_positions dsp
+        WHERE dsp.stock_item_name IN (
+            SELECT stock_item_name FROM sku_metrics WHERE category_name = %s
+        )
+        AND dsp.position_date >= %s AND dsp.position_date <= %s
+        GROUP BY dsp.stock_item_name
+    """, (category_name, range_start, range_end))
+    return {row["stock_item_name"]: dict(row) for row in cur.fetchall()}
+
+
+def velocities_from_batch_row(vel_row: dict | None) -> tuple[float, float, float, float]:
+    """Convert a batch velocity row to (wholesale, online, store, total) daily rates.
+
+    Returns (0, 0, 0, 0) if vel_row is None or has zero in-stock days.
+    """
+    if not vel_row or vel_row["in_stock_days"] <= 0:
+        return 0.0, 0.0, 0.0, 0.0
+    isd = float(vel_row["in_stock_days"])
+    w = float(vel_row["wholesale_total"]) / isd
+    o = float(vel_row["online_total"]) / isd
+    s = float(vel_row["store_total"]) / isd
+    return w, o, s, w + o + s
+
+
+def opt_float(v):
+    """Convert to float if not None, else return None."""
+    return float(v) if v is not None else None

@@ -1,0 +1,313 @@
+"""
+Full computation pipeline — reconstructs stock positions, calculates velocity,
+determines reorder status, and rolls up to brand level.
+"""
+from datetime import date, timedelta
+
+import psycopg2.extras
+
+from engine.stock_position import (
+    reconstruct_daily_positions,
+    upsert_daily_positions,
+    fetch_transactions_for_item,
+)
+from engine.velocity import calculate_velocity
+from engine.reorder import (
+    calculate_days_to_stockout,
+    detect_import_history,
+    determine_reorder_status,
+    get_supplier_for_category,
+    DEFAULT_LEAD_TIME,
+)
+from engine.aggregation import compute_brand_metrics
+
+
+def run_computation_pipeline(db_conn):
+    """Recompute all derived metrics from raw transaction data."""
+    from config.settings import FY_START_DATE
+
+    fy_start = FY_START_DATE
+    today = date.today()
+
+    # 1. Get all stock items
+    stock_items = fetch_all_stock_items(db_conn)
+    print(f"  Computing metrics for {len(stock_items)} stock items...")
+
+    # Pre-fetch ALL transactions in one query (avoids N+1)
+    all_txns = fetch_all_transactions(db_conn)
+    print(f"  Loaded transactions for {len(all_txns)} items in bulk.")
+
+    # Pre-compute supplier mapping per category (avoids N+1)
+    supplier_map = fetch_all_supplier_mappings(db_conn)
+    print(f"  Loaded supplier mappings for {len(supplier_map)} categories.")
+
+    processed = 0
+    for i, item in enumerate(stock_items):
+        txns = all_txns.get(item["tally_name"], [])
+
+        current_stock = item["closing_balance"] or 0
+
+        if not txns:
+            # No transactions — just set status based on stock level
+            upsert_sku_metrics(db_conn, {
+                "stock_item_name": item["tally_name"],
+                "category_name": item["category_name"],
+                "current_stock": current_stock,
+                "wholesale_velocity": 0,
+                "online_velocity": 0,
+                "total_velocity": 0,
+                "total_in_stock_days": 0,
+                "velocity_start_date": None,
+                "velocity_end_date": None,
+                "days_to_stockout": None,
+                "estimated_stockout_date": None,
+                "last_import_date": None,
+                "last_import_qty": None,
+                "last_import_supplier": None,
+                "reorder_status": "out_of_stock" if current_stock <= 0 else "no_data",
+                "reorder_qty_suggested": None,
+            })
+            continue
+
+        # Reconstruct daily positions using BACKWARD method (from closing balance)
+        positions = reconstruct_daily_positions(
+            stock_item_name=item["tally_name"],
+            closing_balance=current_stock,
+            opening_date=fy_start,
+            transactions=txns,
+            end_date=today,
+        )
+
+        # Save positions (batch for performance)
+        upsert_daily_positions(db_conn, positions)
+
+        # Calculate velocity
+        velocity = calculate_velocity(item["tally_name"], positions)
+
+        # Import history
+        import_history = detect_import_history(item["tally_name"], txns)
+
+        # Supplier lead time (from pre-computed map)
+        supplier = supplier_map.get(item["category_name"])
+        lead_time = supplier["lead_time_default"] if supplier else DEFAULT_LEAD_TIME
+
+        # Days to stockout
+        days_to_stockout = calculate_days_to_stockout(current_stock, velocity["total_velocity"])
+
+        # Reorder status
+        status, suggested_qty = determine_reorder_status(
+            current_stock, days_to_stockout, lead_time, velocity["total_velocity"]
+        )
+
+        # Estimated stockout date
+        stockout_date = None
+        if days_to_stockout is not None and days_to_stockout > 0:
+            stockout_date = today + timedelta(days=int(days_to_stockout))
+
+        # Save SKU metrics
+        upsert_sku_metrics(db_conn, {
+            "stock_item_name": item["tally_name"],
+            "category_name": item["category_name"],
+            "current_stock": current_stock,
+            **velocity,
+            "days_to_stockout": days_to_stockout,
+            "estimated_stockout_date": stockout_date,
+            "last_import_date": import_history.get("last_import_date"),
+            "last_import_qty": import_history.get("last_import_qty"),
+            "last_import_supplier": import_history.get("last_import_supplier"),
+            "reorder_status": status,
+            "reorder_qty_suggested": suggested_qty,
+        })
+
+        processed += 1
+        if (i + 1) % 500 == 0:
+            db_conn.commit()  # Batch commit every 500 items
+            print(f"  Processed {i + 1}/{len(stock_items)} items...")
+
+    # Final commit for remaining SKU metrics
+    db_conn.commit()
+    print(f"  {processed} items with transactions computed.")
+
+    # 3. Brand rollups
+    print("  Computing brand rollups...")
+    categories = fetch_all_categories(db_conn)
+    for cat in categories:
+        sku_metrics = fetch_sku_metrics_for_category(db_conn, cat["tally_name"])
+        supplier = supplier_map.get(cat["tally_name"])
+        brand_data = compute_brand_metrics(cat["tally_name"], sku_metrics, supplier)
+        upsert_brand_metrics(db_conn, brand_data)
+
+    db_conn.commit()  # Single commit for all brand rollups
+    print("  Computation pipeline complete.")
+
+
+# ──────────────────────────────────────────────────────────────────
+# Database helpers
+# ──────────────────────────────────────────────────────────────────
+
+def fetch_all_stock_items(db_conn) -> list[dict]:
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT tally_name, category_name, opening_balance, closing_balance
+            FROM stock_items
+            ORDER BY category_name, tally_name
+        """)
+        cols = [d[0] for d in cur.description]
+        rows = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            d["opening_balance"] = float(d["opening_balance"] or 0)
+            d["closing_balance"] = float(d["closing_balance"] or 0)
+            rows.append(d)
+        return rows
+
+
+def fetch_all_transactions(db_conn) -> dict[str, list[dict]]:
+    """Fetch ALL transactions in one query, grouped by stock_item_name."""
+    from collections import defaultdict
+    result = defaultdict(list)
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT stock_item_name, txn_date AS date, quantity, is_inward,
+                   channel, voucher_type, party_name
+            FROM transactions
+            ORDER BY stock_item_name, txn_date, id
+        """)
+        cols = [desc[0] for desc in cur.description]
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            d["quantity"] = float(d["quantity"])
+            item_name = d.pop("stock_item_name")
+            result[item_name].append(d)
+    return dict(result)
+
+
+def fetch_all_supplier_mappings(db_conn) -> dict[str, dict]:
+    """Pre-compute supplier info for all categories.
+
+    Matches suppliers to categories by name (suppliers are seeded with brand names).
+    Falls back to joining through parties/transactions if tally_party is set.
+    """
+    mapping = {}
+    with db_conn.cursor() as cur:
+        # Primary: match supplier name to stock_categories name (how suppliers were seeded)
+        cur.execute("""
+            SELECT sc.tally_name AS category_name,
+                   s.name, s.lead_time_default, s.lead_time_sea, s.lead_time_air
+            FROM stock_categories sc
+            JOIN suppliers s ON UPPER(s.name) = UPPER(sc.tally_name)
+        """)
+        for row in cur.fetchall():
+            mapping[row[0]] = {
+                "name": row[1],
+                "lead_time_default": row[2],
+                "lead_time_sea": row[3],
+                "lead_time_air": row[4],
+            }
+    return mapping
+
+
+def fetch_all_categories(db_conn) -> list[dict]:
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT tally_name FROM stock_categories ORDER BY tally_name")
+        return [{"tally_name": row[0]} for row in cur.fetchall()]
+
+
+def fetch_sku_metrics_for_category(db_conn, category_name: str) -> list[dict]:
+    numeric_cols = {"current_stock", "wholesale_velocity", "online_velocity",
+                    "total_velocity", "days_to_stockout", "reorder_qty_suggested"}
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT stock_item_name, current_stock, wholesale_velocity, online_velocity,
+                   total_velocity, total_in_stock_days, days_to_stockout, reorder_status,
+                   reorder_qty_suggested
+            FROM sku_metrics
+            WHERE category_name = %s
+        """, (category_name,))
+        cols = [d[0] for d in cur.description]
+        rows = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            for c in numeric_cols:
+                if d.get(c) is not None:
+                    d[c] = float(d[c])
+            rows.append(d)
+        return rows
+
+
+def upsert_sku_metrics(db_conn, m: dict):
+    sql = """
+        INSERT INTO sku_metrics (
+            stock_item_name, category_name, current_stock,
+            wholesale_velocity, online_velocity, total_velocity,
+            total_in_stock_days, velocity_start_date, velocity_end_date,
+            days_to_stockout, estimated_stockout_date,
+            last_import_date, last_import_qty, last_import_supplier,
+            reorder_status, reorder_qty_suggested, computed_at
+        ) VALUES (
+            %(stock_item_name)s, %(category_name)s, %(current_stock)s,
+            %(wholesale_velocity)s, %(online_velocity)s, %(total_velocity)s,
+            %(total_in_stock_days)s, %(velocity_start_date)s, %(velocity_end_date)s,
+            %(days_to_stockout)s, %(estimated_stockout_date)s,
+            %(last_import_date)s, %(last_import_qty)s, %(last_import_supplier)s,
+            %(reorder_status)s, %(reorder_qty_suggested)s, NOW()
+        )
+        ON CONFLICT (stock_item_name) DO UPDATE SET
+            category_name = EXCLUDED.category_name,
+            current_stock = EXCLUDED.current_stock,
+            wholesale_velocity = EXCLUDED.wholesale_velocity,
+            online_velocity = EXCLUDED.online_velocity,
+            total_velocity = EXCLUDED.total_velocity,
+            total_in_stock_days = EXCLUDED.total_in_stock_days,
+            velocity_start_date = EXCLUDED.velocity_start_date,
+            velocity_end_date = EXCLUDED.velocity_end_date,
+            days_to_stockout = EXCLUDED.days_to_stockout,
+            estimated_stockout_date = EXCLUDED.estimated_stockout_date,
+            last_import_date = EXCLUDED.last_import_date,
+            last_import_qty = EXCLUDED.last_import_qty,
+            last_import_supplier = EXCLUDED.last_import_supplier,
+            reorder_status = EXCLUDED.reorder_status,
+            reorder_qty_suggested = EXCLUDED.reorder_qty_suggested,
+            computed_at = NOW()
+    """
+    # Fill defaults for missing keys
+    defaults = {
+        "wholesale_velocity": 0, "online_velocity": 0, "total_velocity": 0,
+        "total_in_stock_days": 0, "velocity_start_date": None, "velocity_end_date": None,
+        "days_to_stockout": None, "estimated_stockout_date": None,
+        "last_import_date": None, "last_import_qty": None, "last_import_supplier": None,
+        "reorder_status": "no_data", "reorder_qty_suggested": None,
+    }
+    for k, v in defaults.items():
+        m.setdefault(k, v)
+
+    with db_conn.cursor() as cur:
+        cur.execute(sql, m)
+
+
+def upsert_brand_metrics(db_conn, m: dict):
+    sql = """
+        INSERT INTO brand_metrics (
+            category_name, total_skus, in_stock_skus, out_of_stock_skus,
+            critical_skus, warning_skus, ok_skus, no_data_skus,
+            avg_days_to_stockout, primary_supplier, supplier_lead_time, computed_at
+        ) VALUES (
+            %(category_name)s, %(total_skus)s, %(in_stock_skus)s, %(out_of_stock_skus)s,
+            %(critical_skus)s, %(warning_skus)s, %(ok_skus)s, %(no_data_skus)s,
+            %(avg_days_to_stockout)s, %(primary_supplier)s, %(supplier_lead_time)s, NOW()
+        )
+        ON CONFLICT (category_name) DO UPDATE SET
+            total_skus = EXCLUDED.total_skus,
+            in_stock_skus = EXCLUDED.in_stock_skus,
+            out_of_stock_skus = EXCLUDED.out_of_stock_skus,
+            critical_skus = EXCLUDED.critical_skus,
+            warning_skus = EXCLUDED.warning_skus,
+            ok_skus = EXCLUDED.ok_skus,
+            no_data_skus = EXCLUDED.no_data_skus,
+            avg_days_to_stockout = EXCLUDED.avg_days_to_stockout,
+            primary_supplier = EXCLUDED.primary_supplier,
+            supplier_lead_time = EXCLUDED.supplier_lead_time,
+            computed_at = NOW()
+    """
+    with db_conn.cursor() as cur:
+        cur.execute(sql, m)

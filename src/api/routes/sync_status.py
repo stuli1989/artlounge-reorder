@@ -1,0 +1,62 @@
+"""Sync status API endpoint."""
+from datetime import datetime, timezone
+from fastapi import APIRouter
+from api.database import get_db
+
+router = APIRouter(tags=["sync"])
+
+
+@router.get("/sync/status")
+def sync_status():
+    """Return last sync info and data freshness."""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            # Last completed sync
+            cur.execute("""
+                SELECT * FROM sync_log
+                WHERE status = 'completed'
+                ORDER BY sync_completed DESC
+                LIMIT 1
+            """)
+            last_sync = cur.fetchone()
+
+            # Count unclassified parties
+            cur.execute("SELECT COUNT(*) AS cnt FROM parties WHERE channel = 'unclassified'")
+            unclassified = cur.fetchone()["cnt"]
+
+    if not last_sync:
+        return {
+            "last_sync_completed": None,
+            "status": "never",
+            "categories_synced": 0,
+            "items_synced": 0,
+            "transactions_synced": 0,
+            "new_parties_found": 0,
+            "freshness": "critical",
+            "unclassified_parties_count": unclassified,
+        }
+
+    completed = last_sync["sync_completed"]
+    now = datetime.now(timezone.utc)
+    if completed.tzinfo is None:
+        hours_ago = (now.replace(tzinfo=None) - completed).total_seconds() / 3600
+    else:
+        hours_ago = (now - completed).total_seconds() / 3600
+
+    if hours_ago < 24:
+        freshness = "fresh"
+    elif hours_ago < 48:
+        freshness = "stale"
+    else:
+        freshness = "critical"
+
+    return {
+        "last_sync_completed": last_sync["sync_completed"],
+        "status": last_sync["status"],
+        "categories_synced": last_sync["categories_synced"],
+        "items_synced": last_sync["items_synced"],
+        "transactions_synced": last_sync["transactions_synced"],
+        "new_parties_found": last_sync["new_parties_found"],
+        "freshness": freshness,
+        "unclassified_parties_count": unclassified,
+    }

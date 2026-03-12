@@ -1,0 +1,2674 @@
+==========================================================================================
+  DEDUP & CHANNEL CLASSIFICATION DEEP INVESTIGATION
+  Generated: 2026-03-11 18:00:14
+==========================================================================================
+Loading XML files...
+  Ledgers:          1275
+  Loading vouchers (190 MB, may take ~30s)...
+  Voucher line items: 92106
+
+==========================================================================================
+  1. DEDUP DEEP DIVE — ALL 59 DUPLICATE GROUPS
+==========================================================================================
+Total duplicate groups: 59
+Total excess rows (would be removed): 71
+
+--- 1a. Are duplicate rows truly identical? ---
+Groups where ALL fields are identical: 10
+Groups where fields DIFFER: 49
+
+--- 1b. GROUPS WITH DIFFERING FIELDS (these need special attention) ---
+
+  Key: date=20260206, vnum=635, item=FINETEC Premium 1 Pearlescent Colour Pink Orange, qty=1.0, inward=True
+  Count: 4
+  Parties: {'Art Lounge India - Purchase'}
+  Rates: {655.92, 495.76}
+  Amounts: {655.92, 495.76}
+  Master IDs: {'26019'}
+    Row 1: party=Art Lounge India - Purchase, rate=495.76, amount=495.76, master_id=26019
+    Row 2: party=Art Lounge India - Purchase, rate=495.76, amount=495.76, master_id=26019
+    Row 3: party=Art Lounge India - Purchase, rate=655.92, amount=655.92, master_id=26019
+    Row 4: party=Art Lounge India - Purchase, rate=495.76, amount=495.76, master_id=26019
+
+  Key: date=20251208, vnum=451, item=Camel Acrylic Colours Ultra Range - Jar of 500 ML - Olive Green (281), qty=3.0, inward=True
+  Count: 3
+  Parties: {'Shree Sai Enterprises'}
+  Rates: {209.32, 225.42}
+  Amounts: {627.96, 676.26}
+  Master IDs: {'17256'}
+    Row 1: party=Shree Sai Enterprises, rate=209.32, amount=627.96, master_id=17256
+    Row 2: party=Shree Sai Enterprises, rate=225.42, amount=676.26, master_id=17256
+    Row 3: party=Shree Sai Enterprises, rate=225.42, amount=676.26, master_id=17256
+
+  Key: date=20251225, vnum=INV-25-26-5929, item=Manuscript Leonardt Nib Storage Tin, qty=1.0, inward=False
+  Count: 3
+  Parties: {'MAGENTO2'}
+  Rates: {19.31, 20.59, 21.07}
+  Amounts: {19.31, 20.59, 21.07}
+  Master IDs: {'21123'}
+    Row 1: party=MAGENTO2, rate=20.59, amount=20.59, master_id=21123
+    Row 2: party=MAGENTO2, rate=19.31, amount=19.31, master_id=21123
+    Row 3: party=MAGENTO2, rate=21.07, amount=21.07, master_id=21123
+
+  Key: date=20250531, vnum=KWSL-8, item=RGM - Plus Line - Painting Palette Knife - Design 161, qty=1.0, inward=False
+  Count: 2
+  Parties: {'Art Lounge India'}
+  Rates: {499.73, 196.12}
+  Amounts: {499.73, 196.12}
+  Master IDs: {'462'}
+    Row 1: party=Art Lounge India, rate=499.73, amount=499.73, master_id=462
+    Row 2: party=Art Lounge India, rate=196.12, amount=196.12, master_id=462
+
+  Key: date=20250605, vnum=8, item=CLAESSENS 112 MODERATELY FINE CANVAS 210 CM WIDTH X 1 M, qty=10.0, inward=True
+  Count: 2
+  Parties: {'Art Lounge India'}
+  Rates: {6277.36, 6277.3}
+  Amounts: {62773.0, 62773.6}
+  Master IDs: {'474'}
+    Row 1: party=Art Lounge India, rate=6277.36, amount=62773.6, master_id=474
+    Row 2: party=Art Lounge India, rate=6277.3, amount=62773.0, master_id=474
+
+  Key: date=20250804, vnum=INV-25-26-0760, item=3M General Purpose Masking Tape -24MM or 3/4, qty=4.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {10.48, 10.49}
+  Amounts: {41.93, 41.97}
+  Master IDs: {'4115'}
+    Row 1: party=MAGENTO2, rate=10.48, amount=41.93, master_id=4115
+    Row 2: party=MAGENTO2, rate=10.49, amount=41.97, master_id=4115
+
+  Key: date=20250903, vnum=INV-25-26-2088, item=Holbein AWC Set of 24 Granulating 5ml-WG591, qty=1.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {8147.03, 3335.17}
+  Amounts: {8147.03, 3335.17}
+  Master IDs: {'8201'}
+    Row 1: party=MAGENTO2, rate=3335.17, amount=3335.17, master_id=8201
+    Row 2: party=MAGENTO2, rate=8147.03, amount=8147.03, master_id=8201
+
+  Key: date=20250905, vnum=INV-25-26-2168, item=Manuscript Classic Italic Nibs - 1.6 MM, qty=1.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {33.9, 37.69}
+  Amounts: {33.9, 37.69}
+  Master IDs: {'8242'}
+    Row 1: party=MAGENTO2, rate=37.69, amount=37.69, master_id=8242
+    Row 2: party=MAGENTO2, rate=33.9, amount=33.9, master_id=8242
+
+  Key: date=20250926, vnum=157, item=CAMLIN ACRY COL TUBE SR2-40ML SCARLET LAK, qty=3.0, inward=True
+  Count: 2
+  Parties: {'Shree Sai Enterprises'}
+  Rates: {73.26}
+  Amounts: {219.79, 219.78}
+  Master IDs: {'10934'}
+    Row 1: party=Shree Sai Enterprises, rate=73.26, amount=219.79, master_id=10934
+    Row 2: party=Shree Sai Enterprises, rate=73.26, amount=219.78, master_id=10934
+
+  Key: date=20250930, vnum=INS0288, item=CAMLIN Gesso_ 500ML, qty=1.0, inward=False
+  Count: 2
+  Parties: {'Counter Collection - QR'}
+  Rates: {877.12, 2823.72}
+  Amounts: {877.12, 2823.72}
+  Master IDs: {'10906'}
+    Row 1: party=Counter Collection - QR, rate=877.12, amount=877.12, master_id=10906
+    Row 2: party=Counter Collection - QR, rate=2823.72, amount=2823.72, master_id=10906
+
+  Key: date=20251009, vnum=INV-25-26-3337, item=Reeves Artist Gallery Cotton Canvas A5, qty=1.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {74.32, 74.31}
+  Amounts: {74.32, 74.31}
+  Master IDs: {'11678'}
+    Row 1: party=MAGENTO2, rate=74.32, amount=74.32, master_id=11678
+    Row 2: party=MAGENTO2, rate=74.31, amount=74.31, master_id=11678
+
+  Key: date=20251011, vnum=INV-25-26-3434, item=LOVE ART SKETCH PENCILS 4B, qty=1.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {8.0, 6.4}
+  Amounts: {8.0, 6.4}
+  Master IDs: {'12043'}
+    Row 1: party=MAGENTO2, rate=8.0, amount=8.0, master_id=12043
+    Row 2: party=MAGENTO2, rate=6.4, amount=6.4, master_id=12043
+
+  Key: date=20251015, vnum=INV-25-26-3568, item=Monalisa 20 x 24" White Pre Stretched Canvas Lite 22 x 35 MM, qty=1.0, inward=False
+  Count: 2
+  Parties: {"Pamela D'Silva"}
+  Rates: {574.28, 639.44}
+  Amounts: {574.28, 639.44}
+  Master IDs: {'12237'}
+    Row 1: party=Pamela D'Silva, rate=639.44, amount=639.44, master_id=12237
+    Row 2: party=Pamela D'Silva, rate=574.28, amount=574.28, master_id=12237
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Claret - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.72, 9.73}
+  Amounts: {48.59, 48.64}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Dark Blue - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.72, 9.73}
+  Amounts: {48.59, 48.64}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Royal Blue - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.72, 9.73}
+  Amounts: {48.59, 48.64}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Pistachio - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.73, 9.72}
+  Amounts: {48.64, 48.59}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Sky Blue - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.72, 9.73}
+  Amounts: {48.59, 48.64}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Sage - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.73, 9.72}
+  Amounts: {48.64, 48.59}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Bisque - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.73, 9.72}
+  Amounts: {48.64, 48.59}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Indigo - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.73, 9.72}
+  Amounts: {48.64, 48.59}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Blue - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.72, 9.73}
+  Amounts: {48.59, 48.64}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Red - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.72, 9.73}
+  Amounts: {48.59, 48.64}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Sap Green - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.72, 9.73}
+  Amounts: {48.59, 48.64}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Orange - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.72, 9.73}
+  Amounts: {48.59, 48.64}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Canary - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.73, 9.72}
+  Amounts: {48.64, 48.59}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Light Blue - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.72, 9.73}
+  Amounts: {48.59, 48.64}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Ochre - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.73, 9.72}
+  Amounts: {48.64, 48.59}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Dark Brown - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.72, 9.73}
+  Amounts: {48.59, 48.64}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Black - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.72, 9.73}
+  Amounts: {48.59, 48.64}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Rose Quartz - Textured + Smooth 160 GSM, qty=5.0, inward=False
+  Count: 2
+  Parties: {'PUMPKIN'}
+  Rates: {9.73, 9.72}
+  Amounts: {48.64, 48.59}
+  Master IDs: {'13635'}
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, master_id=13635
+
+  Key: date=20251031, vnum=INS0366, item=KUTCH KRAFT ARTIST STRETCHED CANVAS 24X30, qty=1.0, inward=False
+  Count: 2
+  Parties: {'Counter Collection - Cash'}
+  Rates: {293.45, 293.44}
+  Amounts: {293.45, 293.44}
+  Master IDs: {'13636'}
+    Row 1: party=Counter Collection - Cash, rate=293.44, amount=293.44, master_id=13636
+    Row 2: party=Counter Collection - Cash, rate=293.45, amount=293.45, master_id=13636
+
+  Key: date=20251031, vnum=INS0378, item=Lana Colour Pastel Paper - Imperial - Dark Brown - Textured + Smooth 160 GSM, qty=10.0, inward=False
+  Count: 2
+  Parties: {'Counter Collection - QR'}
+  Rates: {9.73, 9.72}
+  Amounts: {97.28, 97.2}
+  Master IDs: {'13648'}
+    Row 1: party=Counter Collection - QR, rate=9.73, amount=97.28, master_id=13648
+    Row 2: party=Counter Collection - QR, rate=9.72, amount=97.2, master_id=13648
+
+  Key: date=20251031, vnum=INS0378, item=Lana Colour Pastel Paper - Imperial - Sage - Textured + Smooth 160 GSM, qty=10.0, inward=False
+  Count: 2
+  Parties: {'Counter Collection - QR'}
+  Rates: {9.73, 9.72}
+  Amounts: {97.28, 97.2}
+  Master IDs: {'13648'}
+    Row 1: party=Counter Collection - QR, rate=9.73, amount=97.28, master_id=13648
+    Row 2: party=Counter Collection - QR, rate=9.72, amount=97.2, master_id=13648
+
+  Key: date=20251117, vnum=INS0442, item=Lana Colour Pastel Paper - Imperial - Rose Quartz - Textured + Smooth 160 GSM, qty=10.0, inward=False
+  Count: 2
+  Parties: {'Counter Collection - QR'}
+  Rates: {8.58, 8.59}
+  Amounts: {85.86, 85.76}
+  Master IDs: {'15684'}
+    Row 1: party=Counter Collection - QR, rate=8.58, amount=85.76, master_id=15684
+    Row 2: party=Counter Collection - QR, rate=8.59, amount=85.86, master_id=15684
+
+  Key: date=20251117, vnum=INS0442, item=Lana Colour Pastel Paper - Imperial - Black - Textured + Smooth 160 GSM, qty=10.0, inward=False
+  Count: 2
+  Parties: {'Counter Collection - QR'}
+  Rates: {8.59, 8.58}
+  Amounts: {85.76, 85.86}
+  Master IDs: {'15684'}
+    Row 1: party=Counter Collection - QR, rate=8.59, amount=85.86, master_id=15684
+    Row 2: party=Counter Collection - QR, rate=8.58, amount=85.76, master_id=15684
+
+  Key: date=20251117, vnum=INS0442, item=Lana Colour Pastel Paper - Imperial - Dark Brown - Textured + Smooth 160 GSM, qty=10.0, inward=False
+  Count: 2
+  Parties: {'Counter Collection - QR'}
+  Rates: {8.59, 8.58}
+  Amounts: {85.76, 85.86}
+  Master IDs: {'15684'}
+    Row 1: party=Counter Collection - QR, rate=8.59, amount=85.86, master_id=15684
+    Row 2: party=Counter Collection - QR, rate=8.58, amount=85.76, master_id=15684
+
+  Key: date=20251125, vnum=420, item=RGM - Plus Line - Painting Palette Knife - Design 161, qty=2.0, inward=True
+  Count: 2
+  Parties: {'Art Lounge India - Purchase'}
+  Rates: {163.4, 396.43}
+  Amounts: {792.86, 326.8}
+  Master IDs: {'15999'}
+    Row 1: party=Art Lounge India - Purchase, rate=396.43, amount=792.86, master_id=15999
+    Row 2: party=Art Lounge India - Purchase, rate=163.4, amount=326.8, master_id=15999
+
+  Key: date=20251128, vnum=424, item=82 Artist Round Brush Sr:68 Set 5 SET, qty=10.0, inward=True
+  Count: 2
+  Parties: {'Shree Sai Enterprises'}
+  Rates: {193.22, 161.02}
+  Amounts: {1610.2, 1932.2}
+  Master IDs: {'16033'}
+    Row 1: party=Shree Sai Enterprises, rate=193.22, amount=1932.2, master_id=16033
+    Row 2: party=Shree Sai Enterprises, rate=161.02, amount=1610.2, master_id=16033
+
+  Key: date=20251208, vnum=451, item=CAMLIN AOC TUBE SR1 40 ML-FL WHITE HU, qty=3.0, inward=True
+  Count: 2
+  Parties: {'Shree Sai Enterprises'}
+  Rates: {125.59, 135.25}
+  Amounts: {376.77, 405.75}
+  Master IDs: {'17256'}
+    Row 1: party=Shree Sai Enterprises, rate=125.59, amount=376.77, master_id=17256
+    Row 2: party=Shree Sai Enterprises, rate=135.25, amount=405.75, master_id=17256
+
+  Key: date=20251210, vnum=INV-25-26-5457, item=AEDIA WHITEA4 PP 10, qty=1.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {116.12, 116.66}
+  Amounts: {116.12, 116.66}
+  Master IDs: {'19227'}
+    Row 1: party=MAGENTO2, rate=116.66, amount=116.66, master_id=19227
+    Row 2: party=MAGENTO2, rate=116.12, amount=116.12, master_id=19227
+
+  Key: date=20251215, vnum=INS0507, item=Art E Prestretched Cotton Canvas 3D Dee edge 12 X 16 IN (30.5X40.6CM), qty=1.0, inward=False
+  Count: 2
+  Parties: {'Counter Collection - Cash'}
+  Rates: {839.87, 839.88}
+  Amounts: {839.87, 839.88}
+  Master IDs: {'19437'}
+    Row 1: party=Counter Collection - Cash, rate=839.88, amount=839.88, master_id=19437
+    Row 2: party=Counter Collection - Cash, rate=839.87, amount=839.87, master_id=19437
+
+  Key: date=20251225, vnum=INV-25-26-5929, item=Manuscript Copying Nib, qty=1.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {57.67, 58.99}
+  Amounts: {57.67, 58.99}
+  Master IDs: {'21123'}
+    Row 1: party=MAGENTO2, rate=57.67, amount=57.67, master_id=21123
+    Row 2: party=MAGENTO2, rate=58.99, amount=58.99, master_id=21123
+
+  Key: date=20260112, vnum=INV-25-26-6548, item=Manuscript EF Principal Nib, qty=1.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {105.08, 87.78}
+  Amounts: {105.08, 87.78}
+  Master IDs: {'22703'}
+    Row 1: party=MAGENTO2, rate=105.08, amount=105.08, master_id=22703
+    Row 2: party=MAGENTO2, rate=87.78, amount=87.78, master_id=22703
+
+  Key: date=20260124, vnum=INV-25-26-6978, item=AETONED TANA3, qty=5.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {35.94, 35.95}
+  Amounts: {179.75, 179.7}
+  Master IDs: {'23534'}
+    Row 1: party=MAGENTO2, rate=35.95, amount=179.75, master_id=23534
+    Row 2: party=MAGENTO2, rate=35.94, amount=179.7, master_id=23534
+
+  Key: date=20260124, vnum=INV-25-26-6978, item=AETONED TANA4, qty=5.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {35.94, 35.95}
+  Amounts: {179.75, 179.7}
+  Master IDs: {'23534'}
+    Row 1: party=MAGENTO2, rate=35.95, amount=179.75, master_id=23534
+    Row 2: party=MAGENTO2, rate=35.94, amount=179.7, master_id=23534
+
+  Key: date=20260130, vnum=INV-25-26-7180, item=AETONED GREYA3, qty=5.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {35.95, 35.94}
+  Amounts: {179.7, 179.75}
+  Master IDs: {'24103'}
+    Row 1: party=MAGENTO2, rate=35.94, amount=179.7, master_id=24103
+    Row 2: party=MAGENTO2, rate=35.95, amount=179.75, master_id=24103
+
+  Key: date=20260211, vnum=INV-25-26-7667, item=AETONED TANA4, qty=5.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {35.94, 35.95}
+  Amounts: {179.75, 179.7}
+  Master IDs: {'25288'}
+    Row 1: party=MAGENTO2, rate=35.95, amount=179.75, master_id=25288
+    Row 2: party=MAGENTO2, rate=35.94, amount=179.7, master_id=25288
+
+  Key: date=20260213, vnum=INV-25-26-7702, item=Manuscript Leonardt Nib Storage Tin, qty=1.0, inward=False
+  Count: 2
+  Parties: {'MAGENTO2'}
+  Rates: {19.31, 21.74}
+  Amounts: {19.31, 21.74}
+  Master IDs: {'25345'}
+    Row 1: party=MAGENTO2, rate=21.74, amount=21.74, master_id=25345
+    Row 2: party=MAGENTO2, rate=19.31, amount=19.31, master_id=25345
+
+--- 1c. FULL DETAIL OF ALL 59 DUPLICATE GROUPS ---
+
+  GROUP 1/59: 6 rows
+  Key: date=20260216, vnum=634, item=FINETEC 1 Pearlescent Colour Patina, qty=2.0, inward=True
+    Row 1: party=Art Lounge India - Purchase, rate=373.73, amount=747.46, voucher_type=Purchase, master_id=26018
+    Row 2: party=Art Lounge India - Purchase, rate=373.73, amount=747.46, voucher_type=Purchase, master_id=26018
+    Row 3: party=Art Lounge India - Purchase, rate=373.73, amount=747.46, voucher_type=Purchase, master_id=26018
+    Row 4: party=Art Lounge India - Purchase, rate=373.73, amount=747.46, voucher_type=Purchase, master_id=26018
+    Row 5: party=Art Lounge India - Purchase, rate=373.73, amount=747.46, voucher_type=Purchase, master_id=26018
+    Row 6: party=Art Lounge India - Purchase, rate=373.73, amount=747.46, voucher_type=Purchase, master_id=26018
+
+  GROUP 2/59: 4 rows
+  Key: date=20251208, vnum=451, item=Camel Artist HD Acrylics - Tube of 60 ML - Naphthol Red Light (272), qty=3.0, inward=True
+    Row 1: party=Shree Sai Enterprises, rate=126.8, amount=380.4, voucher_type=Purchase, master_id=17256
+    Row 2: party=Shree Sai Enterprises, rate=126.8, amount=380.4, voucher_type=Purchase, master_id=17256
+    Row 3: party=Shree Sai Enterprises, rate=126.8, amount=380.4, voucher_type=Purchase, master_id=17256
+    Row 4: party=Shree Sai Enterprises, rate=126.8, amount=380.4, voucher_type=Purchase, master_id=17256
+
+  GROUP 3/59: 4 rows
+  Key: date=20251208, vnum=451, item=Camel Artist HD Acrylics - Jar of 250 ML - Raw Umber Deep (374), qty=3.0, inward=True
+    Row 1: party=Shree Sai Enterprises, rate=338.14, amount=1014.42, voucher_type=Purchase, master_id=17256
+    Row 2: party=Shree Sai Enterprises, rate=338.14, amount=1014.42, voucher_type=Purchase, master_id=17256
+    Row 3: party=Shree Sai Enterprises, rate=338.14, amount=1014.42, voucher_type=Purchase, master_id=17256
+    Row 4: party=Shree Sai Enterprises, rate=338.14, amount=1014.42, voucher_type=Purchase, master_id=17256
+
+  GROUP 4/59: 4 rows
+  Key: date=20260206, vnum=635, item=FINETEC Premium 1 Pearlescent Colour Pink Orange, qty=1.0, inward=True
+    Row 1: party=Art Lounge India - Purchase, rate=495.76, amount=495.76, voucher_type=Purchase, master_id=26019
+    Row 2: party=Art Lounge India - Purchase, rate=495.76, amount=495.76, voucher_type=Purchase, master_id=26019
+    Row 3: party=Art Lounge India - Purchase, rate=655.92, amount=655.92, voucher_type=Purchase, master_id=26019
+    Row 4: party=Art Lounge India - Purchase, rate=495.76, amount=495.76, voucher_type=Purchase, master_id=26019
+
+  GROUP 5/59: 3 rows
+  Key: date=20251208, vnum=451, item=Camel Acrylic Colours Ultra Range - Jar of 500 ML - Olive Green (281), qty=3.0, inward=True
+    Row 1: party=Shree Sai Enterprises, rate=209.32, amount=627.96, voucher_type=Purchase, master_id=17256
+    Row 2: party=Shree Sai Enterprises, rate=225.42, amount=676.26, voucher_type=Purchase, master_id=17256
+    Row 3: party=Shree Sai Enterprises, rate=225.42, amount=676.26, voucher_type=Purchase, master_id=17256
+
+  GROUP 6/59: 3 rows
+  Key: date=20251225, vnum=INV-25-26-5929, item=Manuscript Leonardt Nib Storage Tin, qty=1.0, inward=False
+    Row 1: party=MAGENTO2, rate=20.59, amount=20.59, voucher_type=Sales-Tally, master_id=21123
+    Row 2: party=MAGENTO2, rate=19.31, amount=19.31, voucher_type=Sales-Tally, master_id=21123
+    Row 3: party=MAGENTO2, rate=21.07, amount=21.07, voucher_type=Sales-Tally, master_id=21123
+
+  GROUP 7/59: 2 rows
+  Key: date=20250531, vnum=KWSL-8, item=RGM - Plus Line - Painting Palette Knife - Design 161, qty=1.0, inward=False
+    Row 1: party=Art Lounge India, rate=499.73, amount=499.73, voucher_type=Sales, master_id=462
+    Row 2: party=Art Lounge India, rate=196.12, amount=196.12, voucher_type=Sales, master_id=462
+
+  GROUP 8/59: 2 rows
+  Key: date=20250605, vnum=8, item=CLAESSENS CANVAS 1 M - MEDIUM TEXTURE - NR.066, qty=10.0, inward=True
+    Row 1: party=Art Lounge India, rate=4042.01, amount=40420.1, voucher_type=Credit Note, master_id=474
+    Row 2: party=Art Lounge India, rate=4042.01, amount=40420.1, voucher_type=Credit Note, master_id=474
+
+  GROUP 9/59: 2 rows
+  Key: date=20250605, vnum=8, item=CLAESSENS OIL PRIMED LINEN CANVAS 1 M -MEDIUM TEXTURE - NR. 66, qty=10.0, inward=True
+    Row 1: party=Art Lounge India, rate=5769.1, amount=57691.0, voucher_type=Credit Note, master_id=474
+    Row 2: party=Art Lounge India, rate=5769.1, amount=57691.0, voucher_type=Credit Note, master_id=474
+
+  GROUP 10/59: 2 rows
+  Key: date=20250605, vnum=8, item=CLAESSENS 112 MODERATELY FINE CANVAS 210 CM WIDTH X 1 M, qty=10.0, inward=True
+    Row 1: party=Art Lounge India, rate=6277.36, amount=62773.6, voucher_type=Credit Note, master_id=474
+    Row 2: party=Art Lounge India, rate=6277.3, amount=62773.0, voucher_type=Credit Note, master_id=474
+
+  GROUP 11/59: 2 rows
+  Key: date=20250721, vnum=21, item=W&N GAC 60ML TB SAP GRE, qty=2.0, inward=True
+    Row 1: party=Opel Marketing Agencies Sunny Paul Menachery, rate=112.29, amount=224.58, voucher_type=Credit Note, master_id=1747
+    Row 2: party=Opel Marketing Agencies Sunny Paul Menachery, rate=112.29, amount=224.58, voucher_type=Credit Note, master_id=1747
+
+  GROUP 12/59: 2 rows
+  Key: date=20250804, vnum=INV-25-26-0760, item=3M General Purpose Masking Tape -24MM or 3/4, qty=4.0, inward=False
+    Row 1: party=MAGENTO2, rate=10.48, amount=41.93, voucher_type=Sales-Tally, master_id=4115
+    Row 2: party=MAGENTO2, rate=10.49, amount=41.97, voucher_type=Sales-Tally, master_id=4115
+
+  GROUP 13/59: 2 rows
+  Key: date=20250903, vnum=INV-25-26-2088, item=Holbein AWC Set of 24 Granulating 5ml-WG591, qty=1.0, inward=False
+    Row 1: party=MAGENTO2, rate=3335.17, amount=3335.17, voucher_type=Sales-Tally, master_id=8201
+    Row 2: party=MAGENTO2, rate=8147.03, amount=8147.03, voucher_type=Sales-Tally, master_id=8201
+
+  GROUP 14/59: 2 rows
+  Key: date=20250905, vnum=INV-25-26-2168, item=Manuscript Classic Italic Nibs - 1.6 MM, qty=1.0, inward=False
+    Row 1: party=MAGENTO2, rate=37.69, amount=37.69, voucher_type=Sales-Tally, master_id=8242
+    Row 2: party=MAGENTO2, rate=33.9, amount=33.9, voucher_type=Sales-Tally, master_id=8242
+
+  GROUP 15/59: 2 rows
+  Key: date=20250926, vnum=157, item=CAMLIN ACRY COL TUBE SR2-40ML SCARLET LAK, qty=3.0, inward=True
+    Row 1: party=Shree Sai Enterprises, rate=73.26, amount=219.79, voucher_type=Purchase, master_id=10934
+    Row 2: party=Shree Sai Enterprises, rate=73.26, amount=219.78, voucher_type=Purchase, master_id=10934
+
+  GROUP 16/59: 2 rows
+  Key: date=20250930, vnum=INS0288, item=CAMLIN Gesso_ 500ML, qty=1.0, inward=False
+    Row 1: party=Counter Collection - QR, rate=877.12, amount=877.12, voucher_type=Sales Store, master_id=10906
+    Row 2: party=Counter Collection - QR, rate=2823.72, amount=2823.72, voucher_type=Sales Store, master_id=10906
+
+  GROUP 17/59: 2 rows
+  Key: date=20251009, vnum=INV-25-26-3337, item=Reeves Artist Gallery Cotton Canvas A5, qty=1.0, inward=False
+    Row 1: party=MAGENTO2, rate=74.32, amount=74.32, voucher_type=Sales-Tally, master_id=11678
+    Row 2: party=MAGENTO2, rate=74.31, amount=74.31, voucher_type=Sales-Tally, master_id=11678
+
+  GROUP 18/59: 2 rows
+  Key: date=20251011, vnum=INV-25-26-3434, item=LOVE ART SKETCH PENCILS 4B, qty=1.0, inward=False
+    Row 1: party=MAGENTO2, rate=8.0, amount=8.0, voucher_type=Sales-Tally, master_id=12043
+    Row 2: party=MAGENTO2, rate=6.4, amount=6.4, voucher_type=Sales-Tally, master_id=12043
+
+  GROUP 19/59: 2 rows
+  Key: date=20251015, vnum=INV-25-26-3568, item=Monalisa 20 x 24" White Pre Stretched Canvas Lite 22 x 35 MM, qty=1.0, inward=False
+    Row 1: party=Pamela D'Silva, rate=639.44, amount=639.44, voucher_type=Sales-Tally, master_id=12237
+    Row 2: party=Pamela D'Silva, rate=574.28, amount=574.28, voucher_type=Sales-Tally, master_id=12237
+
+  GROUP 20/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Claret - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+
+  GROUP 21/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Dark Blue - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+
+  GROUP 22/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Royal Blue - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+
+  GROUP 23/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Pistachio - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+
+  GROUP 24/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Sky Blue - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+
+  GROUP 25/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Sage - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+
+  GROUP 26/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Bisque - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+
+  GROUP 27/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Indigo - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+
+  GROUP 28/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Blue - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+
+  GROUP 29/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Red - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+
+  GROUP 30/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Sap Green - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+
+  GROUP 31/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Orange - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+
+  GROUP 32/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Canary - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+
+  GROUP 33/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Light Blue - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+
+  GROUP 34/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Ochre - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+
+  GROUP 35/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Dark Brown - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+
+  GROUP 36/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Black - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+
+  GROUP 37/59: 2 rows
+  Key: date=20251031, vnum=INS0365, item=Lana Colour Pastel Paper - Imperial - Rose Quartz - Textured + Smooth 160 GSM, qty=5.0, inward=False
+    Row 1: party=PUMPKIN, rate=9.73, amount=48.64, voucher_type=Sales Store, master_id=13635
+    Row 2: party=PUMPKIN, rate=9.72, amount=48.59, voucher_type=Sales Store, master_id=13635
+
+  GROUP 38/59: 2 rows
+  Key: date=20251031, vnum=INS0366, item=KUTCH KRAFT ARTIST STRETCHED CANVAS 24X30, qty=1.0, inward=False
+    Row 1: party=Counter Collection - Cash, rate=293.44, amount=293.44, voucher_type=Sales Store, master_id=13636
+    Row 2: party=Counter Collection - Cash, rate=293.45, amount=293.45, voucher_type=Sales Store, master_id=13636
+
+  GROUP 39/59: 2 rows
+  Key: date=20251031, vnum=INS0378, item=Lana Colour Pastel Paper - Imperial - Dark Brown - Textured + Smooth 160 GSM, qty=10.0, inward=False
+    Row 1: party=Counter Collection - QR, rate=9.73, amount=97.28, voucher_type=Sales Store, master_id=13648
+    Row 2: party=Counter Collection - QR, rate=9.72, amount=97.2, voucher_type=Sales Store, master_id=13648
+
+  GROUP 40/59: 2 rows
+  Key: date=20251031, vnum=INS0378, item=Lana Colour Pastel Paper - Imperial - Sage - Textured + Smooth 160 GSM, qty=10.0, inward=False
+    Row 1: party=Counter Collection - QR, rate=9.73, amount=97.28, voucher_type=Sales Store, master_id=13648
+    Row 2: party=Counter Collection - QR, rate=9.72, amount=97.2, voucher_type=Sales Store, master_id=13648
+
+  GROUP 41/59: 2 rows
+  Key: date=20251103, vnum=360, item=CAMLIN ACRY COL TUBE SR1-40 ML DEEP MAGENT, qty=3.0, inward=True
+    Row 1: party=Shree Sai Enterprises, rate=67.63, amount=202.89, voucher_type=Purchase, master_id=13839
+    Row 2: party=Shree Sai Enterprises, rate=67.63, amount=202.89, voucher_type=Purchase, master_id=13839
+
+  GROUP 42/59: 2 rows
+  Key: date=20251117, vnum=INS0442, item=Lana Colour Pastel Paper - Imperial - Rose Quartz - Textured + Smooth 160 GSM, qty=10.0, inward=False
+    Row 1: party=Counter Collection - QR, rate=8.58, amount=85.76, voucher_type=Sales Store, master_id=15684
+    Row 2: party=Counter Collection - QR, rate=8.59, amount=85.86, voucher_type=Sales Store, master_id=15684
+
+  GROUP 43/59: 2 rows
+  Key: date=20251117, vnum=INS0442, item=Lana Colour Pastel Paper - Imperial - Black - Textured + Smooth 160 GSM, qty=10.0, inward=False
+    Row 1: party=Counter Collection - QR, rate=8.59, amount=85.86, voucher_type=Sales Store, master_id=15684
+    Row 2: party=Counter Collection - QR, rate=8.58, amount=85.76, voucher_type=Sales Store, master_id=15684
+
+  GROUP 44/59: 2 rows
+  Key: date=20251117, vnum=INS0442, item=Lana Colour Pastel Paper - Imperial - Dark Brown - Textured + Smooth 160 GSM, qty=10.0, inward=False
+    Row 1: party=Counter Collection - QR, rate=8.59, amount=85.86, voucher_type=Sales Store, master_id=15684
+    Row 2: party=Counter Collection - QR, rate=8.58, amount=85.76, voucher_type=Sales Store, master_id=15684
+
+  GROUP 45/59: 2 rows
+  Key: date=20251125, vnum=420, item=RGM - Plus Line - Painting Palette Knife - Design 161, qty=2.0, inward=True
+    Row 1: party=Art Lounge India - Purchase, rate=396.43, amount=792.86, voucher_type=Purchase, master_id=15999
+    Row 2: party=Art Lounge India - Purchase, rate=163.4, amount=326.8, voucher_type=Purchase, master_id=15999
+
+  GROUP 46/59: 2 rows
+  Key: date=20251128, vnum=424, item=82 Artist Round Brush Sr:68 Set 5 SET, qty=10.0, inward=True
+    Row 1: party=Shree Sai Enterprises, rate=193.22, amount=1932.2, voucher_type=Purchase, master_id=16033
+    Row 2: party=Shree Sai Enterprises, rate=161.02, amount=1610.2, voucher_type=Purchase, master_id=16033
+
+  GROUP 47/59: 2 rows
+  Key: date=20251208, vnum=451, item=CAMLIN AOC TUBE SR1 40 ML-FL WHITE HU, qty=3.0, inward=True
+    Row 1: party=Shree Sai Enterprises, rate=125.59, amount=376.77, voucher_type=Purchase, master_id=17256
+    Row 2: party=Shree Sai Enterprises, rate=135.25, amount=405.75, voucher_type=Purchase, master_id=17256
+
+  GROUP 48/59: 2 rows
+  Key: date=20251208, vnum=451, item=CAMLIN FABRICA ACRY COL SR1-15ML ULT FLESH TINT, qty=3.0, inward=True
+    Row 1: party=Shree Sai Enterprises, rate=11.27, amount=33.81, voucher_type=Purchase, master_id=17256
+    Row 2: party=Shree Sai Enterprises, rate=11.27, amount=33.81, voucher_type=Purchase, master_id=17256
+
+  GROUP 49/59: 2 rows
+  Key: date=20251210, vnum=INV-25-26-5457, item=AEDIA WHITEA4 PP 10, qty=1.0, inward=False
+    Row 1: party=MAGENTO2, rate=116.66, amount=116.66, voucher_type=Sales-Tally, master_id=19227
+    Row 2: party=MAGENTO2, rate=116.12, amount=116.12, voucher_type=Sales-Tally, master_id=19227
+
+  GROUP 50/59: 2 rows
+  Key: date=20251215, vnum=INS0507, item=Art E Prestretched Cotton Canvas 3D Dee edge 12 X 16 IN (30.5X40.6CM), qty=1.0, inward=False
+    Row 1: party=Counter Collection - Cash, rate=839.88, amount=839.88, voucher_type=Sales Store, master_id=19437
+    Row 2: party=Counter Collection - Cash, rate=839.87, amount=839.87, voucher_type=Sales Store, master_id=19437
+
+  GROUP 51/59: 2 rows
+  Key: date=20251225, vnum=INV-25-26-5929, item=Manuscript Copying Nib, qty=1.0, inward=False
+    Row 1: party=MAGENTO2, rate=57.67, amount=57.67, voucher_type=Sales-Tally, master_id=21123
+    Row 2: party=MAGENTO2, rate=58.99, amount=58.99, voucher_type=Sales-Tally, master_id=21123
+
+  GROUP 52/59: 2 rows
+  Key: date=20260112, vnum=INV-25-26-6548, item=Manuscript EF Principal Nib, qty=1.0, inward=False
+    Row 1: party=MAGENTO2, rate=105.08, amount=105.08, voucher_type=Sales-Tally, master_id=22703
+    Row 2: party=MAGENTO2, rate=87.78, amount=87.78, voucher_type=Sales-Tally, master_id=22703
+
+  GROUP 53/59: 2 rows
+  Key: date=20260124, vnum=INV-25-26-6978, item=AETONED TANA3, qty=5.0, inward=False
+    Row 1: party=MAGENTO2, rate=35.95, amount=179.75, voucher_type=Sales-Tally, master_id=23534
+    Row 2: party=MAGENTO2, rate=35.94, amount=179.7, voucher_type=Sales-Tally, master_id=23534
+
+  GROUP 54/59: 2 rows
+  Key: date=20260124, vnum=INV-25-26-6978, item=AETONED TANA4, qty=5.0, inward=False
+    Row 1: party=MAGENTO2, rate=35.95, amount=179.75, voucher_type=Sales-Tally, master_id=23534
+    Row 2: party=MAGENTO2, rate=35.94, amount=179.7, voucher_type=Sales-Tally, master_id=23534
+
+  GROUP 55/59: 2 rows
+  Key: date=20260130, vnum=INV-25-26-7180, item=AETONED GREYA3, qty=5.0, inward=False
+    Row 1: party=MAGENTO2, rate=35.94, amount=179.7, voucher_type=Sales-Tally, master_id=24103
+    Row 2: party=MAGENTO2, rate=35.95, amount=179.75, voucher_type=Sales-Tally, master_id=24103
+
+  GROUP 56/59: 2 rows
+  Key: date=20260206, vnum=635, item=FINETEC Premium 1 Pearlescent Colour Pharaohs Gold, qty=1.0, inward=True
+    Row 1: party=Art Lounge India - Purchase, rate=373.72, amount=373.72, voucher_type=Purchase, master_id=26019
+    Row 2: party=Art Lounge India - Purchase, rate=373.72, amount=373.72, voucher_type=Purchase, master_id=26019
+
+  GROUP 57/59: 2 rows
+  Key: date=20260206, vnum=635, item=FINETEC 1 Pearlescent Colour Patina, qty=1.0, inward=True
+    Row 1: party=Art Lounge India - Purchase, rate=348.32, amount=348.32, voucher_type=Purchase, master_id=26019
+    Row 2: party=Art Lounge India - Purchase, rate=348.32, amount=348.32, voucher_type=Purchase, master_id=26019
+
+  GROUP 58/59: 2 rows
+  Key: date=20260211, vnum=INV-25-26-7667, item=AETONED TANA4, qty=5.0, inward=False
+    Row 1: party=MAGENTO2, rate=35.95, amount=179.75, voucher_type=Sales-Tally, master_id=25288
+    Row 2: party=MAGENTO2, rate=35.94, amount=179.7, voucher_type=Sales-Tally, master_id=25288
+
+  GROUP 59/59: 2 rows
+  Key: date=20260213, vnum=INV-25-26-7702, item=Manuscript Leonardt Nib Storage Tin, qty=1.0, inward=False
+    Row 1: party=MAGENTO2, rate=21.74, amount=21.74, voucher_type=Sales-Tally, master_id=25345
+    Row 2: party=MAGENTO2, rate=19.31, amount=19.31, voucher_type=Sales-Tally, master_id=25345
+
+--- 1d. Which voucher types produce duplicates? ---
+  Sales Store: 26 duplicate groups
+  Sales-Tally: 15 duplicate groups
+  Purchase: 13 duplicate groups
+  Credit Note: 4 duplicate groups
+  Sales: 1 duplicate groups
+
+--- 1e. Which parties produce duplicates? ---
+  PUMPKIN: 18 duplicate groups
+  MAGENTO2: 14 duplicate groups
+  Shree Sai Enterprises: 8 duplicate groups
+  Counter Collection - QR: 6 duplicate groups
+  Art Lounge India - Purchase: 5 duplicate groups
+  Art Lounge India: 4 duplicate groups
+  Counter Collection - Cash: 2 duplicate groups
+  Opel Marketing Agencies Sunny Paul Menachery: 1 duplicate groups
+  Pamela D'Silva: 1 duplicate groups
+
+--- 1f. PROPOSED DEDUP STRATEGY ---
+Based on the analysis above:
+  - Some duplicates have differing fields — need row-level inspection or master_id-based dedup
+
+--- 1g. master_id + stock_item as alternative dedup key ---
+Duplicate groups under (master_id, stock_item): 79
+Groups where date or voucher_number differs (possibly legit): 0
+Groups that are pure duplicates: 79
+
+--- 1h. master_id + stock_item + voucher_number as key ---
+Duplicate groups under (master_id, stock_item, voucher_number): 79
+Total excess rows: 91
+
+==========================================================================================
+  2. CHANNEL CLASSIFICATION DEEP DIVE
+==========================================================================================
+
+--- 2a. Sales-Tally vouchers — party breakdown (by line item count) ---
+Total Sales-Tally line items: 41184
+Unique parties: 617
+
+  MAGENTO2 (online): 17092 line items (41.5%)
+  Art Lounge India (internal): 3352 line items (8.1%)
+  Other wholesale parties: 20740 line items (50.4%)
+  Number of other wholesale parties: 615
+
+  ALL Sales-Tally parties (full list):
+     17092  MAGENTO2  [ledger parent: Sundry Debtors]
+      3352  Art Lounge India  [ledger parent: Sundry Debtors]
+      1702  Hindustan Trading Company  [ledger parent: Sundry Debtors]
+      1598  Harsh Enterprises  [ledger parent: Sundry Debtors]
+      1434  Shankhesh Sales and Marketing  [ledger parent: Sundry Debtors]
+      1208  A N Commtrade LLP  [ledger parent: Sundry Debtors]
+      1129  Vardhman Trading Company  [ledger parent: Sundry Debtors]
+       816  Himalaya Stationary Mart  [ledger parent: Sundry Debtors]
+       811  Saremisons  [ledger parent: Sundry Debtors]
+       669  Mango Stationery Pvt. Ltd  [ledger parent: Sundry Debtors]
+       506  MARKETING SUPPLIES - LOCAL  [ledger parent: Sundry Debtors]
+       472  SITA RAM ENTERPRISE  [ledger parent: Sundry Debtors]
+       462  Ekta Stationery  [ledger parent: Sundry Debtors]
+       448  Anjali International  [ledger parent: Sundry Debtors]
+       439  JM Company  [ledger parent: Sundry Debtors]
+       439  ART SHARK LLP  [ledger parent: Sundry Debtors]
+       314  Computer Gallery  [ledger parent: Sundry Debtors]
+       313  Reliance Stationery World  [ledger parent: Sundry Debtors]
+       304  Kumars Concern  [ledger parent: Sundry Debtors]
+       294  Artzo India  [ledger parent: Sundry Debtors]
+       273  The Art City  [ledger parent: Sundry Debtors]
+       267  Mendwell Agencies  [ledger parent: Sundry Debtors]
+       212  Bhaskar Arts Center  [ledger parent: Sundry Debtors]
+       207  Stationerie  [ledger parent: Sundry Debtors]
+       196  Pencil Craft Mart  [ledger parent: Sundry Debtors]
+       179  Artorium the Colour World  [ledger parent: Sundry Debtors]
+       173  FLINOX ENTERPRISES LLP  [ledger parent: Sundry Debtors]
+       135  Kumar Concern  [ledger parent: Sundry Debtors]
+       134  JIneshwar Tradelink  [ledger parent: Sundry Debtors]
+       114  Janata Stationery & Art  [ledger parent: Sundry Debtors]
+       113  M. K. Paradise  [ledger parent: Sundry Debtors]
+       113  NEELAKANTH AGENCIES  [ledger parent: Sundry Debtors]
+       112  Reliance Stationery World Art Super Store  [ledger parent: Sundry Debtors]
+        98  H.P.Bala Stationery  [ledger parent: Sundry Debtors]
+        90  Kapoor Traders  [ledger parent: Sundry Debtors]
+        89  Ratnakar Book Depot  [ledger parent: Sundry Debtors]
+        89  GS1916  [ledger parent: Sundry Debtors]
+        87  Nanumals Booktique  [ledger parent: Sundry Debtors]
+        82  New Bombay Stationery Stores  [ledger parent: Sundry Debtors]
+        80  Arihant International  [ledger parent: Sundry Debtors]
+        78  Maxa Enterprises  [ledger parent: Sundry Debtors]
+        73  Anupam Stationery Super Store Pvt Ltd.  [ledger parent: Sundry Debtors]
+        73  Raja Vikrama  [ledger parent: Sundry Debtors]
+        73  Nisarg Enterprise  [ledger parent: Sundry Debtors]
+        72  MG Enterprises  [ledger parent: Sundry Debtors]
+        72  INART  [ledger parent: Sundry Debtors]
+        71  Jagruti Stationery Mart  [ledger parent: Sundry Debtors]
+        68  Saraswati Stationers  [ledger parent: Sundry Debtors]
+        67  Janta Book Centre  [ledger parent: Sundry Debtors]
+        66  Sogani Traders  [ledger parent: Sundry Debtors]
+        65  Shri Ram Book Depot  [ledger parent: Sundry Debtors]
+        61  Tapan Art and Craft  [ledger parent: Sundry Debtors]
+        60  D.Goutam and Co.  [ledger parent: Sundry Debtors]
+        52  G.C.Laha Pvt Ltd.  [ledger parent: Sundry Debtors]
+        49  Prashant Prabhu  [ledger parent: Sundry Debtors]
+        47  WHOLESALE WALA  [ledger parent: Sundry Debtors]
+        47  Hakimi Stationers 2017/2020  [ledger parent: Sundry Debtors]
+        46  Kalam Ghar  [ledger parent: Sundry Debtors]
+        45  Anupam Stationery Plaza  [ledger parent: Sundry Debtors]
+        45  Ritu sharma  [ledger parent: Sundry Debtors]
+        45  Elefant Enterprise  [ledger parent: Sundry Debtors]
+        45  Metalotus  [ledger parent: Sundry Debtors]
+        44  Grasim Industries Limited  [ledger parent: Sundry Debtors]
+        43  Rietu  [ledger parent: Sundry Debtors]
+        42  Pragati Agrawal  [ledger parent: Sundry Debtors]
+        42  Ideal Booksellers & Stationers  [ledger parent: Sundry Debtors]
+        42  Ambreen Wadera  [ledger parent: Sundry Debtors]
+        41  ShiningartPaintingandDesignLLPB2B  [ledger parent: Sundry Debtors]
+        40  FLASH DYE CHEM PRODUCTS PVT LTD  [ledger parent: Sundry Debtors]
+        38  Ravi .N  [ledger parent: Sundry Debtors]
+        38  S Gnature  [ledger parent: Sundry Debtors]
+        37  Purple Pal8  [ledger parent: Sundry Debtors]
+        36  Global Stationery  [ledger parent: Sundry Debtors]
+        35  Aastha Stationers  [ledger parent: Sundry Debtors]
+        35  chinmayee parhi  [ledger parent: Sundry Debtors]
+        35  Shruti G. Dev  [ledger parent: Sundry Debtors]
+        34  Dr. Pannaga  [ledger parent: Sundry Debtors]
+        34  MunMun Chattopadhyay  [ledger parent: Sundry Debtors]
+        33  SudhangsuBandyopadhyay  [ledger parent: Sundry Debtors]
+        33  Kamat Book Stall & Stationery  [ledger parent: Sundry Debtors]
+        31  PRATEEK GUPTA STUDIO  [ledger parent: Sundry Debtors]
+        30  Deeveear Agencies  [ledger parent: Sundry Debtors]
+        30  Art Avenue  [ledger parent: Sundry Debtors]
+        30  The Pen Lounge  [ledger parent: Sundry Debtors]
+        30  Poorvi Sultania Joshi  [ledger parent: Sundry Debtors]
+        29  Painter Colour World  [ledger parent: Sundry Debtors]
+        29  United Paper And Stationers  [ledger parent: Sundry Debtors]
+        27  Vidarbha Stationers  [ledger parent: Sundry Debtors]
+        25  Art Shoppe  [ledger parent: Sundry Debtors]
+        22  Vibha Rani  [ledger parent: Sundry Debtors]
+        22  Jyothy Krishna  [ledger parent: Sundry Debtors]
+        22  Yusuf Abdeali  [ledger parent: Sundry Debtors]
+        21  Gallery Sketch  [ledger parent: Sundry Debtors]
+        21  Aryama Pal  [ledger parent: Sundry Debtors]
+        20  Swadeshi  [ledger parent: Sundry Debtors]
+        20  Vidhi Sayani  [ledger parent: Sundry Debtors]
+        19  Hakimi Stationers  [ledger parent: Sundry Debtors]
+        19  Vandana Vishwakarma  [ledger parent: Sundry Debtors]
+        19  Sri vigneshwara stationery  [ledger parent: Sundry Debtors]
+        19  van lko  [ledger parent: Sundry Debtors]
+        19  Shaibal Kumar Mitra  [ledger parent: Sundry Debtors]
+        19  Bharti Prajapati  [ledger parent: Sundry Debtors]
+        18  Rastogi Bhandar  [ledger parent: Sundry Debtors]
+        18  Dr.Geeta Arun Samant  [ledger parent: Sundry Debtors]
+        18  sweta Priyadarshan  [ledger parent: Sundry Debtors]
+        17  Megh Enterprises  [ledger parent: Sundry Debtors]
+        17  Vikas Sehgal  [ledger parent: Sundry Debtors]
+        17  Sonia Arora  [ledger parent: Sundry Debtors]
+        17  Clay enterprise and company  [ledger parent: Sundry Debtors]
+        16  Glitter Arts & Stationers  [ledger parent: Sundry Debtors]
+        16  Meenakshi Stationers  [ledger parent: Sundry Debtors]
+        16  Venus Traders  [ledger parent: Sundry Debtors]
+        16  Saravana  Stationers  [ledger parent: Sundry Debtors]
+        16  Shrabani Pradhan  [ledger parent: Sundry Debtors]
+        16  Archana  Harlalka  [ledger parent: Sundry Debtors]
+        15  Rajshree Stationery Mart  [ledger parent: Sundry Debtors]
+        15  Gita Enterprise  [ledger parent: Sundry Debtors]
+        15  M.B. Enterprises  [ledger parent: Sundry Debtors]
+        15  Surajit Paul  [ledger parent: Sundry Debtors]
+        15  SHANTI ENTERPRISES  [ledger parent: Sundry Debtors]
+        14  Bhaskar Binding Works  [ledger parent: Sundry Debtors]
+        14  Sachin arethiya  [ledger parent: Sundry Debtors]
+        14  Vibhu pravash  [ledger parent: Sundry Debtors]
+        14  Jain Sons Stationery  [ledger parent: Sundry Debtors]
+        14  ISHITA SONI  [ledger parent: Sundry Debtors]
+        14  R.Kumar  [ledger parent: Sundry Debtors]
+        14  Estratys Retail Private Limited  [ledger parent: Sundry Debtors]
+        14  Navpreet  [ledger parent: Sundry Debtors]
+        14  Manikanth lalsangi  [ledger parent: Sundry Debtors]
+        13  Monika agarwal  [ledger parent: Sundry Debtors]
+        12  Sai Ashish Enterprises  [ledger parent: Sundry Debtors]
+        12  Variety Stationers  [ledger parent: Sundry Debtors]
+        12  Archana Jain  [ledger parent: Sundry Debtors]
+        12  SHREE VRINDAVAN  [ledger parent: Sundry Debtors]
+        12  Chinni Swamy  [ledger parent: Sundry Debtors]
+        12  Vishal  [ledger parent: Sundry Debtors]
+        12  Sandilya Arts  [ledger parent: Sundry Debtors]
+        12  We Are Crafty  [ledger parent: Sundry Debtors]
+        12  Dr.Dipanjana Chakraborty  [ledger parent: Sundry Debtors]
+        12  Shorya Mahanot  [ledger parent: Sundry Debtors]
+        12  Mrs Manika Saraswat  [ledger parent: Sundry Debtors]
+        12  Arihandam Gupta  [ledger parent: Sundry Debtors]
+        11  Geeta Mehta  [ledger parent: Sundry Debtors]
+        11  Aparneet Mann  [ledger parent: Sundry Debtors]
+        11  Family Stationery Mart  [ledger parent: Sundry Debtors]
+        11  Parmeshwar Raju  [ledger parent: Sundry Debtors]
+        11  Binu Rojers  [ledger parent: Sundry Debtors]
+        11    [ledger parent: ?]
+        11  Artist Sawant Rajesh Bhimraj  [ledger parent: Sundry Debtors]
+        11  Ipsita Das  [ledger parent: Sundry Debtors]
+        10  Usha Chengappa  [ledger parent: Sundry Debtors]
+        10  Sonam Malik  [ledger parent: Sundry Debtors]
+        10  Ajanta Art Express  [ledger parent: Sundry Debtors]
+        10  Sushmita Devi  [ledger parent: Sundry Debtors]
+        10  Premier Office Equipment Co  [ledger parent: Sundry Debtors]
+        10  Surjeet Singh  [ledger parent: Sundry Debtors]
+        10  Nirja Mohunta  [ledger parent: Sundry Debtors]
+        10  BrindhAa S  [ledger parent: Sundry Debtors]
+        10  Jean Barthe  [ledger parent: Sundry Debtors]
+        10  Ys. Creativeworld  [ledger parent: Sundry Debtors]
+        10  Ritu Jain  [ledger parent: Sundry Debtors]
+         9  Uttkarsh Gupta  [ledger parent: Sundry Debtors]
+         9  Diana Gala  [ledger parent: Sundry Debtors]
+         9  Radha pai  [ledger parent: Sundry Debtors]
+         9  C/o mustan tambawala  [ledger parent: Sundry Debtors]
+         9  Srijan Srivastava  [ledger parent: Sundry Debtors]
+         9  Minni  [ledger parent: Sundry Debtors]
+         9  Sunitha J Choudhry  [ledger parent: Sundry Debtors]
+         9  Arti Nayar  [ledger parent: Sundry Debtors]
+         9  Big Store LLP  [ledger parent: Sundry Debtors]
+         9  AGARWAL BROTHERS  [ledger parent: Sundry Debtors]
+         9  Dr V.Hardev  [ledger parent: Sundry Debtors]
+         9  Meera Meshram  [ledger parent: Sundry Debtors]
+         9  Dr Gurpreet  [ledger parent: Sundry Debtors]
+         9  Bindiya Naik  [ledger parent: Sundry Debtors]
+         9  Rahul Bharti  [ledger parent: Sundry Debtors]
+         9  Rahul Bhoir  [ledger parent: Sundry Debtors]
+         8  STUDENT BOOK  [ledger parent: Sundry Debtors]
+         8  Gupta Book Depot  [ledger parent: Sundry Debtors]
+         8  Preetika Dubey  [ledger parent: Sundry Debtors]
+         8  Kamalrukh Wadia  [ledger parent: Sundry Debtors]
+         8  Surbhi Bajaj  [ledger parent: Sundry Debtors]
+         8  Sejuti Biswas  [ledger parent: Sundry Debtors]
+         8  Saraswati Bhandari  [ledger parent: Sundry Debtors]
+         8  Imagination Edutainment India Private Limited  [ledger parent: Sundry Debtors]
+         8  The Pen Co  [ledger parent: Sundry Debtors]
+         8  Saurbh Joshi  [ledger parent: Sundry Debtors]
+         8  Fathima Hashim  [ledger parent: Sundry Debtors]
+         8  Kamala  [ledger parent: Sundry Debtors]
+         8  Write Impressions  [ledger parent: Sundry Debtors]
+         7  Sarvodaya Marketing  [ledger parent: Sundry Debtors]
+         7  Prachi kumari  [ledger parent: Sundry Debtors]
+         7  Sandhya Santosh  [ledger parent: Sundry Debtors]
+         7  lipi uppal  [ledger parent: Sundry Debtors]
+         7  Vandita Bansal  [ledger parent: Sundry Debtors]
+         7  Samsara Academy of Art  [ledger parent: Sundry Debtors]
+         7  Arunachalam veerappan  [ledger parent: Sundry Debtors]
+         7  S.GOPINATH  [ledger parent: Sundry Debtors]
+         7  Seema Kant  [ledger parent: Sundry Debtors]
+         7  Jitendra thakur  [ledger parent: Sundry Debtors]
+         7  Sachin Balan  [ledger parent: Sundry Debtors]
+         7  Balu Sadalge  [ledger parent: Sundry Debtors]
+         7  Ramneeka Lobo  [ledger parent: Sundry Debtors]
+         7  Soul Events & Consultancy  [ledger parent: Sundry Debtors]
+         6  Advance Engineering  [ledger parent: Sundry Debtors]
+         6  Malay Bargali  [ledger parent: Sundry Debtors]
+         6  Syamadynamic Trading Private Limited.  [ledger parent: Sundry Debtors]
+         6  Syamadynamic Trading Pvt. Ltd. (Panampilly)  [ledger parent: Sundry Debtors]
+         6  Amit Ahlawat  [ledger parent: Sundry Debtors]
+         6  DSB international school  [ledger parent: Sundry Debtors]
+         6  Jyotsna Dwivedi  [ledger parent: Sundry Debtors]
+         6  Siddhi Mehta  [ledger parent: Sundry Debtors]
+         6  Modern Book & General Stores  [ledger parent: Sundry Debtors]
+         6  Sudheesh N S  [ledger parent: Sundry Debtors]
+         6  P. Ramesh  [ledger parent: Sundry Debtors]
+         6  Yashvardhan Goenka  [ledger parent: Sundry Debtors]
+         6  B J B Tradelink  [ledger parent: Sundry Debtors]
+         6  Shifana Lourdes  [ledger parent: Sundry Debtors]
+         6  Shrusti Shah  [ledger parent: Sundry Debtors]
+         6  Manisha Agrawal  [ledger parent: Sundry Debtors]
+         5  Dr Seemanthini Desai  [ledger parent: Sundry Debtors]
+         5  Excellent Stationers  [ledger parent: Sundry Debtors]
+         5  Shrestha Trading House  [ledger parent: Sundry Debtors]
+         5  Kalam Patua  [ledger parent: Sundry Debtors]
+         5  World EMS Pvt Ltd  [ledger parent: Sundry Debtors]
+         5  Sanjana Nagarajan  [ledger parent: Sundry Debtors]
+         5  Karan  [ledger parent: Sundry Debtors]
+         5  QUICK BITE KITCHEN  [ledger parent: Sundry Debtors]
+         5  Tia Handpainted Silks  [ledger parent: Sundry Debtors]
+         5  Divyanshi Aviation Services Pvt. Ltd.  [ledger parent: Sundry Debtors]
+         5  Ashwani  [ledger parent: Sundry Debtors]
+         5  GWAMBO STUDIOS PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+         5  Samridhi Agarwal  [ledger parent: Sundry Debtors]
+         5  Rabitha  [ledger parent: Sundry Debtors]
+         5  Nikunj Agarwal  [ledger parent: Sundry Debtors]
+         5  Pamela D'Silva  [ledger parent: Sundry Debtors]
+         5  Bushra Vasta  [ledger parent: Sundry Debtors]
+         5  Gajanan Machhindra Shelke  [ledger parent: Sundry Debtors]
+         5  Nidhi Malkan  [ledger parent: Sundry Debtors]
+         5  Sheetal gattani  [ledger parent: Sundry Debtors]
+         5  Harini  [ledger parent: Sundry Debtors]
+         5  Bharati Prajapati  [ledger parent: Sundry Debtors]
+         5  kamal gill  [ledger parent: Sundry Debtors]
+         5  Rajiv Desai  [ledger parent: Sundry Debtors]
+         5  Murali mohan  [ledger parent: Sundry Debtors]
+         5  Savita Hanagi  [ledger parent: Sundry Debtors]
+         5  FUJIMITSU DYNAMIC PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+         4  ZEYTH RETAIL & MARKETING PVT LTD  [ledger parent: Sundry Debtors]
+         4  Sangeeta Agarwal  [ledger parent: Sundry Debtors]
+         4  Punam Dudhoria  [ledger parent: Sundry Debtors]
+         4  V. S. Sreekumar  [ledger parent: Sundry Debtors]
+         4  Bombay Novelty Stores  [ledger parent: Sundry Debtors]
+         4  Al Aidroos  [ledger parent: Sundry Debtors]
+         4  Satish Ratnaparkhi  [ledger parent: Sundry Debtors]
+         4  Iruvan Karunakaran  [ledger parent: Sundry Debtors]
+         4  Sarbsrestha Singh  [ledger parent: Sundry Debtors]
+         4  Champion Sales  [ledger parent: Sundry Debtors]
+         4  Sagar Bhowmick  [ledger parent: Sundry Debtors]
+         4  Arpita Ahuja  [ledger parent: Sundry Debtors]
+         4  sujata bhatia  [ledger parent: Sundry Debtors]
+         4  Ayisha Ziya  [ledger parent: Sundry Debtors]
+         4  Payal Lal Das  [ledger parent: Sundry Debtors]
+         4  PALAS SAMANTA  [ledger parent: Sundry Debtors]
+         4  Saranya  [ledger parent: Sundry Debtors]
+         4  Sabuhi khan  [ledger parent: Sundry Debtors]
+         4  Romy Soin  [ledger parent: Sundry Debtors]
+         4  Prasenjit Sen  [ledger parent: Sundry Debtors]
+         4  Shikha Garg  [ledger parent: Sundry Debtors]
+         4  Mili  [ledger parent: Sundry Debtors]
+         4  Insha Aamir  [ledger parent: Sundry Debtors]
+         4  Khushi Kanodia  [ledger parent: Sundry Debtors]
+         4  Sneha Choudhary  [ledger parent: Sundry Debtors]
+         4  Raju shrestha pradhan  [ledger parent: Sundry Debtors]
+         4  Aakash osale  [ledger parent: Sundry Debtors]
+         4  Sharmila Dharam  [ledger parent: Sundry Debtors]
+         3  Varaha Enterprises  [ledger parent: Sundry Debtors]
+         3  SHAIBAL KUMAR MITRA      _ Dr  [ledger parent: Sundry Debtors]
+         3  Akumienla  [ledger parent: Sundry Debtors]
+         3  Arjun Roy Chowdhury  [ledger parent: Sundry Debtors]
+         3  RITU CHOUDHARY  [ledger parent: Sundry Debtors]
+         3  Harsh Suman  [ledger parent: Sundry Debtors]
+         3  Sunita Khosla  [ledger parent: Sundry Debtors]
+         3  Vanshika Jakhmola  [ledger parent: Sundry Debtors]
+         3  Aishwarya jadhav  [ledger parent: Sundry Debtors]
+         3  Sapna Agarwal  [ledger parent: Sundry Debtors]
+         3  Shubhra Tyagi  [ledger parent: Sundry Debtors]
+         3  Bhatia Enterprises  [ledger parent: Sundry Debtors]
+         3  MILAN BHATT  [ledger parent: Sundry Debtors]
+         3  Sagar Satalkar  [ledger parent: Sundry Debtors]
+         3  Shaila Shenoy  [ledger parent: Sundry Debtors]
+         3  Wrap and Woof  [ledger parent: Sundry Debtors]
+         3  Madhavi  [ledger parent: Sundry Debtors]
+         3  Mancher Irani  [ledger parent: Sundry Debtors]
+         3  Priyanshi Shah  [ledger parent: Sundry Debtors]
+         3  Prathmesh Apankar  [ledger parent: Sundry Debtors]
+         3  H.S.ENTERPRISES  [ledger parent: Sundry Debtors]
+         3  Francis Desousa  [ledger parent: Sundry Debtors]
+         3  Kamaljeet Kaur  [ledger parent: Sundry Debtors]
+         3  pranjall sheyt  [ledger parent: Sundry Debtors]
+         3  Shelly choudhary  [ledger parent: Sundry Debtors]
+         3  Nikita Gaurav  [ledger parent: Sundry Debtors]
+         3  Pradeepika Aiyer  [ledger parent: Sundry Debtors]
+         3  Aditi Prakash Patil  [ledger parent: Sundry Debtors]
+         3  Naresh Thakur  [ledger parent: Sundry Debtors]
+         3  Sheema amal  [ledger parent: Sundry Debtors]
+         3  Sarita  [ledger parent: Sundry Debtors]
+         3  Athiya Fathima  [ledger parent: Sundry Debtors]
+         3  Raghunita Gupta  [ledger parent: Sundry Debtors]
+         3  Nozer Wadia Associates  [ledger parent: Sundry Debtors]
+         3  Paul Brothers  [ledger parent: Sundry Debtors]
+         3  Indu Kurup  [ledger parent: Sundry Debtors]
+         3  Sanjana Chindak  [ledger parent: Sundry Debtors]
+         3  Artist Ram Thorat  [ledger parent: Sundry Debtors]
+         3  Ali  [ledger parent: Sundry Debtors]
+         3  VASUDEO TARANATH KAMATH  [ledger parent: Sundry Debtors]
+         3  Ditti Singh  [ledger parent: Sundry Debtors]
+         3  Aparnna  [ledger parent: Sundry Debtors]
+         3  Prerna gupta  [ledger parent: Sundry Debtors]
+         3  Jesika Gandhi  [ledger parent: Sundry Debtors]
+         3  Yuvika Grewal  [ledger parent: Sundry Debtors]
+         3  NEHA SHAH  [ledger parent: Sundry Debtors]
+         3  Mansi Makhija Jain  [ledger parent: Sundry Debtors]
+         3  Ms.Pratigya Prahlad Singh Patel  [ledger parent: Sundry Debtors]
+         3  Sandhiya  [ledger parent: Sundry Debtors]
+         3  Maya Ramaswamy Art  [ledger parent: Sundry Debtors]
+         3  Sonatina Mendes  [ledger parent: Sundry Debtors]
+         3  Raghavendra Udupa  [ledger parent: Sundry Debtors]
+         3  Surya M  [ledger parent: Sundry Debtors]
+         3  SMRITI MANOJ  [ledger parent: Sundry Debtors]
+         3  Gp Capt Rohit Kataria  [ledger parent: Sundry Debtors]
+         3  Swati Bansal  [ledger parent: Sundry Debtors]
+         3  Dr Sowmya K V  [ledger parent: Sundry Debtors]
+         3  Siddharth Ramachandran  [ledger parent: Sundry Debtors]
+         3  Syed's Calligraphy  [ledger parent: Sundry Debtors]
+         3  Sanjay Desai  [ledger parent: Sundry Debtors]
+         3  Shikha Osan  [ledger parent: Sundry Debtors]
+         2  A. Nanjappa Drawing Emporiem  [ledger parent: Sundry Debtors]
+         2  ARTS AND MEMORIES  [ledger parent: Sundry Debtors]
+         2  Rajesh Pullarwar  [ledger parent: Sundry Debtors]
+         2  Variety Book Centre  [ledger parent: Sundry Debtors]
+         2  Lotus Artisans Hub  [ledger parent: Sundry Debtors]
+         2  Payal R  [ledger parent: Sundry Debtors]
+         2  Ashwini Rajeev Rudrakshi  [ledger parent: Sundry Debtors]
+         2  Aditya Joshi  [ledger parent: Sundry Debtors]
+         2  Shailesh Motiram Salvi  [ledger parent: Sundry Debtors]
+         2  Smrita gotamay  [ledger parent: Sundry Debtors]
+         2  Meril Mariam Mathew  [ledger parent: Sundry Debtors]
+         2  Shibi  [ledger parent: Sundry Debtors]
+         2  Lalremruata Chhangte  [ledger parent: Sundry Debtors]
+         2  Preeti  [ledger parent: Sundry Debtors]
+         2  Karan Kanthi Jain  [ledger parent: Sundry Debtors]
+         2  Ayushi gaur  [ledger parent: Sundry Debtors]
+         2  Roshni Borawke  [ledger parent: Sundry Debtors]
+         2  Vedica Art Studios and Gallery LLP  [ledger parent: Sundry Debtors]
+         2  Amit Kumar sinha  [ledger parent: Sundry Debtors]
+         2  Neelima Talwar  [ledger parent: Sundry Debtors]
+         2  Monica  [ledger parent: Sundry Debtors]
+         2  KASHINATH DAS  [ledger parent: Sundry Debtors]
+         2  Ansh  [ledger parent: Sundry Debtors]
+         2  MODERN INSULATORS LTD.  [ledger parent: Sundry Debtors]
+         2  Ashok Tumuluri  [ledger parent: Sundry Debtors]
+         2  Rupali Thombare  [ledger parent: Sundry Debtors]
+         2  Gargi Geetanjali Singh  [ledger parent: Sundry Debtors]
+         2  kalyan eswar  [ledger parent: Sundry Debtors]
+         2  Abhijeet Kumar  [ledger parent: Sundry Debtors]
+         2  Meena ratadia  [ledger parent: Sundry Debtors]
+         2  Nandhini Renganathan  [ledger parent: Sundry Debtors]
+         2  chandrani kundu  [ledger parent: Sundry Debtors]
+         2  Soma C  [ledger parent: Sundry Debtors]
+         2  Minerva Panigrahi  [ledger parent: Sundry Debtors]
+         2  Anurag jadia  [ledger parent: Sundry Debtors]
+         2  Gift Gallery  [ledger parent: Sundry Debtors]
+         2  Vihari Impex  [ledger parent: Sundry Debtors]
+         2  XLAR ENTERPRISES  [ledger parent: Sundry Debtors]
+         2  Dr shikha khati  [ledger parent: Sundry Debtors]
+         2  shalini modi  [ledger parent: Sundry Debtors]
+         2  Walk Experiential Marketing & Management LTD  [ledger parent: Sundry Debtors]
+         2  Ananta Mandal  [ledger parent: Sundry Debtors]
+         2  SUSMITA DEY  [ledger parent: Sundry Debtors]
+         2  Likitha Salian  [ledger parent: Sundry Debtors]
+         2  Anil Verghese  [ledger parent: Sundry Debtors]
+         2  ROSA TECHNOLOGY PVT LTD  [ledger parent: Sundry Debtors]
+         2  Shreya  [ledger parent: Sundry Debtors]
+         2  Mayur Stationers  [ledger parent: Sundry Debtors]
+         2  Trishtup  [ledger parent: Sundry Debtors]
+         2  R.Rohini Rao  [ledger parent: Sundry Debtors]
+         2  Ana Gupta  [ledger parent: Sundry Debtors]
+         2  Ma Priyadharshini  [ledger parent: Sundry Debtors]
+         2  Yashi Singhai  [ledger parent: Sundry Debtors]
+         2  Neena nilesh kumrawat  [ledger parent: Sundry Debtors]
+         2  Imran khan  [ledger parent: Sundry Debtors]
+         2  Leo Fernandes  [ledger parent: Sundry Debtors]
+         2  Sayli Bhor  [ledger parent: Sundry Debtors]
+         2  Aphao Shio  [ledger parent: Sundry Debtors]
+         2  Seema Singhal  [ledger parent: Sundry Debtors]
+         2  jeyanantham.M  [ledger parent: Sundry Debtors]
+         2  Avantika Shrivastav  [ledger parent: Sundry Debtors]
+         2  Satyajeet Pandere  [ledger parent: Sundry Debtors]
+         2  SRI KRISHNA STATIONERS  [ledger parent: Sundry Debtors]
+         2  Sanchayita Pal  [ledger parent: Sundry Debtors]
+         2  Manjunath  [ledger parent: Sundry Debtors]
+         2  Samprith Jayram  [ledger parent: Sundry Debtors]
+         2  Prince Stationery  [ledger parent: Sundry Debtors]
+         2  Tarak Das  [ledger parent: Sundry Debtors]
+         2  Sulabh Jain  [ledger parent: Sundry Debtors]
+         2  Kaustubh Kavathekar  [ledger parent: Sundry Debtors]
+         2  Rakshit Agarwal  [ledger parent: Sundry Debtors]
+         2  Nilofer Rehman  [ledger parent: Sundry Debtors]
+         2  Sunit  [ledger parent: Sundry Debtors]
+         2  Robert Lheureux  [ledger parent: Sundry Debtors]
+         2  Mahamai bhat  [ledger parent: Sundry Debtors]
+         2  Abhishek Tuteja  [ledger parent: Sundry Debtors]
+         2  Zarin Amrolia  [ledger parent: Sundry Debtors]
+         2  Kala Adarsh  [ledger parent: Sundry Debtors]
+         2  Aashti Alfaz Miller  [ledger parent: Sundry Debtors]
+         2  Monica kharkar  [ledger parent: Sundry Debtors]
+         2  Nuti  [ledger parent: Sundry Debtors]
+         2  Saranya senthil  [ledger parent: Sundry Debtors]
+         2  Bhavani Parthasarathy  [ledger parent: Sundry Debtors]
+         2  Reenu Tikka  [ledger parent: Sundry Debtors]
+         2  Kailash Shankarpelli  [ledger parent: Sundry Debtors]
+         2  Akanksha Koshti  [ledger parent: Sundry Debtors]
+         2  MANUHITA GUPTA DESIGN STUDIO  [ledger parent: Sundry Debtors]
+         1  Sudhir Patwardhan  [ledger parent: Sundry Debtors]
+         1  M/S. Choudhari Books & Art Shopee  [ledger parent: Sundry Debtors]
+         1  Anupam Stationery Point  [ledger parent: Sundry Debtors]
+         1  M/s. Rajal Enterprises  [ledger parent: Sundry Debtors]
+         1  Ishani Banerji  [ledger parent: Sundry Debtors]
+         1  Avinash Bangar  [ledger parent: Sundry Debtors]
+         1  Prem Lata Rawat  [ledger parent: Sundry Debtors]
+         1  Navya tadiparthi  [ledger parent: Sundry Debtors]
+         1  Sonal Agrawal  [ledger parent: Sundry Debtors]
+         1  Suresh Dorairaj  [ledger parent: Sundry Debtors]
+         1  Vinti Gohil  [ledger parent: Sundry Debtors]
+         1  Hussain Masalawala  [ledger parent: Sundry Debtors]
+         1  Seema Sethi  [ledger parent: Sundry Debtors]
+         1  Aditi jain  [ledger parent: Sundry Debtors]
+         1  Kishwar Nensey  [ledger parent: Sundry Debtors]
+         1  Rajesh  [ledger parent: Sundry Debtors]
+         1  Qureysh Basrai  [ledger parent: Sundry Debtors]
+         1  Lakshika  [ledger parent: Sundry Debtors]
+         1  Ajay sonavane  [ledger parent: Sundry Debtors]
+         1  Chitaraaman Art & Nail Studio  [ledger parent: Sundry Debtors]
+         1  Swati Bhuskute  [ledger parent: Sundry Debtors]
+         1  Able sunny  [ledger parent: Sundry Debtors]
+         1  Anunaya Chaubey  [ledger parent: Sundry Debtors]
+         1  Vishal S.Wavre  [ledger parent: Sundry Debtors]
+         1  RECAERO INDIA PRIVATE LTD  [ledger parent: Sundry Debtors]
+         1  Yogesh Yedke  [ledger parent: Sundry Debtors]
+         1  Aishwarya Ghosh  [ledger parent: Sundry Debtors]
+         1  Indranil Roy  [ledger parent: Sundry Debtors]
+         1  Kanan Choudhary  [ledger parent: Sundry Debtors]
+         1  Muskan Bararia  [ledger parent: Sundry Debtors]
+         1  DIPANWITA BISWAS  [ledger parent: Sundry Debtors]
+         1  Aman Marina  [ledger parent: Sundry Debtors]
+         1  Srishti Sikaria  [ledger parent: Sundry Debtors]
+         1  Smita Mourya  [ledger parent: Sundry Debtors]
+         1  BRIJESH PRASAD  [ledger parent: Sundry Debtors]
+         1  Dhanya Das  [ledger parent: Sundry Debtors]
+         1  Rajish G  [ledger parent: Sundry Debtors]
+         1  SARDAR INTERNATIONAL  [ledger parent: Sundry Debtors]
+         1  Shweta Ingale  [ledger parent: Sundry Debtors]
+         1  Swati Bahorey  [ledger parent: Sundry Debtors]
+         1  Selina Hussain  [ledger parent: Sundry Debtors]
+         1  Roshan Jain  [ledger parent: Sundry Debtors]
+         1  Evoguemedia  [ledger parent: Sundry Debtors]
+         1  Aditya Prabhu  [ledger parent: Sundry Debtors]
+         1  Mugdha kalra  [ledger parent: Sundry Debtors]
+         1  Mashitha Hasan  [ledger parent: Sundry Debtors]
+         1  ART CLAPS  [ledger parent: Sundry Debtors]
+         1  Shruti Pise  [ledger parent: Sundry Debtors]
+         1  MANVIK  [ledger parent: Sundry Debtors]
+         1  Mahalakshmi Rajan  [ledger parent: Sundry Debtors]
+         1  Arnab Bera  [ledger parent: Sundry Debtors]
+         1  Anesa Punjabi  [ledger parent: Sundry Debtors]
+         1  Lavanya  [ledger parent: Sundry Debtors]
+         1  Anushree bhansali  [ledger parent: Sundry Debtors]
+         1  Mrs. PRIYA KUMAR  [ledger parent: Sundry Debtors]
+         1  Exalogico Systems and Services Pvt Ltd  [ledger parent: Sundry Debtors]
+         1  Mahak Porwal  [ledger parent: Sundry Debtors]
+         1  Shraddha Shenoy  [ledger parent: Sundry Debtors]
+         1  SANJIB KUMAR RAY  [ledger parent: Sundry Debtors]
+         1  Bhavya shah  [ledger parent: Sundry Debtors]
+         1  Kalyani ASHOK  [ledger parent: Sundry Debtors]
+         1  Debarghya Nanda  [ledger parent: Sundry Debtors]
+         1  Nasir Abdul rehman Khot  [ledger parent: Sundry Debtors]
+         1  Baljeet Singh  [ledger parent: Sundry Debtors]
+         1  Varad Ajay Bang  [ledger parent: Sundry Debtors]
+         1  Nimisha Kantharia  [ledger parent: Sundry Debtors]
+         1  Sowmya K  [ledger parent: Sundry Debtors]
+         1  Alka Aggarwal  [ledger parent: Sundry Debtors]
+         1  Banveer kaur jhinger  [ledger parent: Sundry Debtors]
+         1  Mona Rathore  [ledger parent: Sundry Debtors]
+         1  Jyothy sudhakaran  [ledger parent: Sundry Debtors]
+         1  Anindita Biswas  [ledger parent: Sundry Debtors]
+         1  ROYAL ENGINEERING SOLUTIONS  [ledger parent: Sundry Debtors]
+         1  Tuhina Rupesh  [ledger parent: Sundry Debtors]
+         1  Sushma Jain  [ledger parent: Sundry Debtors]
+         1  Pooja Yadav  [ledger parent: Sundry Debtors]
+         1  Nidhi Rathi Lakra  [ledger parent: Sundry Debtors]
+         1  Prasad khoragade  [ledger parent: Sundry Debtors]
+         1  Jessica Talkar  [ledger parent: Sundry Debtors]
+         1  Maanyaa Hathiwala  [ledger parent: Sundry Debtors]
+         1  Sandip Shome  [ledger parent: Sundry Debtors]
+         1  Deepali Bhatt  [ledger parent: Sundry Debtors]
+         1  Meher Sarid  [ledger parent: Sundry Debtors]
+         1  German School  [ledger parent: Sundry Debtors]
+         1  Dr Gorakh Agarwal  [ledger parent: Sundry Debtors]
+         1  Varsha Singasane  [ledger parent: Sundry Debtors]
+         1  Tushar Chodanker  [ledger parent: Sundry Debtors]
+         1  Ashok Giri  [ledger parent: Sundry Debtors]
+         1  Manoj Juturu  [ledger parent: Sundry Debtors]
+         1  SUBHAM KUMAR SHARMA  [ledger parent: Sundry Debtors]
+         1  Sathish Kumar  [ledger parent: Sundry Debtors]
+         1  Sarthak M Shah  [ledger parent: Sundry Debtors]
+         1  Tara Nair Studio  [ledger parent: Sundry Debtors]
+         1  Shalaka Sreeram  [ledger parent: Sundry Debtors]
+         1  Prakash Chauhan  [ledger parent: Sundry Debtors]
+         1  Krishna Home  [ledger parent: Sundry Debtors]
+         1  Swasthik  [ledger parent: Sundry Debtors]
+         1  Suchismita Saha  [ledger parent: Sundry Debtors]
+         1  Rashmi Soni  [ledger parent: Sundry Debtors]
+         1  Angela Law  [ledger parent: Sundry Debtors]
+         1  Jaya Javeri  [ledger parent: Sundry Debtors]
+         1  MANISH SONI  [ledger parent: Sundry Debtors]
+         1  Ramesh Manickavel  [ledger parent: Sundry Debtors]
+         1  Sanal Gopi  [ledger parent: Sundry Debtors]
+         1  Deepthi  [ledger parent: Sundry Debtors]
+         1  Krupa Agencies  [ledger parent: Sundry Debtors]
+         1  Shubham Verma  [ledger parent: Sundry Debtors]
+         1  Praween karmakar  [ledger parent: Sundry Debtors]
+         1  Mallika  [ledger parent: Sundry Debtors]
+         1  Manya enterprises  [ledger parent: Sundry Debtors]
+         1  Rupson Enterprises  [ledger parent: Sundry Debtors]
+         1  Ranbir Singh Jaijee  [ledger parent: Sundry Debtors]
+         1  Pk global autoelectro pvt ltd  [ledger parent: Sundry Debtors]
+         1  Molly Johnarts  [ledger parent: Sundry Debtors]
+         1  Aadil Naqvi  [ledger parent: Sundry Debtors]
+         1  Sakina Wagh  [ledger parent: Sundry Debtors]
+         1  CHANDRA ENGINEERS  [ledger parent: Sundry Debtors]
+         1  Ankana Guin  [ledger parent: Sundry Debtors]
+         1  REID & TAYLOR INTERNATIONAL PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+         1  OM FABS  [ledger parent: Sundry Debtors]
+         1  VEGA SYSCON  [ledger parent: Sundry Debtors]
+         1  AB Apana  [ledger parent: Sundry Debtors]
+         1  Rushabh Enterprises  [ledger parent: Sundry Debtors]
+         1  Isamanda Pariat  [ledger parent: Sundry Debtors]
+         1  Neha  [ledger parent: Sundry Debtors]
+         1  NGP SOLUTIONS JR URBANIA PRIME  [ledger parent: Sundry Debtors]
+         1  MM ENTERPRISES  [ledger parent: Sundry Debtors]
+         1  Ganesh Prabhu  [ledger parent: Sundry Debtors]
+         1  RANJIT PRAKASH KANDALGAONKAR  [ledger parent: Sundry Debtors]
+         1  Anuja Agarwal  [ledger parent: Sundry Debtors]
+         1  Dr Vucha bhaskar  [ledger parent: Sundry Debtors]
+         1  M/S Autoconz Consulting Group  [ledger parent: Sundry Debtors]
+         1  Sharam associates  [ledger parent: Sundry Debtors]
+         1  Anita Bhatia  [ledger parent: Sundry Debtors]
+         1  Mahamai s bhat  [ledger parent: Sundry Debtors]
+         1  Gourmoni Das  [ledger parent: Sundry Debtors]
+         1  Jay  Aggarwal  [ledger parent: Sundry Debtors]
+         1  Ishita Srivastava  [ledger parent: Sundry Debtors]
+         1  Vedere Sreyashree  [ledger parent: Sundry Debtors]
+         1  Kamya Kumar  [ledger parent: Sundry Debtors]
+         1  Cyient DLM Limited-Unit-1 EHTP  [ledger parent: Sundry Debtors]
+         1  Anandha Stationery Stores  [ledger parent: Sundry Debtors]
+         1  Aparna Kochumon  [ledger parent: Sundry Debtors]
+         1  AMAZON_IN_API  [ledger parent: Sundry Debtors]
+         1  Mohammed Hamed Amoodi  [ledger parent: Sundry Debtors]
+         1  Radiant Art Impex  [ledger parent: Sundry Debtors]
+         1  Akshita Makhija  [ledger parent: Sundry Debtors]
+         1  Vishali  [ledger parent: Sundry Debtors]
+         1  SASMITA HOTA  [ledger parent: Sundry Debtors]
+         1  Piyali Ganguly  [ledger parent: Sundry Debtors]
+         1  K.priyadharshini  [ledger parent: Sundry Debtors]
+         1  Chirag Thakker  [ledger parent: Sundry Debtors]
+         1  Sneh Mehra  [ledger parent: Sundry Debtors]
+         1  Rm Palaniappan  [ledger parent: Sundry Debtors]
+         1  Ujjaini Mukherjee  [ledger parent: Sundry Debtors]
+         1  Muskan Vaishnav  [ledger parent: Sundry Debtors]
+         1  Archana Art  [ledger parent: Sundry Debtors]
+         1  Pooja Vernekar  [ledger parent: Sundry Debtors]
+         1  Ajanta Universal Fabrics Limited  [ledger parent: Sundry Debtors]
+         1  Sarah Natasha  [ledger parent: Sundry Debtors]
+         1  Dr Sandeep Dhage  [ledger parent: Sundry Debtors]
+         1  Sanjana Ramchandani  [ledger parent: Sundry Debtors]
+         1  Devender  [ledger parent: Sundry Debtors]
+         1  Amisha Vijay Harmalkar  [ledger parent: Sundry Debtors]
+         1  Dr Shreevidya  [ledger parent: Sundry Debtors]
+         1  SUDHA BAIJU PALLAN  [ledger parent: Sundry Debtors]
+         1  RUHAIM MOOSA HAMZA  [ledger parent: Sundry Debtors]
+         1  Shaik Ahamad basha  [ledger parent: Sundry Debtors]
+         1  Tirtha Banerjee  [ledger parent: Sundry Debtors]
+         1  LPSIS Private Limited  [ledger parent: Sundry Debtors]
+         1  Aditi Nadkarni  [ledger parent: Sundry Debtors]
+         1  Sameena Sharif  [ledger parent: Sundry Debtors]
+         1  RAMYA MANTHENA  [ledger parent: Sundry Debtors]
+         1  DENTCARE DENTAL LAB PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+         1  Shirupa  [ledger parent: Sundry Debtors]
+         1  Nida Jahain  [ledger parent: Sundry Debtors]
+         1  Ranjit Pun  [ledger parent: Sundry Debtors]
+         1  Krishma Shah  [ledger parent: Sundry Debtors]
+         1  Avibay Private Limited  [ledger parent: Sundry Debtors]
+         1  Nisha Siddapur  [ledger parent: Sundry Debtors]
+         1  Daman Gambhir  [ledger parent: Sundry Debtors]
+         1  Hical Technologies Private Limited  [ledger parent: Sundry Debtors]
+         1  Yagachi Technologies Private Limited  [ledger parent: Sundry Debtors]
+         1  S.Madhusoodanan  [ledger parent: Sundry Debtors]
+         1  Ishita Sinha  [ledger parent: Sundry Debtors]
+         1  Kamna Aggarwalla  [ledger parent: Sundry Debtors]
+         1  Satya Swarupa  [ledger parent: Sundry Debtors]
+         1  M Srinivas Reddy  [ledger parent: Sundry Debtors]
+         1  Arindam Gupta  [ledger parent: Sundry Debtors]
+         1  Sangeeta Bedre  [ledger parent: Sundry Debtors]
+         1  Rohan Lobo  [ledger parent: Sundry Debtors]
+         1  Meetul Lakhanpal  [ledger parent: Sundry Debtors]
+         1  Shah Sheetal  [ledger parent: Sundry Debtors]
+         1  Jatin sharma  [ledger parent: Sundry Debtors]
+
+--- 2b. Sales vouchers — party breakdown ---
+Total Sales line items: 11660
+Unique parties: 73
+
+  Art Lounge India (internal): 6804 line items (58.4%)
+  Other parties: 4856 line items (41.6%)
+
+  ALL Sales parties (full list):
+      6804  Art Lounge India  [ledger parent: Sundry Debtors]
+       601  Vardhman Trading Company  [ledger parent: Sundry Debtors]
+       535  Shankhesh Sales and Marketing  [ledger parent: Sundry Debtors]
+       420  Hindustan Trading Company  [ledger parent: Sundry Debtors]
+       389  JM Company  [ledger parent: Sundry Debtors]
+       375  A N Commtrade LLP  [ledger parent: Sundry Debtors]
+       348  Harsh Enterprises  [ledger parent: Sundry Debtors]
+       340  Computer Gallery  [ledger parent: Sundry Debtors]
+       226  Mango Stationery Pvt. Ltd  [ledger parent: Sundry Debtors]
+       159  Marketing Supplies  [ledger parent: Sundry Debtors]
+       120  Himalaya Stationary Mart  [ledger parent: Sundry Debtors]
+       101  Kumars Concern  [ledger parent: Sundry Debtors]
+       100  Star Stationeries (Trading As Starbox)  [ledger parent: Sundry Debtors]
+        93  Artzo India  [ledger parent: Sundry Debtors]
+        85  The Art City  [ledger parent: Sundry Debtors]
+        83  Anjali International  [ledger parent: Sundry Debtors]
+        82  GS1916  [ledger parent: Sundry Debtors]
+        76  Stationerie  [ledger parent: Sundry Debtors]
+        63  Mendwell Agencies  [ledger parent: Sundry Debtors]
+        57  Artorium the Colour World  [ledger parent: Sundry Debtors]
+        54  Pencil Craft Mart  [ledger parent: Sundry Debtors]
+        40  Bhaskar Arts Center  [ledger parent: Sundry Debtors]
+        33  Ideal Booksellers & Stationers  [ledger parent: Sundry Debtors]
+        31  Ajanta Universal Fabrics Limited  [ledger parent: Sundry Debtors]
+        28  Saraswati Stationers  [ledger parent: Sundry Debtors]
+        28  Ekta Stationery  [ledger parent: Sundry Debtors]
+        27  Kumar Traders  [ledger parent: Sundry Debtors]
+        26  Saremisons  [ledger parent: Sundry Debtors]
+        25  Kapoor Traders  [ledger parent: Sundry Debtors]
+        22  Art Avenue  [ledger parent: Sundry Debtors]
+        21  JIneshwar Tradelink  [ledger parent: Sundry Debtors]
+        19  Jagruti Stationery Mart  [ledger parent: Sundry Debtors]
+        13  Arihant International  [ledger parent: Sundry Debtors]
+        13  Anupam Stationery Super Store Pvt Ltd.  [ledger parent: Sundry Debtors]
+        12  Alpha Stationers  [ledger parent: Sundry Debtors]
+        12  Ajanta Art Express  [ledger parent: Sundry Debtors]
+        12  New Bombay Stationery Stores  [ledger parent: Sundry Debtors]
+        11  Janata Stationery & Art  [ledger parent: Sundry Debtors]
+        11  D.Goutam and Co.  [ledger parent: Sundry Debtors]
+        11  Syamadynamic Trading Private Limited.  [ledger parent: Sundry Debtors]
+        10  H.P.Bala Stationery  [ledger parent: Sundry Debtors]
+        10  Sarvodaya Marketing  [ledger parent: Sundry Debtors]
+         9  Hakimi Stationers  [ledger parent: Sundry Debtors]
+         8  Raj Krafts  [ledger parent: Sundry Debtors]
+         8  Ratnakar Book Depot  [ledger parent: Sundry Debtors]
+         8  Glitter Arts & Stationers  [ledger parent: Sundry Debtors]
+         8  Big Store LLP  [ledger parent: Sundry Debtors]
+         7  Venus Traders  [ledger parent: Sundry Debtors]
+         7  Painter Colour World  [ledger parent: Sundry Debtors]
+         7  Maxa Enterprises  [ledger parent: Sundry Debtors]
+         7  A. Nanjappa Drawing Emporiem  [ledger parent: Sundry Debtors]
+         6  MG Enterprises  [ledger parent: Sundry Debtors]
+         6  Gita Enterprise  [ledger parent: Sundry Debtors]
+         5  Kamat Book Stall & Stationery  [ledger parent: Sundry Debtors]
+         5  Mozeb Stationery and Novelty Centre  [ledger parent: Sundry Debtors]
+         4  Wrap and Woof  [ledger parent: Sundry Debtors]
+         4  STUDENT BOOK  [ledger parent: Sundry Debtors]
+         4  Sogani Traders  [ledger parent: Sundry Debtors]
+         4  M.B. Enterprises  [ledger parent: Sundry Debtors]
+         4  New Co  [ledger parent: Sundry Debtors]
+         3  Artcetera India  [ledger parent: Sundry Debtors]
+         3  Divyanshi Aviation Services Pvt. Ltd.  [ledger parent: Sundry Debtors]
+         3  Rajesh Pullarwar  [ledger parent: Sundry Debtors]
+         2  Purple Pal8  [ledger parent: Sundry Debtors]
+         2  Tapan Art and Craft  [ledger parent: Sundry Debtors]
+         2  G.C.Laha Pvt Ltd.  [ledger parent: Sundry Debtors]
+         2  Sai Ashish Enterprises  [ledger parent: Sundry Debtors]
+         1  Krupa Agencies  [ledger parent: Sundry Debtors]
+         1  Lucky Next  [ledger parent: Sundry Debtors]
+         1  VEGA SYSCON  [ledger parent: Sundry Debtors]
+         1  Variety Stationers  [ledger parent: Sundry Debtors]
+         1  Anupam Stationery Plaza  [ledger parent: Sundry Debtors]
+         1  Anupam Stationery Point  [ledger parent: Sundry Debtors]
+
+--- 2c. Purchase vouchers — party breakdown ---
+Total Purchase line items: 16143
+Unique parties: 42
+
+  Art Lounge India - Purchase (internal): 7830 line items (48.5%)
+  Other suppliers: 8313 line items (51.5%)
+
+  ALL Purchase parties (full list):
+      7830  Art Lounge India - Purchase  [ledger parent: Sundry Creditors]
+      2968  ColArt Creative International SAS  [ledger parent: Sundry Creditors]
+      1101  Hindustan Trading Company - Purchse  [ledger parent: Sundry Creditors]
+       821  Shree Sai Enterprises  [ledger parent: Sundry Creditors]
+       459  ART SHARK LLP- Purchse  [ledger parent: Sundry Creditors]
+       280  PEBEO INDUSTRIES  [ledger parent: Sundry Creditors]
+       258  Radiant Art Impex - Purchse  [ledger parent: Sundry Creditors]
+       207  Koh-i-Noor Hardmuth.A.S  [ledger parent: Sundry Creditors]
+       206  Tejura Overseas Enterprises Pvt. Ltd  [ledger parent: Sundry Creditors]
+       200  Hakimi Stationers - Purchase  [ledger parent: Sundry Creditors]
+       193  Metalotus  [ledger parent: Sundry Debtors]
+       186  JANATA BOOK MFG. DEPOT -MUMBAI  [ledger parent: Sundry Creditors]
+       174  Speedball Art Products, LLC  [ledger parent: Sundry Creditors]
+       153  Samay Infotech  [ledger parent: Sundry Creditors]
+       129  Artcetera India  [ledger parent: Sundry Debtors]
+       120  DRS Infra Private Limited  [ledger parent: Sundry Creditors]
+       114  Anupam Stationery Limited  [ledger parent: Sundry Creditors]
+        87  DMS Corporation  [ledger parent: Sundry Creditors]
+        81  New Bombay Stationery Stores  [ledger parent: Sundry Debtors]
+        71  EDDING INTERNATIONAL  [ledger parent: Sundry Creditors]
+        70  Hahnemuhle FineArt GmbH  [ledger parent: Sundry Creditors]
+        59  Jyotsna Prakashan  [ledger parent: Sundry Creditors]
+        50  Vardhman Trading Company  [ledger parent: Sundry Debtors]
+        50  WARDEN COLLECTION�  [ledger parent: Sundry Creditors]
+        45  MARABU GMBH & CO.  [ledger parent: Sundry Creditors]
+        43  MANUSCRIPT COMPANY LTD  [ledger parent: Sundry Creditors]
+        38  USUI BRUSH INC  [ledger parent: Sundry Creditors]
+        26  Sai Wood Works  [ledger parent: Sundry Creditors]
+        23  R K INDUSTRIES  [ledger parent: Sundry Creditors]
+        19  NEHARA STATIONERS AND ART GALLERY  [ledger parent: Sundry Creditors]
+        18  Saremisons - Purchase  [ledger parent: Sundry Creditors]
+        17  Anjali International  [ledger parent: Sundry Debtors]
+        16  MONA LISA FINE ART PRODUCTS  [ledger parent: Sundry Creditors]
+         9  AEKTA CORPORATE  [ledger parent: Sundry Creditors]
+         6  Claessens V.A. ETS.  [ledger parent: Sundry Creditors]
+         5  Purple Pal8  [ledger parent: Sundry Debtors]
+         4  M/S. FAMOUS FURNITURE  [ledger parent: Sundry Creditors]
+         2  JIneshwar Tradelink  [ledger parent: Sundry Debtors]
+         2  KIRTI PAPERS PVT. LTD.  [ledger parent: Sundry Creditors]
+         1  AL-FATAH CORPORATION  [ledger parent: Sundry Creditors]
+         1  ART PLUS  [ledger parent: Sundry Creditors]
+         1  Arihant International - Purchse  [ledger parent: Sundry Creditors]
+
+--- 2d. Sales Store vouchers — ALL unique parties ---
+Total Sales Store line items: 12961
+Unique parties: 60
+
+  ALL Sales Store parties (full list):
+      5799  Counter Collection - QR  [ledger parent: Sundry Debtors]
+      3284  Counter Collection - CC  [ledger parent: Sundry Debtors]
+      3227  Counter Collection - Cash  [ledger parent: Sundry Debtors]
+        62  Kreate & Young  [ledger parent: Sundry Debtors]
+        51  PUMPKIN  [ledger parent: Sundry Debtors]
+        41  New Bombay Stationery Stores  [ledger parent: Sundry Debtors]
+        34  RABIA GUPTA  [ledger parent: Sundry Debtors]
+        33  DREAM BLUEPRINTS DESIGN STUDIO  [ledger parent: Sundry Debtors]
+        27  OSPREY SHIPPING PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+        23  Art  House  [ledger parent: Sundry Debtors]
+        22  KNACK ENGINEERING SERVICES PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+        21  INDIA GOVERNMENT MINT MUMBAI  [ledger parent: Sundry Debtors]
+        20  Embassy of Dominican Republic  [ledger parent: Sundry Debtors]
+        18  Counter Collection - Bank  [ledger parent: Sundry Debtors]
+        17  SUYOG INDUSTRIES  [ledger parent: Sundry Debtors]
+        15  ASHISH MADHUKAR PADLEKAR  [ledger parent: Sundry Debtors]
+        15  VEERA FASHION LLP  [ledger parent: Sundry Debtors]
+        14  J.B.PETIT HIGH SCHOOL FOR GIRLS  [ledger parent: Sundry Debtors]
+        14  INDURKAR CONSULTING ENGINEERS PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+        14  STUDIO MRS LLP  [ledger parent: Sundry Debtors]
+        13  S Gnature  [ledger parent: Sundry Debtors]
+        13  FREDNA ENTERPRISES PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+        13  VASTU CULTURE  [ledger parent: Sundry Debtors]
+        11  PRAVEEN AWATE ARCHITECTS PVT LTD  [ledger parent: Sundry Debtors]
+        11  SAFRAN DESIGN  [ledger parent: Sundry Debtors]
+        11  All Things Love  [ledger parent: Sundry Debtors]
+        11  THE BOMBAY LETTERING COMPANY  [ledger parent: Sundry Debtors]
+        10  ELAURA ART GALLERY  [ledger parent: Sundry Debtors]
+        10  FOOD MATTERS INDIA PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+         8  Art Lounge India  [ledger parent: Sundry Debtors]
+         7  DR BHAU DAJI LAD MUSEUM TRUST  [ledger parent: Sundry Debtors]
+         7  70PR DESIGN  [ledger parent: Sundry Debtors]
+         6  MAI STORIES  [ledger parent: Sundry Debtors]
+         6  RACHNA SHIVAJI TAKAWALE  [ledger parent: Sundry Debtors]
+         6  VAISHNAVI MOTORS  [ledger parent: Sundry Debtors]
+         5  SEFI VERGHESE GEORGE  [ledger parent: Sundry Debtors]
+         5  PRABHAKAR PANDURANG PACHPUTE  [ledger parent: Sundry Debtors]
+         5  GAURIKA MALKANI  [ledger parent: Sundry Debtors]
+         5  ROCK CET CINEMA PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+         4  FLASH DYE CHEM PRODUCTS PVT LTD  [ledger parent: Sundry Debtors]
+         4  Sudhir Patwardhan  [ledger parent: Sundry Debtors]
+         4  Midas Touch  [ledger parent: Sundry Debtors]
+         3  ATOS CRAFT COLLECTIVE LLP  [ledger parent: Sundry Debtors]
+         3  Kanishka Sharma  [ledger parent: Sundry Debtors]
+         3  Sai Ashish Enterprises  [ledger parent: Sundry Debtors]
+         3  ASHAPURA STATIONERS & COMPUTERS  [ledger parent: Sundry Debtors]
+         3  ULJK FINANCIAL SERVICES PVT LTD  [ledger parent: Sundry Debtors]
+         2  ANUPAM HERITAGE LAB INDIA PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+         2  LEFTFIELD CREATIVE PVT LTD  [ledger parent: Sundry Debtors]
+         2  BELYSA COLLECTIVE  [ledger parent: Sundry Debtors]
+         2  ASHISH MADHUKAR PADNEKAR  [ledger parent: Sundry Debtors]
+         2  Jyothy Krishna  [ledger parent: Sundry Debtors]
+         2  SAI ART SERVICES  [ledger parent: Sundry Debtors]
+         2  URJITA CENTRE FOR ART  [ledger parent: Sundry Debtors]
+         1  SOMESHWAR PLASTO CHEM PVT LTD  [ledger parent: Sundry Debtors]
+         1  VIR MASTER  [ledger parent: Sundry Debtors]
+         1  BELYSA INCORPORATED  [ledger parent: Sundry Debtors]
+         1  JM Company  [ledger parent: Sundry Debtors]
+         1  Vijay Laxmi Enterprises  [ledger parent: Sundry Debtors]
+         1  PRATEEK RAJA CONTEMPORARY ARTS P LTD  [ledger parent: Sundry Debtors]
+
+--- 2e. Sales-ALKG vouchers — ALL details ---
+Total Sales-ALKG line items: 5
+Unique parties: 3
+
+  ALL Sales-ALKG parties:
+         2  Metalotus  [ledger parent: Sundry Debtors]
+         2  Viji murugan  [ledger parent: Sundry Debtors]
+         1  GWAMBO STUDIOS PRIVATE LIMITED  [ledger parent: Sundry Debtors]
+
+  ALL Sales-ALKG line items:
+    date=20250630 party=Metalotus item=AE TONED TAN 120 GSM 180 ART NOTEBOOK 76 PAGES A5 qty=5000.0 rate=419.4 amount=1048500.0 vnum=ALKG-1
+    date=20250630 party=Metalotus item=AE TONED GREY 120 GSM 180 ART NOTEBOOK 76 PAGES A5 qty=5000.0 rate=419.4 amount=1048500.0 vnum=ALKG-2
+    date=20260109 party=Viji murugan item=Saunders Waterford HOT. White 425 gsm 22" x 30" qty=10.0 rate=448.17 amount=4481.7 vnum=ALKG-3
+    date=20260109 party=Viji murugan item=Saunders Waterford C.P. White 425 gsm 22" x 30" qty=10.0 rate=442.22 amount=4422.2 vnum=ALKG-3
+    date=20260109 party=GWAMBO STUDIOS PRIVATE LIMITED item=GAC 1LTR BINDER qty=2.0 rate=1952.5 amount=3905.0 vnum=ALKG-4
+
+--- 2f. Sales-Amazon & Sales-Flipkart — parties ---
+
+  Sales-Amazon: 5 line items, 1 unique parties
+         5  AMAZON_IN_API  [ledger parent: Sundry Debtors]
+
+  Sales-Flipkart: 289 line items, 1 unique parties
+       289  FLIPKART  [ledger parent: Sundry Debtors]
+
+==========================================================================================
+  3. INTERNAL TRANSACTION ANALYSIS
+==========================================================================================
+
+--- 3a. All parties containing 'Art Lounge' ---
+Parties containing 'Art Lounge': 2
+
+  Party: 'Art Lounge India'  [ledger parent: Sundry Debtors]
+  Total line items: 10183
+  Voucher type breakdown:
+      6804  Sales
+      3352  Sales-Tally
+        19  Credit Note
+         8  Sales Store
+
+  Party: 'Art Lounge India - Purchase'  [ledger parent: Sundry Creditors]
+  Total line items: 7830
+  Voucher type breakdown:
+      7830  Purchase
+
+--- 3b. Internal transfer patterns ---
+
+  'Art Lounge India' transactions:
+    Sales: 6804 items (inward=0, outward=6804)
+    Sales-Tally: 3352 items (inward=0, outward=3352)
+    Credit Note: 19 items (inward=19, outward=0)
+    Sales Store: 8 items (inward=0, outward=8)
+  Overall direction: inward=19, outward=10164
+
+  'Art Lounge India - Purchase' transactions:
+    Purchase: 7830 items (inward=7830, outward=0)
+  Overall direction: inward=7830, outward=0
+
+--- 3c. Do internal transfers balance out? (same items, opposite direction) ---
+  Items in internal sales: 5223
+  Items in internal purchases: 6926
+  Items with matching qty (balanced): 406
+  Items with both but different qty (unbalanced): 1788
+  Items only in sale side: 3029
+  Items only in purchase side: 4732
+
+--- 3d. RECOMMENDATION: How to handle internal transfers ---
+  Internal line items: 18013 (19.6% of all)
+  Art Lounge India (sale side): 10183 items
+  Art Lounge India - Purchase (purchase side): 7830 items
+
+  RECOMMENDATION:
+  - EXCLUDE from velocity calculation (they don't represent real demand)
+  - EXCLUDE from balance calculation IF they are balanced (net zero effect)
+  - If including in balance: include BOTH sides so they cancel out
+  - Safest approach: mark channel='internal', skip in velocity, include in balance
+    because Tally's closing balance already accounts for them
+
+==========================================================================================
+  4. PROPOSED COMPLETE CHANNEL CLASSIFICATION RULESET
+==========================================================================================
+Total unique parties in vouchers: 715
+
+--- Rule 1: Voucher-type-based auto-classification ---
+  These voucher types auto-classify regardless of party:
+    Sales-Flipkart -> online (289 line items)
+    Sales-Amazon -> online (5 line items)
+    Sales-ALKG -> online (5 line items)
+    Sales Store -> store (12961 line items)
+    Physical Stock -> ignore (9381 line items)
+
+--- Rule 2: Party-name-based exact match ---
+  Exact party name matches:
+    'MAGENTO2' -> online (17092 line items)
+    'Art Lounge India' -> internal (10183 line items)
+    'Art Lounge India - Purchase' -> internal (7830 line items)
+
+--- Rule 3: Ledger-parent-based rules ---
+  Sundry Creditors -> supplier (for Purchase vouchers)
+  Sundry Debtors -> wholesale (for Sales-Tally/Sales vouchers, AFTER removing online/internal)
+  Sundry Creditor parties in vouchers: 35
+  Sundry Debtor parties in vouchers: 680
+
+--- Rule 4: Counter Collection parties (Sales Store walk-ins) ---
+  Counter Collection parties: {'Counter Collection - Cash', 'Counter Collection - CC', 'Counter Collection - Bank', 'Counter Collection - QR'}
+  These are walk-in cash/card/QR payments — classified as 'store'
+
+--- APPLYING ALL RULES — Classification Result ---
+
+  Classification summary:
+    wholesale: 624 parties
+    store: 52 parties
+    supplier: 34 parties
+    online: 3 parties
+    internal: 2 parties
+
+  Total classified: 715
+  Unclassified: 0
+
+--- LINE ITEM LEVEL CLASSIFICATION ---
+
+  Line item classification:
+    wholesale: 26520 line items (28.8%)
+    internal: 18005 line items (19.5%)
+    online: 17391 line items (18.9%)
+    store: 12961 line items (14.1%)
+    ignore: 9381 line items (10.2%)
+    supplier: 7837 line items (8.5%)
+    unclassified: 11 line items (0.0%)
+
+--- COMPLETE RULESET SUMMARY (in priority order) ---
+
+  PRIORITY 1 — Voucher Type Auto-Classification:
+    Sales-Flipkart    -> online
+    Sales-Amazon      -> online
+    Sales-ALKG        -> online (external sales channel)
+    Sales Store       -> store
+    Physical Stock    -> ignore (balance adjustment only, no velocity)
+
+  PRIORITY 2 — Party Name Exact Match:
+    MAGENTO2                    -> online
+    Art Lounge India            -> internal
+    Art Lounge India - Purchase -> internal
+
+  PRIORITY 3 — Party Name Pattern Match:
+    *Counter Collection*        -> store
+
+  PRIORITY 4 — Ledger Parent + Voucher Type:
+    Sundry Creditors            -> supplier
+    Sundry Debtors + (Sales-Tally or Sales) -> wholesale
+    Sundry Debtors + Credit/Debit Note      -> wholesale (returns)
+    Sundry Creditors + Credit/Debit Note    -> supplier (returns)
+
+  PRIORITY 5 — Fallback:
+    Everything else             -> unclassified (flag for manual review)
+
+  VELOCITY RULES:
+    - wholesale, online, store  -> count toward velocity (real demand)
+    - supplier, internal        -> exclude from velocity
+    - ignore (Physical Stock)   -> exclude from velocity
+    - Credit Note / Debit Note  -> exclude from velocity (returns)
+
+  BALANCE RULES:
+    - All channels affect balance (including internal)
+    - Physical Stock affects balance (stock adjustment)
+    - Credit Notes are inward (returned goods)
+    - Debit Notes are outward
+    
+
+--- PARTIES BY CHANNEL (for reference) ---
+
+  ONLINE (3 parties):
+    FLIPKART (289 line items)
+    MAGENTO2 (17092 line items)
+    Viji murugan (2 line items)
+
+  WHOLESALE (624 parties):
+    A N Commtrade LLP (1587 line items)
+    A. Nanjappa Drawing Emporiem (9 line items)
+    AB Apana (1 line items)
+    AGARWAL BROTHERS (9 line items)
+    AMAZON_IN_API (6 line items)
+    ART CLAPS (1 line items)
+    ART SHARK LLP (456 line items)
+    ARTS AND MEMORIES (2 line items)
+    Aadil Naqvi (1 line items)
+    Aakash osale (4 line items)
+    Aashti Alfaz Miller (2 line items)
+    Aastha Stationers (35 line items)
+    Abhijeet Kumar (2 line items)
+    Abhishek Tuteja (2 line items)
+    Able sunny (1 line items)
+    Aditi Nadkarni (1 line items)
+    Aditi Prakash Patil (3 line items)
+    Aditi jain (1 line items)
+    Aditya Joshi (2 line items)
+    Aditya Prabhu (1 line items)
+    Advance Engineering (6 line items)
+    Aishwarya Ghosh (1 line items)
+    Aishwarya jadhav (3 line items)
+    Ajanta Art Express (22 line items)
+    Ajanta Universal Fabrics Limited (63 line items)
+    Ajay sonavane (1 line items)
+    Akanksha Koshti (2 line items)
+    Akshita Makhija (1 line items)
+    Akumienla (3 line items)
+    Al Aidroos (4 line items)
+    Ali (3 line items)
+    Alka Aggarwal (1 line items)
+    Alpha Stationers (12 line items)
+    Aman Marina (1 line items)
+    Ambreen Wadera (42 line items)
+    Amisha Vijay Harmalkar (1 line items)
+    Amit Ahlawat (6 line items)
+    Amit Kumar sinha (2 line items)
+    Ana Gupta (2 line items)
+    Anandha Stationery Stores (1 line items)
+    Ananta Mandal (2 line items)
+    Anesa Punjabi (1 line items)
+    Angela Law (1 line items)
+    Anil Verghese (2 line items)
+    Anindita Biswas (1 line items)
+    Anita Bhatia (1 line items)
+    Anjali International (554 line items)
+    Ankana Guin (1 line items)
+    Ansh (2 line items)
+    Anuja Agarwal (1 line items)
+    Anunaya Chaubey (1 line items)
+    Anupam Stationery Plaza (46 line items)
+    Anupam Stationery Point (2 line items)
+    Anupam Stationery Super Store Pvt Ltd. (86 line items)
+    Anurag jadia (4 line items)
+    Anushree bhansali (1 line items)
+    Aparna Kochumon (1 line items)
+    Aparneet Mann (11 line items)
+    Aparnna (3 line items)
+    Aphao Shio (2 line items)
+    Archana  Harlalka (16 line items)
+    Archana Art (1 line items)
+    Archana Jain (12 line items)
+    Arihandam Gupta (12 line items)
+    Arihant International (93 line items)
+    Arindam Gupta (1 line items)
+    Arjun Roy Chowdhury (3 line items)
+    Arnab Bera (1 line items)
+    Arpita Ahuja (4 line items)
+    Art Avenue (52 line items)
+    Art Shoppe (25 line items)
+    Artcetera India (132 line items)
+    Arti Nayar (9 line items)
+    Artist Ram Thorat (3 line items)
+    Artist Sawant Rajesh Bhimraj (11 line items)
+    Artorium the Colour World (236 line items)
+    Artzo India (387 line items)
+    Arunachalam veerappan (8 line items)
+    Aryama Pal (21 line items)
+    Ashok Giri (1 line items)
+    Ashok Tumuluri (2 line items)
+    Ashwani (5 line items)
+    Ashwini Rajeev Rudrakshi (2 line items)
+    Athiya Fathima (3 line items)
+    Avantika Shrivastav (2 line items)
+    Avibay Private Limited (1 line items)
+    Avinash Bangar (2 line items)
+    Ayisha Ziya (4 line items)
+    Ayushi gaur (2 line items)
+    B J B Tradelink (6 line items)
+    BRIJESH PRASAD (1 line items)
+    Baljeet Singh (1 line items)
+    Balu Sadalge (7 line items)
+    Banveer kaur jhinger (1 line items)
+    Bharati Prajapati (5 line items)
+    Bharti Prajapati (19 line items)
+    Bhaskar Arts Center (252 line items)
+    Bhaskar Binding Works (26 line items)
+    Bhatia Enterprises (3 line items)
+    Bhavani Parthasarathy (2 line items)
+    Bhavya shah (1 line items)
+    Big Store LLP (17 line items)
+    Bindiya Naik (9 line items)
+    Binu Rojers (17 line items)
+    Bombay Novelty Stores (4 line items)
+    BrindhAa S (10 line items)
+    Bushra Vasta (5 line items)
+    C/o mustan tambawala (9 line items)
+    CHANDRA ENGINEERS (1 line items)
+    Champion Sales (8 line items)
+    Chinni Swamy (12 line items)
+    Chirag Thakker (1 line items)
+    Chitaraaman Art & Nail Studio (1 line items)
+    Clay enterprise and company (17 line items)
+    Computer Gallery (654 line items)
+    Cyient DLM Limited-Unit-1 EHTP (1 line items)
+    D.Goutam and Co. (71 line items)
+    DENTCARE DENTAL LAB PRIVATE LIMITED (1 line items)
+    DIPANWITA BISWAS (1 line items)
+    DSB international school (6 line items)
+    Daman Gambhir (1 line items)
+    Debarghya Nanda (1 line items)
+    Deepali Bhatt (1 line items)
+    Deepthi (1 line items)
+    Deeveear Agencies (30 line items)
+    Devender (1 line items)
+    Dhanya Das (1 line items)
+    Diana Gala (9 line items)
+    Ditti Singh (3 line items)
+    Divyanshi Aviation Services Pvt. Ltd. (8 line items)
+    Dr Gorakh Agarwal (1 line items)
+    Dr Gurpreet (9 line items)
+    Dr Sandeep Dhage (1 line items)
+    Dr Seemanthini Desai (5 line items)
+    Dr Shreevidya (1 line items)
+    Dr Sowmya K V (3 line items)
+    Dr V.Hardev (9 line items)
+    Dr Vucha bhaskar (1 line items)
+    Dr shikha khati (2 line items)
+    Dr. Pannaga (34 line items)
+    Dr.Dipanjana Chakraborty (12 line items)
+    Dr.Geeta Arun Samant (18 line items)
+    Ekta Stationery (491 line items)
+    Elefant Enterprise (45 line items)
+    Estratys Retail Private Limited (14 line items)
+    Evoguemedia (1 line items)
+    Exalogico Systems and Services Pvt Ltd (1 line items)
+    Excellent Stationers (5 line items)
+    FLASH DYE CHEM PRODUCTS PVT LTD (44 line items)
+    FLINOX ENTERPRISES LLP (212 line items)
+    FUJIMITSU DYNAMIC PRIVATE LIMITED (5 line items)
+    Family Stationery Mart (11 line items)
+    Fathima Hashim (8 line items)
+    Francis Desousa (3 line items)
+    G.C.Laha Pvt Ltd. (54 line items)
+    GS1916 (171 line items)
+    GWAMBO STUDIOS PRIVATE LIMITED (6 line items)
+    Gajanan Machhindra Shelke (5 line items)
+    Gallery Sketch (21 line items)
+    Ganesh Prabhu (1 line items)
+    Gargi Geetanjali Singh (2 line items)
+    Geeta Mehta (11 line items)
+    German School (1 line items)
+    Gift Gallery (2 line items)
+    Gita Enterprise (21 line items)
+    Glitter Arts & Stationers (24 line items)
+    Global Stationery (36 line items)
+    Gourmoni Das (1 line items)
+    Gp Capt Rohit Kataria (3 line items)
+    Grasim Industries Limited (44 line items)
+    Gupta Book Depot (8 line items)
+    H.P.Bala Stationery (108 line items)
+    H.S.ENTERPRISES (3 line items)
+    Hakimi Stationers (28 line items)
+    Hakimi Stationers 2017/2020 (47 line items)
+    Harini (5 line items)
+    Harsh Enterprises (1947 line items)
+    Harsh Suman (3 line items)
+    Hical Technologies Private Limited (1 line items)
+    Himalaya Stationary Mart (937 line items)
+    Hindustan Trading Company (2135 line items)
+    Hussain Masalawala (1 line items)
+    INART (72 line items)
+    ISHITA SONI (14 line items)
+    Ideal Booksellers & Stationers (75 line items)
+    Imagination Edutainment India Private Limited (8 line items)
+    Imran khan (2 line items)
+    Indranil Roy (1 line items)
+    Indu Kurup (3 line items)
+    Insha Aamir (4 line items)
+    Ipsita Das (11 line items)
+    Iruvan Karunakaran (4 line items)
+    Isamanda Pariat (1 line items)
+    Ishani Banerji (1 line items)
+    Ishita Sinha (1 line items)
+    Ishita Srivastava (1 line items)
+    JIneshwar Tradelink (157 line items)
+    JM Company (838 line items)
+    Jagruti Stationery Mart (91 line items)
+    Jain Sons Stationery (14 line items)
+    Janata Stationery & Art (125 line items)
+    Janta Book Centre (67 line items)
+    Jatin sharma (1 line items)
+    Jay  Aggarwal (1 line items)
+    Jaya Javeri (1 line items)
+    Jean Barthe (10 line items)
+    Jesika Gandhi (3 line items)
+    Jessica Talkar (2 line items)
+    Jitendra thakur (7 line items)
+    Jyothy Krishna (27 line items)
+    Jyothy sudhakaran (1 line items)
+    Jyotsna Dwivedi (6 line items)
+    K.priyadharshini (1 line items)
+    KASHINATH DAS (2 line items)
+    Kailash Shankarpelli (2 line items)
+    Kala Adarsh (2 line items)
+    Kalam Ghar (46 line items)
+    Kalam Patua (7 line items)
+    Kalyani ASHOK (1 line items)
+    Kamala (8 line items)
+    Kamaljeet Kaur (3 line items)
+    Kamalrukh Wadia (8 line items)
+    Kamat Book Stall & Stationery (38 line items)
+    Kamna Aggarwalla (1 line items)
+    Kamya Kumar (1 line items)
+    Kanan Choudhary (1 line items)
+    Kapoor Traders (115 line items)
+    Karan (5 line items)
+    Karan Kanthi Jain (2 line items)
+    Kaustubh Kavathekar (2 line items)
+    Khushi Kanodia (4 line items)
+    Kishwar Nensey (1 line items)
+    Krishma Shah (1 line items)
+    Krishna Home (1 line items)
+    Krupa Agencies (2 line items)
+    Kumar Concern (135 line items)
+    Kumar Traders (27 line items)
+    Kumars Concern (405 line items)
+    LPSIS Private Limited (1 line items)
+    Lakshika (1 line items)
+    Lalremruata Chhangte (2 line items)
+    Lavanya (1 line items)
+    Leo Fernandes (2 line items)
+    Likitha Salian (2 line items)
+    Lotus Artisans Hub (2 line items)
+    Lucky Next (1 line items)
+    M Srinivas Reddy (1 line items)
+    M. K. Paradise (113 line items)
+    M.B. Enterprises (20 line items)
+    M/S Autoconz Consulting Group (1 line items)
+    M/S. Choudhari Books & Art Shopee (2 line items)
+    M/s. Rajal Enterprises (1 line items)
+    MANISH SONI (1 line items)
+    MANUHITA GUPTA DESIGN STUDIO (2 line items)
+    MANVIK (1 line items)
+    MARKETING SUPPLIES - LOCAL (510 line items)
+    MG Enterprises (78 line items)
+    MILAN BHATT (3 line items)
+    MM ENTERPRISES (1 line items)
+    MODERN INSULATORS LTD. (2 line items)
+    Ma Priyadharshini (2 line items)
+    Maanyaa Hathiwala (1 line items)
+    Madhavi (3 line items)
+    Mahak Porwal (1 line items)
+    Mahalakshmi Rajan (1 line items)
+    Mahamai bhat (2 line items)
+    Mahamai s bhat (1 line items)
+    Malay Bargali (6 line items)
+    Mallika (1 line items)
+    Mancher Irani (3 line items)
+    Mango Stationery Pvt. Ltd (902 line items)
+    Manikanth lalsangi (14 line items)
+    Manisha Agrawal (6 line items)
+    Manjunath (3 line items)
+    Manoj Juturu (1 line items)
+    Mansi Makhija Jain (3 line items)
+    Manya enterprises (1 line items)
+    Marketing Supplies (159 line items)
+    Mashitha Hasan (1 line items)
+    Maxa Enterprises (85 line items)
+    Maya Ramaswamy Art (3 line items)
+    Mayur Stationers (2 line items)
+    Meena ratadia (2 line items)
+    Meenakshi Stationers (16 line items)
+    Meera Meshram (9 line items)
+    Meetul Lakhanpal (1 line items)
+    Megh Enterprises (17 line items)
+    Meher Sarid (1 line items)
+    Mendwell Agencies (330 line items)
+    Meril Mariam Mathew (2 line items)
+    Metalotus (242 line items)
+    Mili (4 line items)
+    Minerva Panigrahi (2 line items)
+    Minni (9 line items)
+    Modern Book & General Stores (6 line items)
+    Mohammed Hamed Amoodi (1 line items)
+    Molly Johnarts (1 line items)
+    Mona Rathore (1 line items)
+    Monica (4 line items)
+    Monica kharkar (2 line items)
+    Monika agarwal (13 line items)
+    Mozeb Stationery and Novelty Centre (5 line items)
+    Mrs Manika Saraswat (12 line items)
+    Mrs. PRIYA KUMAR (1 line items)
+    Ms.Pratigya Prahlad Singh Patel (3 line items)
+    Mugdha kalra (1 line items)
+    MunMun Chattopadhyay (34 line items)
+    Murali mohan (5 line items)
+    Muskan Bararia (1 line items)
+    Muskan Vaishnav (1 line items)
+    NEELAKANTH AGENCIES (113 line items)
+    NEHA SHAH (3 line items)
+    NGP SOLUTIONS JR URBANIA PRIME (1 line items)
+    Nandhini Renganathan (2 line items)
+    Nanumals Booktique (119 line items)
+    Naresh Thakur (3 line items)
+    Nasir Abdul rehman Khot (1 line items)
+    Navpreet (14 line items)
+    Navya tadiparthi (1 line items)
+    Neelima Talwar (2 line items)
+    Neena nilesh kumrawat (2 line items)
+    Neha (1 line items)
+    New Bombay Stationery Stores (217 line items)
+    New Co (4 line items)
+    Nida Jahain (1 line items)
+    Nidhi Malkan (5 line items)
+    Nidhi Rathi Lakra (1 line items)
+    Nikita Gaurav (3 line items)
+    Nikunj Agarwal (5 line items)
+    Nilofer Rehman (2 line items)
+    Nimisha Kantharia (1 line items)
+    Nirja Mohunta (10 line items)
+    Nisarg Enterprise (73 line items)
+    Nisha Siddapur (1 line items)
+    Nozer Wadia Associates (3 line items)
+    Nuti (2 line items)
+    OM FABS (1 line items)
+    Opel Marketing Agencies Sunny Paul Menachery (115 line items)
+    P. Ramesh (6 line items)
+    PALAS SAMANTA (4 line items)
+    PRATEEK GUPTA STUDIO (31 line items)
+    Painter Colour World (36 line items)
+    Pamela D'Silva (5 line items)
+    Parmeshwar Raju (11 line items)
+    Paul Brothers (3 line items)
+    Payal Lal Das (4 line items)
+    Payal R (2 line items)
+    Pencil Craft Mart (250 line items)
+    Piyali Ganguly (1 line items)
+    Pk global autoelectro pvt ltd (1 line items)
+    Pooja Vernekar (1 line items)
+    Pooja Yadav (2 line items)
+    Poorvi Sultania Joshi (30 line items)
+    Prachi kumari (7 line items)
+    Pradeepika Aiyer (3 line items)
+    Pragati Agrawal (54 line items)
+    Prakash Chauhan (1 line items)
+    Prasad khoragade (1 line items)
+    Prasenjit Sen (4 line items)
+    Prashant Prabhu (49 line items)
+    Prathmesh Apankar (3 line items)
+    Praween karmakar (1 line items)
+    Preeti (4 line items)
+    Preetika Dubey (8 line items)
+    Prem Lata Rawat (1 line items)
+    Premier Office Equipment Co (10 line items)
+    Prerna gupta (3 line items)
+    Prince Stationery (2 line items)
+    Priyanshi Shah (3 line items)
+    Punam Dudhoria (4 line items)
+    Purple Pal8 (45 line items)
+    QUICK BITE KITCHEN (5 line items)
+    Qureysh Basrai (1 line items)
+    R.Kumar (14 line items)
+    R.Rohini Rao (2 line items)
+    RAMYA MANTHENA (1 line items)
+    RANJIT PRAKASH KANDALGAONKAR (1 line items)
+    RECAERO INDIA PRIVATE LTD (2 line items)
+    REID & TAYLOR INTERNATIONAL PRIVATE LIMITED (1 line items)
+    RITU CHOUDHARY (3 line items)
+    ROSA TECHNOLOGY PVT LTD (2 line items)
+    ROYAL ENGINEERING SOLUTIONS (1 line items)
+    RUHAIM MOOSA HAMZA (1 line items)
+    Rabitha (5 line items)
+    Radha pai (9 line items)
+    Radiant Art Impex (1 line items)
+    Raghavendra Udupa (3 line items)
+    Raghunita Gupta (3 line items)
+    Rahul Bharti (9 line items)
+    Rahul Bhoir (9 line items)
+    Raj Krafts (8 line items)
+    Raja Vikrama (73 line items)
+    Rajesh (1 line items)
+    Rajesh Pullarwar (5 line items)
+    Rajish G (1 line items)
+    Rajiv Desai (5 line items)
+    Rajshree Stationery Mart (15 line items)
+    Raju shrestha pradhan (4 line items)
+    Rakshit Agarwal (2 line items)
+    Ramesh Manickavel (1 line items)
+    Ramneeka Lobo (7 line items)
+    Ranbir Singh Jaijee (1 line items)
+    Ranjit Pun (1 line items)
+    Rashmi Soni (1 line items)
+    Rastogi Bhandar (18 line items)
+    Ratnakar Book Depot (97 line items)
+    Ravi .N (65 line items)
+    Reenu Tikka (2 line items)
+    Reliance Stationery World (314 line items)
+    Reliance Stationery World Art Super Store (112 line items)
+    Rietu (72 line items)
+    Ritu Jain (10 line items)
+    Ritu sharma (45 line items)
+    Rm Palaniappan (1 line items)
+    Robert Lheureux (2 line items)
+    Rohan Lobo (1 line items)
+    Romy Soin (4 line items)
+    Roshan Jain (1 line items)
+    Roshni Borawke (2 line items)
+    Rupali Thombare (4 line items)
+    Rupson Enterprises (1 line items)
+    Rushabh Enterprises (1 line items)
+    S Gnature (51 line items)
+    S.GOPINATH (7 line items)
+    S.Madhusoodanan (1 line items)
+    SANJIB KUMAR RAY (1 line items)
+    SARDAR INTERNATIONAL (1 line items)
+    SASMITA HOTA (1 line items)
+    SHAIBAL KUMAR MITRA      _ Dr (3 line items)
+    SHANTI ENTERPRISES (15 line items)
+    SHREE VRINDAVAN (12 line items)
+    SITA RAM ENTERPRISE (472 line items)
+    SMRITI MANOJ (3 line items)
+    SRI KRISHNA STATIONERS (3 line items)
+    STUDENT BOOK (12 line items)
+    SUBHAM KUMAR SHARMA (1 line items)
+    SUDHA BAIJU PALLAN (1 line items)
+    SUSMITA DEY (2 line items)
+    Sabuhi khan (4 line items)
+    Sachin Balan (7 line items)
+    Sachin arethiya (14 line items)
+    Sagar Bhowmick (4 line items)
+    Sagar Satalkar (3 line items)
+    Sai Ashish Enterprises (17 line items)
+    Sakina Wagh (1 line items)
+    Sameena Sharif (1 line items)
+    Samprith Jayram (2 line items)
+    Samridhi Agarwal (5 line items)
+    Samsara Academy of Art (7 line items)
+    Sanal Gopi (1 line items)
+    Sanchayita Pal (2 line items)
+    Sandhiya (3 line items)
+    Sandhya Santosh (7 line items)
+    Sandilya Arts (12 line items)
+    Sandip Shome (1 line items)
+    Sangeeta Agarwal (4 line items)
+    Sangeeta Bedre (1 line items)
+    Sanjana Chindak (3 line items)
+    Sanjana Nagarajan (5 line items)
+    Sanjana Ramchandani (1 line items)
+    Sanjay Desai (3 line items)
+    Sapna Agarwal (3 line items)
+    Sarah Natasha (1 line items)
+    Saranya (4 line items)
+    Saranya senthil (2 line items)
+    Saraswati Bhandari (8 line items)
+    Saraswati Stationers (96 line items)
+    Saravana  Stationers (16 line items)
+    Sarbsrestha Singh (4 line items)
+    Saremisons (837 line items)
+    Sarita (3 line items)
+    Sarthak M Shah (1 line items)
+    Sarvodaya Marketing (17 line items)
+    Sathish Kumar (1 line items)
+    Satish Ratnaparkhi (4 line items)
+    Satya Swarupa (1 line items)
+    Satyajeet Pandere (2 line items)
+    Saurbh Joshi (8 line items)
+    Savita Hanagi (5 line items)
+    Sayli Bhor (3 line items)
+    Seema Kant (7 line items)
+    Seema Sethi (2 line items)
+    Seema Singhal (2 line items)
+    Sejuti Biswas (8 line items)
+    Selina Hussain (1 line items)
+    Shah Sheetal (1 line items)
+    Shaibal Kumar Mitra (19 line items)
+    Shaik Ahamad basha (1 line items)
+    Shaila Shenoy (3 line items)
+    Shailesh Motiram Salvi (2 line items)
+    Shalaka Sreeram (1 line items)
+    Shankhesh Sales and Marketing (1969 line items)
+    Sharam associates (1 line items)
+    Sharmila Dharam (4 line items)
+    Sheema amal (3 line items)
+    Sheetal gattani (5 line items)
+    Shelly choudhary (3 line items)
+    Shibi (2 line items)
+    Shifana Lourdes (9 line items)
+    Shikha Garg (6 line items)
+    Shikha Osan (3 line items)
+    ShiningartPaintingandDesignLLPB2B (41 line items)
+    Shirupa (1 line items)
+    Shorya Mahanot (12 line items)
+    Shrabani Pradhan (16 line items)
+    Shraddha Shenoy (1 line items)
+    Shrestha Trading House (5 line items)
+    Shreya (2 line items)
+    Shri Ram Book Depot (66 line items)
+    Shrusti Shah (6 line items)
+    Shruti G. Dev (35 line items)
+    Shruti Pise (1 line items)
+    Shubham Verma (1 line items)
+    Shubhra Tyagi (3 line items)
+    Shweta Ingale (1 line items)
+    Siddharth Ramachandran (3 line items)
+    Siddhi Mehta (6 line items)
+    Smita Mourya (1 line items)
+    Smrita gotamay (2 line items)
+    Sneh Mehra (1 line items)
+    Sneha Choudhary (4 line items)
+    Sogani Traders (70 line items)
+    Soma C (2 line items)
+    Sonal Agrawal (1 line items)
+    Sonam Malik (10 line items)
+    Sonatina Mendes (3 line items)
+    Sonia Arora (26 line items)
+    Soul Events & Consultancy (7 line items)
+    Sowmya K (1 line items)
+    Sri vigneshwara stationery (19 line items)
+    Srijan Srivastava (9 line items)
+    Srishti Sikaria (1 line items)
+    Star Stationeries (Trading As Starbox) (100 line items)
+    Stationerie (283 line items)
+    Suchismita Saha (1 line items)
+    SudhangsuBandyopadhyay (55 line items)
+    Sudheesh N S (6 line items)
+    Sudhir Patwardhan (5 line items)
+    Sulabh Jain (2 line items)
+    Sunit (2 line items)
+    Sunita Khosla (3 line items)
+    Sunitha J Choudhry (9 line items)
+    Surajit Paul (15 line items)
+    Surbhi Bajaj (8 line items)
+    Suresh Dorairaj (1 line items)
+    Surjeet Singh (10 line items)
+    Surya M (3 line items)
+    Sushma Jain (1 line items)
+    Sushmita Devi (10 line items)
+    Swadeshi (20 line items)
+    Swasthik (1 line items)
+    Swati Bahorey (1 line items)
+    Swati Bansal (3 line items)
+    Swati Bhuskute (1 line items)
+    Syamadynamic Trading Private Limited. (17 line items)
+    Syamadynamic Trading Pvt. Ltd. (Panampilly) (6 line items)
+    Syed's Calligraphy (3 line items)
+    Tapan Art and Craft (63 line items)
+    Tara Nair Studio (1 line items)
+    Tarak Das (2 line items)
+    The Art City (358 line items)
+    The Pen Co (8 line items)
+    The Pen Lounge (30 line items)
+    Tia Handpainted Silks (5 line items)
+    Tirtha Banerjee (1 line items)
+    Trishtup (4 line items)
+    Tuhina Rupesh (1 line items)
+    Tushar Chodanker (1 line items)
+    Ujjaini Mukherjee (1 line items)
+    United Paper And Stationers (39 line items)
+    Usha Chengappa (10 line items)
+    Uttkarsh Gupta (9 line items)
+    V. S. Sreekumar (4 line items)
+    VASUDEO TARANATH KAMATH (3 line items)
+    VEGA SYSCON (2 line items)
+    Vandana Vishwakarma (20 line items)
+    Vandita Bansal (7 line items)
+    Vanshika Jakhmola (3 line items)
+    Varad Ajay Bang (1 line items)
+    Varaha Enterprises (3 line items)
+    Vardhman Trading Company (1783 line items)
+    Variety Book Centre (2 line items)
+    Variety Stationers (13 line items)
+    Varsha Singasane (1 line items)
+    Vedere Sreyashree (1 line items)
+    Vedica Art Studios and Gallery LLP (2 line items)
+    Venus Traders (23 line items)
+    Vibha Rani (22 line items)
+    Vibhu pravash (14 line items)
+    Vidarbha Stationers (27 line items)
+    Vidhi Sayani (20 line items)
+    Vihari Impex (2 line items)
+    Vikas Sehgal (17 line items)
+    Vinti Gohil (1 line items)
+    Vishal (12 line items)
+    Vishal S.Wavre (1 line items)
+    Vishali (1 line items)
+    WHOLESALE WALA (47 line items)
+    Walk Experiential Marketing & Management LTD (3 line items)
+    We Are Crafty (12 line items)
+    World EMS Pvt Ltd (5 line items)
+    Wrap and Woof (9 line items)
+    Write Impressions (8 line items)
+    XLAR ENTERPRISES (4 line items)
+    Yagachi Technologies Private Limited (1 line items)
+    Yashi Singhai (2 line items)
+    Yashvardhan Goenka (6 line items)
+    Yogesh Yedke (1 line items)
+    Ys. Creativeworld (10 line items)
+    Yusuf Abdeali (22 line items)
+    Yuvika Grewal (3 line items)
+    ZEYTH RETAIL & MARKETING PVT LTD (4 line items)
+    Zarin Amrolia (2 line items)
+    chandrani kundu (2 line items)
+    chinmayee parhi (35 line items)
+    jeyanantham.M (2 line items)
+    kalyan eswar (2 line items)
+    kamal gill (5 line items)
+    lipi uppal (7 line items)
+    pranjall sheyt (3 line items)
+    shalini modi (2 line items)
+    sujata bhatia (4 line items)
+    sweta Priyadarshan (18 line items)
+    van lko (19 line items)
+
+  STORE (52 parties):
+    70PR DESIGN (7 line items)
+    ANUPAM HERITAGE LAB INDIA PRIVATE LIMITED (2 line items)
+    ASHAPURA STATIONERS & COMPUTERS (3 line items)
+    ASHISH MADHUKAR PADLEKAR (15 line items)
+    ASHISH MADHUKAR PADNEKAR (2 line items)
+    ATOS CRAFT COLLECTIVE LLP (3 line items)
+    All Things Love (11 line items)
+    Art  House (23 line items)
+    BELYSA COLLECTIVE (2 line items)
+    BELYSA INCORPORATED (1 line items)
+    Counter Collection - Bank (18 line items)
+    Counter Collection - CC (3284 line items)
+    Counter Collection - Cash (3227 line items)
+    Counter Collection - QR (5799 line items)
+    DR BHAU DAJI LAD MUSEUM TRUST (7 line items)
+    DREAM BLUEPRINTS DESIGN STUDIO (33 line items)
+    ELAURA ART GALLERY (10 line items)
+    Embassy of Dominican Republic (20 line items)
+    FOOD MATTERS INDIA PRIVATE LIMITED (10 line items)
+    FREDNA ENTERPRISES PRIVATE LIMITED (13 line items)
+    GAURIKA MALKANI (5 line items)
+    INDIA GOVERNMENT MINT MUMBAI (21 line items)
+    INDURKAR CONSULTING ENGINEERS PRIVATE LIMITED (14 line items)
+    J.B.PETIT HIGH SCHOOL FOR GIRLS (14 line items)
+    KNACK ENGINEERING SERVICES PRIVATE LIMITED (22 line items)
+    Kanishka Sharma (3 line items)
+    Kreate & Young (62 line items)
+    LEFTFIELD CREATIVE PVT LTD (2 line items)
+    MAI STORIES (6 line items)
+    Midas Touch (4 line items)
+    OSPREY SHIPPING PRIVATE LIMITED (27 line items)
+    PRABHAKAR PANDURANG PACHPUTE (5 line items)
+    PRATEEK RAJA CONTEMPORARY ARTS P LTD (1 line items)
+    PRAVEEN AWATE ARCHITECTS PVT LTD (11 line items)
+    PUMPKIN (51 line items)
+    RABIA GUPTA (34 line items)
+    RACHNA SHIVAJI TAKAWALE (6 line items)
+    ROCK CET CINEMA PRIVATE LIMITED (5 line items)
+    SAFRAN DESIGN (11 line items)
+    SAI ART SERVICES (2 line items)
+    SEFI VERGHESE GEORGE (5 line items)
+    SOMESHWAR PLASTO CHEM PVT LTD (1 line items)
+    STUDIO MRS LLP (14 line items)
+    SUYOG INDUSTRIES (17 line items)
+    THE BOMBAY LETTERING COMPANY (11 line items)
+    ULJK FINANCIAL SERVICES PVT LTD (3 line items)
+    URJITA CENTRE FOR ART (2 line items)
+    VAISHNAVI MOTORS (6 line items)
+    VASTU CULTURE (13 line items)
+    VEERA FASHION LLP (15 line items)
+    VIR MASTER (1 line items)
+    Vijay Laxmi Enterprises (1 line items)
+
+  SUPPLIER (34 parties):
+    AEKTA CORPORATE (9 line items)
+    AL-FATAH CORPORATION (1 line items)
+    ART PLUS (1 line items)
+    ART SHARK LLP- Purchse (459 line items)
+    Anupam Stationery Limited (114 line items)
+    Arihant International - Purchse (1 line items)
+    Claessens V.A. ETS. (6 line items)
+    ColArt Creative International SAS (2968 line items)
+    DMS Corporation (87 line items)
+    DRS Infra Private Limited (120 line items)
+    EDDING INTERNATIONAL (71 line items)
+    Hahnemuhle FineArt GmbH (70 line items)
+    Hakimi Stationers - Purchase (200 line items)
+    Hindustan Trading Company - Purchse (1101 line items)
+    JANATA BOOK MFG. DEPOT -MUMBAI (187 line items)
+    Jyotsna Prakashan (59 line items)
+    KIRTI PAPERS PVT. LTD. (2 line items)
+    Koh-i-Noor Hardmuth.A.S (207 line items)
+    M/S. FAMOUS FURNITURE (4 line items)
+    MANUSCRIPT COMPANY LTD (43 line items)
+    MARABU GMBH & CO. (45 line items)
+    MONA LISA FINE ART PRODUCTS (16 line items)
+    NEHARA STATIONERS AND ART GALLERY (19 line items)
+    PEBEO INDUSTRIES (280 line items)
+    R K INDUSTRIES (23 line items)
+    Radiant Art Impex - Purchse (258 line items)
+    Sai Wood Works (26 line items)
+    Samay Infotech (153 line items)
+    Saremisons - Purchase (18 line items)
+    Shree Sai Enterprises (821 line items)
+    Speedball Art Products, LLC (174 line items)
+    Tejura Overseas Enterprises Pvt. Ltd (206 line items)
+    USUI BRUSH INC (38 line items)
+    WARDEN COLLECTION� (50 line items)
+
+  INTERNAL (2 parties):
+    Art Lounge India (10183 line items)
+    Art Lounge India - Purchase (7830 line items)
+
+  IGNORE (0 parties):
+
+  UNCLASSIFIED (0 parties):
+
+==========================================================================================
+  5. CROSS-CUTTING EDGE CASES
+==========================================================================================
+
+--- 5a. Parties appearing in multiple voucher types ---
+Parties appearing in multiple voucher types: 109
+  New Bombay Stationery Stores [parent=Sundry Debtors]: {'Purchase': 81, 'Sales Store': 41, 'Credit Note': 1, 'Sales-Tally': 82, 'Sales': 12}
+  Anjali International [parent=Sundry Debtors]: {'Credit Note': 6, 'Sales': 83, 'Sales-Tally': 448, 'Purchase': 17}
+  Vardhman Trading Company [parent=Sundry Debtors]: {'Credit Note': 3, 'Sales': 601, 'Sales-Tally': 1129, 'Purchase': 50}
+  Art Lounge India [parent=Sundry Debtors]: {'Credit Note': 19, 'Sales': 6804, 'Sales Store': 8, 'Sales-Tally': 3352}
+  Purple Pal8 [parent=Sundry Debtors]: {'Sales': 2, 'Debit Note': 1, 'Sales-Tally': 37, 'Purchase': 5}
+  JM Company [parent=Sundry Debtors]: {'Credit Note': 9, 'Sales': 389, 'Sales Store': 1, 'Sales-Tally': 439}
+  Metalotus [parent=Sundry Debtors]: {'Credit Note': 2, 'Purchase': 193, 'Sales-Tally': 45, 'Sales-ALKG': 2}
+  Hindustan Trading Company [parent=Sundry Debtors]: {'Credit Note': 13, 'Sales': 420, 'Sales-Tally': 1702}
+  A N Commtrade LLP [parent=Sundry Debtors]: {'Credit Note': 4, 'Sales': 375, 'Sales-Tally': 1208}
+  Mango Stationery Pvt. Ltd [parent=Sundry Debtors]: {'Credit Note': 7, 'Sales': 226, 'Sales-Tally': 669}
+  Wrap and Woof [parent=Sundry Debtors]: {'Credit Note': 2, 'Sales': 4, 'Sales-Tally': 3}
+  Himalaya Stationary Mart [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales': 120, 'Sales-Tally': 816}
+  Jagruti Stationery Mart [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales': 19, 'Sales-Tally': 71}
+  JIneshwar Tradelink [parent=Sundry Debtors]: {'Sales': 21, 'Sales-Tally': 134, 'Purchase': 2}
+  Harsh Enterprises [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales': 348, 'Sales-Tally': 1598}
+  M.B. Enterprises [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales': 4, 'Sales-Tally': 15}
+  Ekta Stationery [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales': 28, 'Sales-Tally': 462}
+  Ajanta Universal Fabrics Limited [parent=Sundry Debtors]: {'Credit Note': 31, 'Sales': 31, 'Sales-Tally': 1}
+  Sai Ashish Enterprises [parent=Sundry Debtors]: {'Sales': 2, 'Sales Store': 3, 'Sales-Tally': 12}
+  Jyothy Krishna [parent=Sundry Debtors]: {'Credit Note': 3, 'Sales Store': 2, 'Sales-Tally': 22}
+  Hakimi Stationers [parent=Sundry Debtors]: {'Sales': 9, 'Sales-Tally': 19}
+  Arihant International [parent=Sundry Debtors]: {'Sales': 13, 'Sales-Tally': 80}
+  Venus Traders [parent=Sundry Debtors]: {'Sales': 7, 'Sales-Tally': 16}
+  Artcetera India [parent=Sundry Debtors]: {'Sales': 3, 'Purchase': 129}
+  Shankhesh Sales and Marketing [parent=Sundry Debtors]: {'Sales': 535, 'Sales-Tally': 1434}
+  Art Avenue [parent=Sundry Debtors]: {'Sales': 22, 'Sales-Tally': 30}
+  Painter Colour World [parent=Sundry Debtors]: {'Sales': 7, 'Sales-Tally': 29}
+  GS1916 [parent=Sundry Debtors]: {'Sales': 82, 'Sales-Tally': 89}
+  Krupa Agencies [parent=Sundry Debtors]: {'Sales': 1, 'Sales-Tally': 1}
+  Ajanta Art Express [parent=Sundry Debtors]: {'Sales': 12, 'Sales-Tally': 10}
+  Kapoor Traders [parent=Sundry Debtors]: {'Sales': 25, 'Sales-Tally': 90}
+  Bhaskar Arts Center [parent=Sundry Debtors]: {'Sales': 40, 'Sales-Tally': 212}
+  Artorium the Colour World [parent=Sundry Debtors]: {'Sales': 57, 'Sales-Tally': 179}
+  Ideal Booksellers & Stationers [parent=Sundry Debtors]: {'Sales': 33, 'Sales-Tally': 42}
+  STUDENT BOOK [parent=Sundry Debtors]: {'Sales': 4, 'Sales-Tally': 8}
+  Sogani Traders [parent=Sundry Debtors]: {'Sales': 4, 'Sales-Tally': 66}
+  Artzo India [parent=Sundry Debtors]: {'Sales': 93, 'Sales-Tally': 294}
+  Ratnakar Book Depot [parent=Sundry Debtors]: {'Sales': 8, 'Sales-Tally': 89}
+  VEGA SYSCON [parent=Sundry Debtors]: {'Sales': 1, 'Sales-Tally': 1}
+  Mendwell Agencies [parent=Sundry Debtors]: {'Sales': 63, 'Sales-Tally': 267}
+  Janata Stationery & Art [parent=Sundry Debtors]: {'Sales': 11, 'Sales-Tally': 114}
+  Kamat Book Stall & Stationery [parent=Sundry Debtors]: {'Sales': 5, 'Sales-Tally': 33}
+  H.P.Bala Stationery [parent=Sundry Debtors]: {'Sales': 10, 'Sales-Tally': 98}
+  Saraswati Stationers [parent=Sundry Debtors]: {'Sales': 28, 'Sales-Tally': 68}
+  Computer Gallery [parent=Sundry Debtors]: {'Sales': 340, 'Sales-Tally': 314}
+  MG Enterprises [parent=Sundry Debtors]: {'Sales': 6, 'Sales-Tally': 72}
+  Tapan Art and Craft [parent=Sundry Debtors]: {'Sales': 2, 'Sales-Tally': 61}
+  Saremisons [parent=Sundry Debtors]: {'Sales': 26, 'Sales-Tally': 811}
+  The Art City [parent=Sundry Debtors]: {'Sales': 85, 'Sales-Tally': 273}
+  Anupam Stationery Super Store Pvt Ltd. [parent=Sundry Debtors]: {'Sales': 13, 'Sales-Tally': 73}
+  Maxa Enterprises [parent=Sundry Debtors]: {'Sales': 7, 'Sales-Tally': 78}
+  D.Goutam and Co. [parent=Sundry Debtors]: {'Sales': 11, 'Sales-Tally': 60}
+  G.C.Laha Pvt Ltd. [parent=Sundry Debtors]: {'Sales': 2, 'Sales-Tally': 52}
+  Divyanshi Aviation Services Pvt. Ltd. [parent=Sundry Debtors]: {'Sales': 3, 'Sales-Tally': 5}
+  Kumars Concern [parent=Sundry Debtors]: {'Sales': 101, 'Sales-Tally': 304}
+  Sarvodaya Marketing [parent=Sundry Debtors]: {'Sales': 10, 'Sales-Tally': 7}
+  Gita Enterprise [parent=Sundry Debtors]: {'Sales': 6, 'Sales-Tally': 15}
+  Stationerie [parent=Sundry Debtors]: {'Sales': 76, 'Sales-Tally': 207}
+  Pencil Craft Mart [parent=Sundry Debtors]: {'Sales': 54, 'Sales-Tally': 196}
+  Syamadynamic Trading Private Limited. [parent=Sundry Debtors]: {'Sales': 11, 'Sales-Tally': 6}
+  Variety Stationers [parent=Sundry Debtors]: {'Sales': 1, 'Sales-Tally': 12}
+  Glitter Arts & Stationers [parent=Sundry Debtors]: {'Sales': 8, 'Sales-Tally': 16}
+  Anupam Stationery Plaza [parent=Sundry Debtors]: {'Sales': 1, 'Sales-Tally': 45}
+  Big Store LLP [parent=Sundry Debtors]: {'Sales': 8, 'Sales-Tally': 9}
+  Anupam Stationery Point [parent=Sundry Debtors]: {'Sales': 1, 'Sales-Tally': 1}
+  Rajesh Pullarwar [parent=Sundry Debtors]: {'Sales': 3, 'Sales-Tally': 2}
+  A. Nanjappa Drawing Emporiem [parent=Sundry Debtors]: {'Sales': 7, 'Sales-Tally': 2}
+  Bhaskar Binding Works [parent=Sundry Debtors]: {'Credit Note': 12, 'Sales-Tally': 14}
+  Sudhir Patwardhan [parent=Sundry Debtors]: {'Sales Store': 4, 'Sales-Tally': 1}
+  Reliance Stationery World [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 313}
+  M/S. Choudhari Books & Art Shopee [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 1}
+  JANATA BOOK MFG. DEPOT -MUMBAI [parent=Sundry Creditors]: {'Purchase': 186, 'Debit Note': 1}
+  MARKETING SUPPLIES - LOCAL [parent=Sundry Debtors]: {'Credit Note': 4, 'Sales-Tally': 506}
+  Avinash Bangar [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 1}
+  Nanumals Booktique [parent=Sundry Debtors]: {'Credit Note': 32, 'Sales-Tally': 87}
+  Kalam Patua [parent=Sundry Debtors]: {'Credit Note': 2, 'Sales-Tally': 5}
+  Seema Sethi [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 1}
+  Vandana Vishwakarma [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 19}
+  Pragati Agrawal [parent=Sundry Debtors]: {'Credit Note': 12, 'Sales-Tally': 42}
+  Preeti [parent=Sundry Debtors]: {'Credit Note': 2, 'Sales-Tally': 2}
+  RECAERO INDIA PRIVATE LTD [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 1}
+  Ravi .N [parent=Sundry Debtors]: {'Credit Note': 27, 'Sales-Tally': 38}
+  Monica [parent=Sundry Debtors]: {'Credit Note': 2, 'Sales-Tally': 2}
+  Rupali Thombare [parent=Sundry Debtors]: {'Credit Note': 2, 'Sales-Tally': 2}
+  Sonia Arora [parent=Sundry Debtors]: {'Credit Note': 9, 'Sales-Tally': 17}
+  Champion Sales [parent=Sundry Debtors]: {'Credit Note': 4, 'Sales-Tally': 4}
+  Shri Ram Book Depot [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 65}
+  FLASH DYE CHEM PRODUCTS PVT LTD [parent=Sundry Debtors]: {'Sales Store': 4, 'Sales-Tally': 40}
+  FLINOX ENTERPRISES LLP [parent=Sundry Debtors]: {'Credit Note': 39, 'Sales-Tally': 173}
+  Pooja Yadav [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 1}
+  GWAMBO STUDIOS PRIVATE LIMITED [parent=Sundry Debtors]: {'Sales-Tally': 5, 'Sales-ALKG': 1}
+  SudhangsuBandyopadhyay [parent=Sundry Debtors]: {'Credit Note': 22, 'Sales-Tally': 33}
+  S Gnature [parent=Sundry Debtors]: {'Sales Store': 13, 'Sales-Tally': 38}
+  Anurag jadia [parent=Sundry Debtors]: {'Credit Note': 2, 'Sales-Tally': 2}
+  Jessica Talkar [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 1}
+  XLAR ENTERPRISES [parent=Sundry Debtors]: {'Credit Note': 2, 'Sales-Tally': 2}
+  ART SHARK LLP [parent=Sundry Debtors]: {'Credit Note': 17, 'Sales-Tally': 439}
+  Walk Experiential Marketing & Management LTD [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 2}
+  Binu Rojers [parent=Sundry Debtors]: {'Credit Note': 6, 'Sales-Tally': 11}
+  Arunachalam veerappan [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 7}
+  Trishtup [parent=Sundry Debtors]: {'Credit Note': 2, 'Sales-Tally': 2}
+  Sayli Bhor [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 2}
+  AMAZON_IN_API [parent=Sundry Debtors]: {'Sales-Amazon': 5, 'Sales-Tally': 1}
+  Rietu [parent=Sundry Debtors]: {'Credit Note': 29, 'Sales-Tally': 43}
+  Shikha Garg [parent=Sundry Debtors]: {'Credit Note': 2, 'Sales-Tally': 4}
+  SRI KRISHNA STATIONERS [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 2}
+  Manjunath [parent=Sundry Debtors]: {'Credit Note': 1, 'Sales-Tally': 2}
+  Shifana Lourdes [parent=Sundry Debtors]: {'Credit Note': 3, 'Sales-Tally': 6}
+  United Paper And Stationers [parent=Sundry Debtors]: {'Credit Note': 10, 'Sales-Tally': 29}
+
+--- 5b. Vouchers with empty party name ---
+Line items with empty party: 9392
+  By voucher type: {'Physical Stock': 9381, 'Sales-Tally': 11}
+  First 10 examples:
+    date=20250607 vtype=Physical Stock vnum=4 item=3M General Purpose Masking Tape - 18 MM or 3/4 qty=0.0
+    date=20250607 vtype=Physical Stock vnum=4 item=3M General Purpose Masking Tape -24MM or 3/4 qty=0.0
+    date=20250607 vtype=Physical Stock vnum=4 item=MARIO MASKING TAPE 12MM X 20MTR qty=0.0
+    date=20250607 vtype=Physical Stock vnum=4 item=SketchO Drawing Book Soft Cover 25Sheets-A3 qty=0.0
+    date=20250607 vtype=Physical Stock vnum=4 item=SketchO Drawing Book Hard Bound 140Gsm-128 Pgs- A4L qty=0.0
+    date=20250607 vtype=Physical Stock vnum=4 item=SketchO Drawing Book Hard Bound 140Gsm-128 Pgs- SQ. qty=0.0
+    date=20250607 vtype=Physical Stock vnum=4 item=SketchO Drawing Book WireO Bound 140Gsm-128 Pgs- A5P qty=0.0
+    date=20250607 vtype=Physical Stock vnum=4 item=ProSketcher Drawing Book - A3 qty=0.0
+    date=20250607 vtype=Physical Stock vnum=4 item=SketchO Drawing Book WireO Bound 140Gsm-128 Pgs- A4L qty=0.0
+    date=20250607 vtype=Physical Stock vnum=4 item=SketchO Drawing Book WireO Bound 140Gsm-128 Pgs- A3 qty=0.0
+
+--- 5c. Parties in vouchers but NOT in ledger master ---
+Parties in vouchers but missing from ledger master: 0
+
+==========================================================================================
+  INVESTIGATION COMPLETE
+==========================================================================================
+Report saved to: C:\Users\Kshitij Shah\OneDrive\Documents\Art Lounge\ReOrderingProject\src\data\dedup_channels_report.txt

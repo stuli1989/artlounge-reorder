@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+src/venv/
+
+# Environment
+.env
+src/.env
+
+# Large Tally XML data files (cached from Tally)
+data/sample_responses/
+src/data/sample_responses/
+
+# Frontend build artifacts
+src/dashboard/node_modules/
+src/dashboard/dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/

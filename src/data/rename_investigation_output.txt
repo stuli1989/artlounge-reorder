@@ -1,0 +1,897 @@
+Loading stock_items.xml...
+  Loaded 22537 stock items
+Loading vouchers_full_fy.xml (190 MB, ~30-60s)...
+  Loaded 92106 voucher line items
+
+Building lookup structures...
+
+==========================================================================================
+  1. TOP 20 MISMATCHED ITEMS (by abs(diff))
+==========================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+  #1: ART ESSENTIALS TONED GREY 120 G/M2 50.8X63.5
+  Category: FAVINI S.R.L
+  Opening: 55,640  |  Inward: 0  |  Outward: 0
+  Computed closing: 55,640  |  Actual closing: 0
+  DIFF: +55,640  (abs: 55,640)  |  Transactions: 1
+  Possible rename matches in [FAVINI S.R.L]:
+    -> ART ESSENTIALS TONED TAN 120 G/M2 50.8X63.5  (similarity: 0.92)
+       open=44,390 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED GREY 120 G/M2 59.4X84.1  (similarity: 0.89)
+       open=26,400 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED TAN 120 G/M2 59.4X84.1  (similarity: 0.80)
+       open=31,000 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS BURANO BLACK 320 G/M2 61,6X86,6CM  (similarity: 0.61)
+       open=3,550 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS PRISMA 2/S NATURAL WHITE 300 G/m2 59.4X84.1  (similarity: 0.57)
+       open=3,100 close=0 in=0 out=0 txns=1
+
+────────────────────────────────────────────────────────────────────────────────
+  #2: ART ESSENTIALS TONED TAN 120 G/M2 50.8X63.5
+  Category: FAVINI S.R.L
+  Opening: 44,390  |  Inward: 0  |  Outward: 0
+  Computed closing: 44,390  |  Actual closing: 0
+  DIFF: +44,390  (abs: 44,390)  |  Transactions: 1
+  Possible rename matches in [FAVINI S.R.L]:
+    -> ART ESSENTIALS TONED GREY 120 G/M2 50.8X63.5  (similarity: 0.92)
+       open=55,640 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED TAN 120 G/M2 59.4X84.1  (similarity: 0.88)
+       open=31,000 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED GREY 120 G/M2 59.4X84.1  (similarity: 0.80)
+       open=26,400 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS BURANO BLACK 320 G/M2 61,6X86,6CM  (similarity: 0.62)
+       open=3,550 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS PRISMA 2/S NATURAL WHITE 300 G/m2 59.4X84.1  (similarity: 0.57)
+       open=3,100 close=0 in=0 out=0 txns=1
+
+────────────────────────────────────────────────────────────────────────────────
+  #3: ART ESSENTIALS TONED TAN 120 G/M2 59.4X84.1
+  Category: FAVINI S.R.L
+  Opening: 31,000  |  Inward: 0  |  Outward: 0
+  Computed closing: 31,000  |  Actual closing: 0
+  DIFF: +31,000  (abs: 31,000)  |  Transactions: 1
+  Possible rename matches in [FAVINI S.R.L]:
+    -> ART ESSENTIALS TONED GREY 120 G/M2 59.4X84.1  (similarity: 0.92)
+       open=26,400 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED TAN 120 G/M2 50.8X63.5  (similarity: 0.88)
+       open=44,390 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED GREY 120 G/M2 50.8X63.5  (similarity: 0.80)
+       open=55,640 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS PRISMA 2/S NATURAL WHITE 300 G/m2 59.4X84.1  (similarity: 0.67)
+       open=3,100 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS BURANO BLACK 320 G/M2 61,6X86,6CM  (similarity: 0.62)
+       open=3,550 close=0 in=0 out=0 txns=1
+
+────────────────────────────────────────────────────────────────────────────────
+  #4: ART ESSENTIALS TONED GREY 120 G/M2 59.4X84.1
+  Category: FAVINI S.R.L
+  Opening: 26,400  |  Inward: 0  |  Outward: 0
+  Computed closing: 26,400  |  Actual closing: 0
+  DIFF: +26,400  (abs: 26,400)  |  Transactions: 1
+  Possible rename matches in [FAVINI S.R.L]:
+    -> ART ESSENTIALS TONED TAN 120 G/M2 59.4X84.1  (similarity: 0.92)
+       open=31,000 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED GREY 120 G/M2 50.8X63.5  (similarity: 0.89)
+       open=55,640 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED TAN 120 G/M2 50.8X63.5  (similarity: 0.80)
+       open=44,390 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS PRISMA 2/S NATURAL WHITE 300 G/m2 59.4X84.1  (similarity: 0.67)
+       open=3,100 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS BURANO BLACK 320 G/M2 61,6X86,6CM  (similarity: 0.61)
+       open=3,550 close=0 in=0 out=0 txns=1
+
+────────────────────────────────────────────────────────────────────────────────
+  #5: CANSON YEARLING NEUTRAL GREY
+  Category: CANSON
+  Opening: 7,200  |  Inward: 0  |  Outward: 0
+  Computed closing: 7,200  |  Actual closing: 0
+  DIFF: +7,200  (abs: 7,200)  |  Transactions: 1
+  Possible rename matches in [CANSON]:
+    -> CANSON YEARLING GREY MONT  (similarity: 0.75)
+       open=1,250 close=0 in=0 out=0 txns=1
+
+────────────────────────────────────────────────────────────────────────────────
+  #6: Lana Lanaquarelle Cold Pressed 300g 61.6 x 86.6 cm
+  Category: LANA
+  Opening: 200  |  Inward: 6,200  |  Outward: 0
+  Computed closing: 6,400  |  Actual closing: 0
+  DIFF: +6,400  (abs: 6,400)  |  Transactions: 2
+  Possible rename matches in [LANA]:
+    -> LANA Lanaquarelle Hot Pressed 300g 61.6 x 86.6 Cm  (similarity: 0.95)
+       open=300 close=0 in=0 out=0 txns=1
+    -> Lana Lanaquarelle Rough 300g 616x866mm  (similarity: 0.75)
+       open=2,235 close=0 in=0 out=0 txns=1
+    -> Lanaquarelle Hot Pressed 300g 15x21cm  (similarity: 0.74)
+       open=2,897 close=700 in=700 out=0 txns=2
+    -> Lanaquarelle100%cottonrag,mould-made,matt / cold pressed-300g - 18 x 26 cm  (similarity: 0.61)
+       open=0 close=-2 in=10 out=8 txns=8
+    -> Lanaquarelle Rough 300g 15x21cm  (similarity: 0.59)
+       open=5,420 close=360 in=360 out=0 txns=2
+
+────────────────────────────────────────────────────────────────────────────────
+  #7: Lanaquarelle Rough 300g 15x21cm
+  Category: LANA
+  Opening: 5,420  |  Inward: 360  |  Outward: 0
+  Computed closing: 5,780  |  Actual closing: 360
+  DIFF: +5,420  (abs: 5,420)  |  Transactions: 2
+  Possible rename matches in [LANA]:
+    -> Lanaquarelle Matt 300g 15x21cm  (similarity: 0.85)
+       open=4,097 close=800 in=800 out=0 txns=2
+    -> Lanaquarelle Hot Pressed 300g 15x21cm  (similarity: 0.79)
+       open=2,897 close=700 in=700 out=0 txns=2
+    -> Lana Lanaquarelle Rough 300g 616x866mm  (similarity: 0.78)
+       open=2,235 close=0 in=0 out=0 txns=1
+    -> Lana Calligraphie 250g 15x21cm  (similarity: 0.62)
+       open=93 close=0 in=0 out=0 txns=1
+    -> LanaBristol 250g 15x21cm  (similarity: 0.62)
+       open=377 close=0 in=0 out=0 txns=1
+
+────────────────────────────────────────────────────────────────────────────────
+  #8: Koh-i-noor Jumbo Special Coloured MAGIC Pencil 3405 ORIGINAL
+  Category: KOH-I-NOOR
+  Opening: 5,400  |  Inward: 436  |  Outward: 404
+  Computed closing: 5,432  |  Actual closing: 32
+  DIFF: +5,400  (abs: 5,400)  |  Transactions: 39
+  Possible rename matches in [KOH-I-NOOR]:
+    -> Koh-i-noor Jumbo Special Coloured MAGIC Pencil 3405 TROPICAL  (similarity: 0.93)
+       open=0 close=28 in=434 out=406 txns=40
+    -> Koh-i-noor Jumbo Special Coloured MAGIC Pencil 3405 NEON  (similarity: 0.93)
+       open=36 close=32 in=437 out=443 txns=43
+    -> Koh-i-noor Jumbo Special Coloured MAGIC Pencil 3405 FIRE  (similarity: 0.91)
+       open=5 close=26 in=432 out=411 txns=38
+    -> Koh-i-noor Jumbo Special Coloured MAGIC Pencil 3405 ORIGINAL - Box of 30  (similarity: 0.91)
+       open=0 close=0 in=0 out=0 txns=0
+    -> Koh-i-noor Jumbo Special Coloured MAGIC Pencil 3405 AMERICA Blue  (similarity: 0.90)
+       open=12 close=9 in=20 out=20 txns=17
+
+────────────────────────────────────────────────────────────────────────────────
+  #9: ART ESSENTIALS GRAINED DRAWING PAPER 59.4 X 84.1 180G
+  Category: SCHUT PAPIER
+  Opening: 5,337  |  Inward: 0  |  Outward: 0
+  Computed closing: 5,337  |  Actual closing: 0
+  DIFF: +5,337  (abs: 5,337)  |  Transactions: 1
+  Possible rename matches in [SCHUT PAPIER]:
+    -> ART ESSENTIALS GRAINED DRAWING PAPER 61.6 X 86.6 180G  (similarity: 0.91)
+       open=0 close=0 in=0 out=0 txns=0
+    -> ART ESSENTIALS GRAINED DRAWING PAPER 50 X 65 180G  (similarity: 0.90)
+       open=0 close=0 in=0 out=0 txns=0
+    -> ART ESSENTIALS GRAINED DRAWING PAPER A1 180G  (similarity: 0.89)
+       open=0 close=0 in=0 out=0 txns=0
+    -> ART ESSENTIALS GRAINED DRAWING PAPER A1 PLUS 180G  (similarity: 0.84)
+       open=1,817 close=-120 in=0 out=120 txns=2
+    -> ART ESSENTIALS WATERCOLOUR ARTIST PAPER 59.4 X 84.1 300G  (similarity: 0.72)
+       open=1,969 close=0 in=0 out=0 txns=1
+
+────────────────────────────────────────────────────────────────────────────────
+  #10: Lanaquarelle Matt 300g 15x21cm
+  Category: LANA
+  Opening: 4,097  |  Inward: 800  |  Outward: 0
+  Computed closing: 4,897  |  Actual closing: 800
+  DIFF: +4,097  (abs: 4,097)  |  Transactions: 2
+  Possible rename matches in [LANA]:
+    -> Lanaquarelle Rough 300g 15x21cm  (similarity: 0.85)
+       open=5,420 close=360 in=360 out=0 txns=2
+    -> Lanaquarelle Hot Pressed 300g 15x21cm  (similarity: 0.81)
+       open=2,897 close=700 in=700 out=0 txns=2
+    -> Lana Lanaquarelle Rough 300g 616x866mm  (similarity: 0.65)
+       open=2,235 close=0 in=0 out=0 txns=1
+    -> Lana Calligraphie 250g 15x21cm  (similarity: 0.63)
+       open=93 close=0 in=0 out=0 txns=1
+    -> LanaBristol 250g 15x21cm  (similarity: 0.63)
+       open=377 close=0 in=0 out=0 txns=1
+
+────────────────────────────────────────────────────────────────────────────────
+  #11: ART ESSENTIALS BURANO BLACK 320 G/M2 61,6X86,6CM
+  Category: FAVINI S.R.L
+  Opening: 3,550  |  Inward: 0  |  Outward: 0
+  Computed closing: 3,550  |  Actual closing: 0
+  DIFF: +3,550  (abs: 3,550)  |  Transactions: 1
+  Possible rename matches in [FAVINI S.R.L]:
+    -> ART ESSENTIALS SH WATERCOLOUR N WHITE 300G 61.6x86.6 cm  (similarity: 0.64)
+       open=2,938 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED TAN 120 G/M2 59.4X84.1  (similarity: 0.62)
+       open=31,000 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED TAN 120 G/M2 50.8X63.5  (similarity: 0.59)
+       open=44,390 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS PRISMA 2/S NATURAL WHITE 300 G/m2 55x75 cm  (similarity: 0.59)
+       open=2,125 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED GREY 120 G/M2 59.4X84.1  (similarity: 0.59)
+       open=26,400 close=0 in=0 out=0 txns=1
+
+────────────────────────────────────────────────────────────────────────────────
+  #12: W&N Galeria Primary Colour Sample Set
+  Category: WINSOR & NEWTON
+  Opening: 3,506  |  Inward: 0  |  Outward: 0
+  Computed closing: 3,506  |  Actual closing: 0
+  DIFF: +3,506  (abs: 3,506)  |  Transactions: 1
+  Possible rename matches in [WINSOR & NEWTON]:
+    -> WN COTMAN WATERCOLOUR PRIMARY COLOUR SAMPLE SET  (similarity: 0.76)
+       open=136 close=0 in=0 out=0 txns=1
+    -> W&N Winton Oil Colour Primary Colour Sample Set  (similarity: 0.76)
+       open=1,804 close=0 in=0 out=0 txns=1
+    -> W&N PROFESSIONAL ACRYLIC PRIMARY COL SAMPLE SET  (similarity: 0.74)
+       open=611 close=0 in=0 out=0 txns=1
+    -> W&N GALERIA ACRYLIC COLOUR 5X60ML TUBES PASTEL SET  (similarity: 0.69)
+       open=0 close=1 in=1 out=0 txns=1
+    -> W&N GALERIA ACRYLIC COLOUR 5X60ML TUBES PROCESS SET  (similarity: 0.68)
+       open=0 close=0 in=1 out=1 txns=2
+
+────────────────────────────────────────────────────────────────────────────────
+  #13: Lana Colour Pastel Paper - A4 - Black - Textured + Smooth 160 GSM
+  Category: LANA
+  Opening: 3,500  |  Inward: 5  |  Outward: 0
+  Computed closing: 3,505  |  Actual closing: 5
+  DIFF: +3,500  (abs: 3,500)  |  Transactions: 2
+  Possible rename matches in [LANA]:
+    -> Lana Colour Pastel Paper - A4 - Blue - Textured + Smooth 160 GSM  (similarity: 0.96)
+       open=0 close=5 in=5 out=0 txns=1
+    -> Lana Colour Pastel Paper - A4 - Claret - Textured + Smooth 160 GSM  (similarity: 0.95)
+       open=0 close=4 in=4 out=0 txns=1
+    -> Lana Colour Pastel Paper - A4 - Azur - Textured + Smooth 160 GSM  (similarity: 0.95)
+       open=0 close=0 in=0 out=0 txns=0
+    -> Lana Colour Pastel Paper - A4 - Cyan - Textured + Smooth 160 GSM  (similarity: 0.95)
+       open=0 close=0 in=0 out=0 txns=0
+    -> Lana Colour Pastel Paper - A4 - Sage - Textured + Smooth 160 GSM  (similarity: 0.95)
+       open=0 close=4 in=4 out=0 txns=1
+
+────────────────────────────────────────────────────────────────────────────────
+  #14: Lana Colour Pastel Paper - A4 - White - Textured + Smooth 160 GSM
+  Category: LANA
+  Opening: 3,500  |  Inward: 4  |  Outward: 0
+  Computed closing: 3,504  |  Actual closing: 4
+  DIFF: +3,500  (abs: 3,500)  |  Transactions: 2
+  Possible rename matches in [LANA]:
+    -> Lana Colour Pastel Paper - A4 - Mint - Textured + Smooth 160 GSM  (similarity: 0.96)
+       open=0 close=5 in=5 out=0 txns=1
+    -> Lana Colour Pastel Paper - A4 - Ochre - Textured + Smooth 160 GSM  (similarity: 0.95)
+       open=0 close=5 in=5 out=0 txns=1
+    -> Lana Colour Pastel Paper - A4 - Ivy - Textured + Smooth 160 GSM  (similarity: 0.95)
+       open=0 close=5 in=5 out=0 txns=1
+    -> Lana Colour Pastel Paper - A4 - Red - Textured + Smooth 160 GSM  (similarity: 0.95)
+       open=0 close=5 in=5 out=0 txns=1
+    -> Lana Colour Pastel Paper - A4 - Bisque - Textured + Smooth 160 GSM  (similarity: 0.95)
+       open=0 close=4 in=4 out=0 txns=1
+
+────────────────────────────────────────────────────────────────────────────────
+  #15: PP-191 PVC BOX 12 PCS TEXTILES MARKER
+  Category: ICO BRUSH PEN
+  Opening: 3,190  |  Inward: 0  |  Outward: 0
+  Computed closing: 3,190  |  Actual closing: 0
+  DIFF: +3,190  (abs: 3,190)  |  Transactions: 1
+  No similar names found in category [ICO BRUSH PEN]
+
+────────────────────────────────────────────────────────────────────────────────
+  #16: Koh-i-noor Soft Eraser In Pencil - FSC 100%
+  Category: KOH-I-NOOR
+  Opening: 0  |  Inward: 8,747  |  Outward: 15,363
+  Computed closing: -6,616  |  Actual closing: -3,510
+  DIFF: -3,106  (abs: 3,106)  |  Transactions: 218
+  Possible rename matches in [KOH-I-NOOR]:
+    -> Koh-i-noor Soft Eraser In Pencil - FSC 100% - Pack of 2  (similarity: 0.88)
+       open=0 close=0 in=0 out=0 txns=0
+    -> Koh-i-noor Soft Eraser In Pencil - FSC 100% - Pack of 5  (similarity: 0.88)
+       open=0 close=0 in=0 out=0 txns=0
+    -> Koh-i-noor Soft Eraser In Pencil - FSC 100% - GROSS - 36  (similarity: 0.87)
+       open=0 close=0 in=0 out=0 txns=0
+    -> Koh-i-noor Soft Eraser In Pencil - FSC 100% - GROSS - 144  (similarity: 0.86)
+       open=0 close=0 in=0 out=0 txns=0
+    -> Koh-i-noor Soft Eraser 0305 40  (similarity: 0.68)
+       open=336 close=-104 in=0 out=104 txns=9
+
+────────────────────────────────────────────────────────────────────────────────
+  #17: ART ESSENTIALS PRISMA 2/S NATURAL WHITE 300 G/m2 59.4X84.1
+  Category: FAVINI S.R.L
+  Opening: 3,100  |  Inward: 0  |  Outward: 0
+  Computed closing: 3,100  |  Actual closing: 0
+  DIFF: +3,100  (abs: 3,100)  |  Transactions: 1
+  Possible rename matches in [FAVINI S.R.L]:
+    -> ART ESSENTIALS PRISMA 2/S NATURAL WHITE 300 G/m2 55x75 cm  (similarity: 0.89)
+       open=2,125 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS PRISMA 2/S WHITE 200G 72X102CM  (similarity: 0.70)
+       open=0 close=0 in=0 out=0 txns=0
+    -> ART ESSENTIALS TONED TAN 120 G/M2 59.4X84.1  (similarity: 0.67)
+       open=31,000 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS TONED GREY 120 G/M2 59.4X84.1  (similarity: 0.67)
+       open=26,400 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS BRISTOL WHITE 200G 70X100CM  (similarity: 0.62)
+       open=0 close=0 in=0 out=0 txns=0
+
+────────────────────────────────────────────────────────────────────────────────
+  #18: Lana Lanaquarelle 300 GSM Rough Paper - Natural White 56 x 76 cm Sheet
+  Category: LANA
+  Opening: 3,050  |  Inward: 117  |  Outward: 360
+  Computed closing: 2,807  |  Actual closing: -182
+  DIFF: +2,989  (abs: 2,989)  |  Transactions: 35
+  Possible rename matches in [LANA]:
+    -> Lana Lanaquarelle 640 GSM Rough Paper - Natural White 56 x 76 cm Sheet  (similarity: 0.97)
+       open=0 close=5 in=15 out=10 txns=4
+    -> Lana Lanaquarelle 300 GSM Smooth Paper - Natural White 56 x 76 cm Sheet  (similarity: 0.95)
+       open=0 close=-103 in=578 out=253 txns=25
+    -> Lana Lanaquarelle 300 GSM Fine Paper - Natural White 56 x 76 cm Sheet  (similarity: 0.94)
+       open=100 close=476 in=1,867 out=914 txns=84
+    -> Lana Lanaquarelle 640 GSM Smooth Paper - Natural White 56 x 76 cm Sheet  (similarity: 0.92)
+       open=25 close=1 in=5 out=9 txns=4
+    -> Lana Lanaquarelle 300 GSM Rough Paper - Natural White 56 x 76 cm Sheet - Pack of 5  (similarity: 0.92)
+       open=0 close=0 in=0 out=0 txns=0
+
+────────────────────────────────────────────────────────────────────────────────
+  #19: ART ESSENTIALS SH WATERCOLOUR N WHITE 300G 61.6x86.6 cm
+  Category: FAVINI S.R.L
+  Opening: 2,938  |  Inward: 0  |  Outward: 0
+  Computed closing: 2,938  |  Actual closing: 0
+  DIFF: +2,938  (abs: 2,938)  |  Transactions: 1
+  Possible rename matches in [FAVINI S.R.L]:
+    -> ART ESSENTIALS BRISTOL WHITE 200G 70X100CM  (similarity: 0.68)
+       open=0 close=0 in=0 out=0 txns=0
+    -> ART ESSENTIALS PRISMA 2/S NATURAL WHITE 300 G/m2 55x75 cm  (similarity: 0.66)
+       open=2,125 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS PRISMA 2/S NATURAL WHITE 300 G/m2 59.4X84.1  (similarity: 0.65)
+       open=3,100 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS BURANO BLACK 320 G/M2 61,6X86,6CM  (similarity: 0.62)
+       open=3,550 close=0 in=0 out=0 txns=1
+    -> ART ESSENTIALS PRISMA 2/S WHITE 200G 72X102CM  (similarity: 0.62)
+       open=0 close=0 in=0 out=0 txns=0
+
+────────────────────────────────────────────────────────────────────────────────
+  #20: Lanaquarelle Hot Pressed 300g 15x21cm
+  Category: LANA
+  Opening: 2,897  |  Inward: 700  |  Outward: 0
+  Computed closing: 3,597  |  Actual closing: 700
+  DIFF: +2,897  (abs: 2,897)  |  Transactions: 2
+  Possible rename matches in [LANA]:
+    -> Lanaquarelle Matt 300g 15x21cm  (similarity: 0.81)
+       open=4,097 close=800 in=800 out=0 txns=2
+    -> Lanaquarelle Rough 300g 15x21cm  (similarity: 0.79)
+       open=5,420 close=360 in=360 out=0 txns=2
+    -> LANA Lanaquarelle Hot Pressed 300g 61.6 x 86.6 Cm  (similarity: 0.79)
+       open=300 close=0 in=0 out=0 txns=1
+    -> Lana Lanaquarelle Cold Pressed 300g 61.6 x 86.6 cm  (similarity: 0.74)
+       open=200 close=0 in=6,200 out=0 txns=2
+    -> Lana Dessin 150g 15x21cm  (similarity: 0.62)
+       open=220 close=0 in=0 out=0 txns=1
+
+==========================================================================================
+  2. SPECIFIC PAIR: ART ESSENTIALS TONED GREY
+==========================================================================================
+
+  Name: ART ESSENTIALS TONED GREY 120 G/M2 50.8X63.5
+  Category: FAVINI S.R.L
+  Opening: 55,640
+  Inward:  0   Outward: 0   Txns: 1
+  Computed closing: 55,640
+  Actual closing:   0
+  Diff: +55,640
+
+  Name: AE TONED GREY50.8 CM X 63.5 CM25 SHEET
+  Category: ART ESSENTIALS
+  Opening: 0
+  Inward:  0   Outward: 1,150   Txns: 10
+  Computed closing: -1,150
+  Actual closing:   -1,150
+  Diff: +0
+
+  String similarity: 0.537
+  Old tokens: {'ART', 'TONED', 'GREY', '120', 'ESSENTIALS', '50.8X63.5'}
+  New tokens: {'63.5', 'SHEET', 'TONED', 'GREY50.8', 'CM25'}
+  Shared tokens: {'TONED'}
+
+==========================================================================================
+  3. ITEMS WITH OPENING > 0, CLOSING = 0, ZERO TRANSACTIONS (renamed away?)
+==========================================================================================
+
+  Count: 0 items
+  (These had stock at FY start but disappeared with no transactions — strong rename signal)
+
+--- Top 20 by opening balance ---
+
+--- Items with opening > 0, closing = 0, WITH transactions: 1746 ---
+  (Sold down to zero OR renamed mid-FY after some transactions)
+
+==========================================================================================
+  4. ITEMS WITH OPENING = 0, CLOSING < 0 (new names receiving sales?)
+==========================================================================================
+
+  Count: 2429 items
+  (No opening stock but closing balance is negative — sold without purchase, likely renamed TO)
+
+--- Top 20 by most negative closing ---
+  Koh-i-noor Soft Eraser In Pencil - FSC 100%
+    Category: KOH-I-NOOR  |  Closing: -3,510  |  Txns: 218
+  AE TONED TAN50.8 CM X 63.5 CM25 SHEET
+    Category: ART ESSENTIALS  |  Closing: -1,934  |  Txns: 19
+  AE TONED GREY50.8 CM X 63.5 CM25 SHEET
+    Category: ART ESSENTIALS  |  Closing: -1,150  |  Txns: 10
+  AE WATERCOLOUR STUDIO55 CM X 75 CM25 SHEET
+    Category: ART ESSENTIALS  |  Closing: -545  |  Txns: 14
+  AE DRAWING & ILLUS. 180 GSM 180 Art NOTEBOOK 76 Pa
+    Category: ART ESSENTIALS  |  Closing: -322  |  Txns: 65
+  AEDIA WHITE 10
+    Category: ART ESSENTIALS  |  Closing: -322  |  Txns: 30
+  WN WOC 37ML BURNT SIENNA
+    Category: WINSOR & NEWTON  |  Closing: -188  |  Txns: 92
+  AE MM 300G PPACK A3 5 SH
+    Category: ART ESSENTIALS  |  Closing: -157  |  Txns: 23
+  SpeedBall #101 Pen Nib
+    Category: SPEEDBALL  |  Closing: -140  |  Txns: 55
+  Koh-i-noor Woodless Coloured MAGIC Pencil 8775
+    Category: KOH-I-NOOR  |  Closing: -135  |  Txns: 19
+  AE WATERCOLOUR PURE COTTON 56 CM X 76 CM25 SHEET
+    Category: ART ESSENTIALS  |  Closing: -119  |  Txns: 24
+  AE WCA 100% COTTON 300 GSM 180 Art NOTEBOOK 44 Pag
+    Category: ART ESSENTIALS  |  Closing: -116  |  Txns: 65
+  AE DIA 180G SP A5 30 SH
+    Category: ART ESSENTIALS  |  Closing: -115  |  Txns: 53
+  soft eraser in pencil - FSC 100% 6312 5pcs - Blister Pack
+    Category: KOH-I-NOOR  |  Closing: -106  |  Txns: 14
+  Lana Lanaquarelle 300 GSM Smooth Paper - Natural White 56 x 76 cm Sheet
+    Category: LANA  |  Closing: -103  |  Txns: 25
+  AE WCS 300G SH 55 x 75
+    Category: ART ESSENTIALS  |  Closing: -102  |  Txns: 2
+  soft eraser in pencil - FSC 100% 6312 2pcs - Blister Pack
+    Category: KOH-I-NOOR  |  Closing: -100  |  Txns: 6
+  AE MM 300G PPACK A4 10 SH
+    Category: ART ESSENTIALS  |  Closing: -90  |  Txns: 27
+  Speedball Monalisa Composition Gold Leaf 5.5 x 5.5 25 sheets
+    Category: SPEEDBALL  |  Closing: -89  |  Txns: 35
+  WN OMV 500ML LIN OIL REF V1
+    Category: WINSOR & NEWTON  |  Closing: -75  |  Txns: 39
+
+--- Items with opening = 0, closing != 0, with inward transactions: 5307 ---
+
+==========================================================================================
+  5. CATEGORY/BRAND DISTRIBUTION OF MISMATCHES
+==========================================================================================
+
+  Total items: 22537
+  Matched (abs_diff <= 1): 15214  (67.5%)
+  Mismatched (abs_diff > 1): 7323  (32.5%)
+
+--- Top 20 categories by NUMBER of mismatched items ---
+  WINSOR & NEWTON: 1441/2257 mismatched (64%)  |  Sum abs_diff: 48,513
+  PEBEO: 675/1403 mismatched (48%)  |  Sum abs_diff: 14,181
+  KOH-I-NOOR: 649/1944 mismatched (33%)  |  Sum abs_diff: 43,342
+  SPEEDBALL: 353/550 mismatched (64%)  |  Sum abs_diff: 4,837
+  HOLBEIN: 349/703 mismatched (50%)  |  Sum abs_diff: 1,337
+  DECOART: 311/710 mismatched (44%)  |  Sum abs_diff: 5,372
+  EDDING: 251/372 mismatched (67%)  |  Sum abs_diff: 12,328
+  JACQUARD: 229/782 mismatched (29%)  |  Sum abs_diff: 1,748
+  ART ESSENTIALS: 200/289 mismatched (69%)  |  Sum abs_diff: 23,984
+  RGM: 188/366 mismatched (51%)  |  Sum abs_diff: 5,275
+  MARABU: 184/395 mismatched (47%)  |  Sum abs_diff: 2,048
+  CAMLIN: 154/1196 mismatched (13%)  |  Sum abs_diff: 724
+  MANUSCRIPT: 144/276 mismatched (52%)  |  Sum abs_diff: 9,360
+  MONTANA: 133/407 mismatched (33%)  |  Sum abs_diff: 2,709
+  ARTLINE: 114/135 mismatched (84%)  |  Sum abs_diff: 3,864
+  UNI-BALL: 102/222 mismatched (46%)  |  Sum abs_diff: 862
+  MIJELLO: 100/384 mismatched (26%)  |  Sum abs_diff: 6,565
+  LANA: 90/289 mismatched (31%)  |  Sum abs_diff: 44,851
+  SNOWMAN: 86/137 mismatched (63%)  |  Sum abs_diff: 26,030
+  STABILO: 85/300 mismatched (28%)  |  Sum abs_diff: 625
+
+--- Top 20 categories by TOTAL abs_diff (magnitude) ---
+  FAVINI S.R.L: sum_abs_diff=169,143  |  8/10 mismatched
+  WINSOR & NEWTON: sum_abs_diff=48,513  |  1441/2257 mismatched
+  LANA: sum_abs_diff=44,851  |  90/289 mismatched
+  KOH-I-NOOR: sum_abs_diff=43,342  |  649/1944 mismatched
+  SNOWMAN: sum_abs_diff=26,030  |  86/137 mismatched
+  ART ESSENTIALS: sum_abs_diff=23,984  |  200/289 mismatched
+  Art Lounge: sum_abs_diff=23,517  |  77/170 mismatched
+  ICO BRUSH PEN: sum_abs_diff=19,269  |  57/80 mismatched
+  PEBEO: sum_abs_diff=14,181  |  675/1403 mismatched
+  EDDING: sum_abs_diff=12,328  |  251/372 mismatched
+  CANSON: sum_abs_diff=11,593  |  56/326 mismatched
+  SCHUT PAPIER: sum_abs_diff=10,183  |  6/9 mismatched
+  MANUSCRIPT: sum_abs_diff=9,360  |  144/276 mismatched
+  MIJELLO: sum_abs_diff=6,565  |  100/384 mismatched
+  FACTIS: sum_abs_diff=5,396  |  50/123 mismatched
+  DECOART: sum_abs_diff=5,372  |  311/710 mismatched
+  RGM: sum_abs_diff=5,275  |  188/366 mismatched
+  SPEEDBALL: sum_abs_diff=4,837  |  353/550 mismatched
+  GENERAL PENCIL: sum_abs_diff=4,475  |  37/171 mismatched
+  ARTLINE: sum_abs_diff=3,864  |  114/135 mismatched
+
+--- Categories with 100% mismatch rate (all items broken) ---
+  SHAURYA: 6/6 items (100% mismatch)
+
+==========================================================================================
+  6. OVERALL MISMATCH STATISTICS
+==========================================================================================
+
+  Zero diff (abs <= 0.01):    13,182  (58.5%)
+  Tiny diff (0.01 < abs <= 1): 2,032  (9.0%)
+  Medium diff (1 < abs <= 100): 6,774  (30.1%)
+  Large diff (abs > 100):       549  (2.4%)
+
+  Items with ZERO transactions: 7,282  (32.3%)
+  Items where formula matches perfectly: 13,182  (58.5%)
+
+  Items in vouchers but NOT in stock_items.xml: 0
+
+  Items in stock_items but NEVER in vouchers: 7,282
+    Of these, with non-zero opening: 2
+    Of these, with non-zero closing: 2
+
+==========================================================================================
+  7. OPTION A: RECONSTRUCT STOCK POSITION WORKING BACKWARDS FROM CLOSING BALANCE
+==========================================================================================
+
+  Strategy: Instead of opening + inward - outward, use the CLOSING balance
+  from Tally (which IS correct) and replay transactions to build daily positions.
+
+  For each day working BACKWARDS from today:
+    stock[day] = stock[day+1] + outward[day] - inward[day]
+  OR equivalently, FORWARD from closing:
+    stock[day] = closing - sum(inward after day) + sum(outward after day)
+
+
+--- Item: WN OMV 75ML LIQUIN V1 ---
+  Category: WINSOR & NEWTON
+  Opening: 2,322  |  Actual Closing: -1,479
+  Inward: 247  |  Outward: 2,158  |  Txns: 225
+  Formula diff: +1,890
+
+  DATE               IN      OUT    BALANCE  DETAILS
+  ------------ -------- -------- ----------  ----------------------------------------
+  (implied)                             432  <- implied opening from backward calc
+  20250411            0       44        388  OUT 2 (Sales, Shankhesh Sales and Marketing); OUT 42 (Sales, Art Loung
+  20250412            0       10        378  OUT 10 (Sales, Himalaya Stationary Mart)
+  20250414            0       23        355  OUT 6 (Sales, Kapoor Traders); OUT 2 (Sales, Vardhman Trading Company)
+  20250417            0       10        345  OUT 10 (Sales, Star Stationeries (Trading As )
+  20250421            0       15        330  OUT 15 (Sales, Anjali International)
+  20250423            0       39        291  OUT 30 (Sales, Art Lounge India); OUT 5 (Sales, Saraswati Stationers);
+  20250429            0       10        281  OUT 10 (Sales, Himalaya Stationary Mart)
+  20250430            0       10        271  OUT 10 (Sales, Saremisons)
+       ...                                   (132 more days)
+  20260216            0        1     -1,305  OUT 1 (Sales-Flipkart, FLIPKART)
+  20260217            0        6     -1,311  OUT 6 (Sales-Tally, Art Lounge India)
+  20260218            0        6     -1,317  OUT 6 (Sales-Tally, Shankhesh Sales and Marketing)
+  20260219            0      132     -1,449  OUT 132 (Sales-Tally, Art Lounge India)
+  20260220            0       18     -1,467  OUT 18 (Sales-Tally, Art Lounge India)
+  20260224            0        2     -1,469  OUT 2 (Sales-Tally, Anupam Stationery Super Store )
+  20260227            0       10     -1,479  OUT 10 (Sales-Tally, MG Enterprises)
+
+  Implied opening (from backward calc): 432
+  Actual opening (from stock_items.xml): 2,322
+  Discrepancy: +1,890
+  -> This discrepancy likely represents a RENAME adjustment.
+     Stock was moved to/from this item name during the FY.
+
+--- Item: Koh-i-noor Soft Eraser In Pencil - FSC 100% ---
+  Category: KOH-I-NOOR
+  Opening: 0  |  Actual Closing: -3,510
+  Inward: 8,747  |  Outward: 15,363  |  Txns: 218
+  Formula diff: -3,106
+
+  DATE               IN      OUT    BALANCE  DETAILS
+  ------------ -------- -------- ----------  ----------------------------------------
+  (implied)                           3,106  <- implied opening from backward calc
+  20250412            0       36      3,070  OUT 36 (Sales, Alpha Stationers)
+  20250415            0      180      2,890  OUT 180 (Sales, Sogani Traders)
+  20250416            0       72      2,818  OUT 72 (Sales, JIneshwar Tradelink)
+  20250417            0      288      2,530  OUT 144 (Sales, Star Stationeries (Trading As ); OUT 144 (Sales, New B
+  20250419            0      144      2,386  OUT 144 (Sales, Shankhesh Sales and Marketing)
+  20250421            0       36      2,350  OUT 36 (Sales, JM Company)
+  20250425            0      144      2,206  OUT 144 (Sales, MG Enterprises)
+  20250426            0      150      2,056  OUT 12 (Sales, Mango Stationery Pvt. Ltd); OUT 36 (Sales, Tapan Art an
+       ...                                   (128 more days)
+  20260205            0        1     -3,539  OUT 1 (Sales-Tally, MAGENTO2)
+  20260213            0        1     -3,540  OUT 1 (Sales-Tally, MAGENTO2)
+  20260217            0        3     -3,543  OUT 2 (Sales Store, Counter Collection - QR); OUT 1 (Sales Store, Coun
+  20260219            0        3     -3,546  OUT 1 (Sales Store, Counter Collection - QR); OUT 2 (Sales Store, Coun
+  20260224            5        2     -3,543  IN 5 (Purchase, Art Lounge India - Purchase); OUT 2 (Sales-Tally, MAGE
+  20260228            0        3     -3,546  OUT 3 (Sales-Tally, Art Lounge India)
+  20260311           36        0     -3,510  IN 36 (Credit Note, Nanumals Booktique)
+
+  Implied opening (from backward calc): 3,106
+  Actual opening (from stock_items.xml): 0
+  Discrepancy: -3,106
+  -> This discrepancy likely represents a RENAME adjustment.
+     Stock was moved to/from this item name during the FY.
+
+--- Item: W&N FIXATIVE SPRAY 400ML V1 ---
+  Category: WINSOR & NEWTON
+  Opening: 647  |  Actual Closing: -1,169
+  Inward: 1,334  |  Outward: 1,979  |  Txns: 180
+  Formula diff: +1,171
+
+  DATE               IN      OUT    BALANCE  DETAILS
+  ------------ -------- -------- ----------  ----------------------------------------
+  (implied)                            -524  <- implied opening from backward calc
+  20250410            0       60       -584  OUT 60 (Sales, Hindustan Trading Company)
+  20250411            0        2       -586  OUT 2 (Sales, Mango Stationery Pvt. Ltd)
+  20250414            0        1       -587  OUT 1 (Sales, Mango Stationery Pvt. Ltd)
+  20250415            0       12       -599  OUT 12 (Sales, Art Lounge India)
+  20250416            0       12       -611  OUT 12 (Sales, Harsh Enterprises)
+  20250418            0       14       -625  OUT 2 (Sales, Vardhman Trading Company); OUT 12 (Sales, Art Lounge Ind
+  20250424            0        6       -631  OUT 6 (Sales, Art Lounge India)
+  20250426            0        2       -633  OUT 2 (Sales, Purple Pal8)
+       ...                                   (94 more days)
+  20260205            0       31     -1,162  OUT 18 (Sales-Tally, Bhaskar Arts Center); OUT 12 (Sales-Tally, Shankh
+  20260206            0        2     -1,164  OUT 2 (Sales-Tally, Vardhman Trading Company)
+  20260209            0        1     -1,165  OUT 1 (Sales-Tally, MAGENTO2)
+  20260213            0        1     -1,166  OUT 1 (Sales-Tally, MAGENTO2)
+  20260216            0        1     -1,167  OUT 1 (Sales-Tally, MAGENTO2)
+  20260217            0        1     -1,168  OUT 1 (Sales Store, Counter Collection - CC)
+  20260219            0        1     -1,169  OUT 1 (Sales-Tally, MAGENTO2)
+
+  Implied opening (from backward calc): -524
+  Actual opening (from stock_items.xml): 647
+  Discrepancy: +1,171
+  -> This discrepancy likely represents a RENAME adjustment.
+     Stock was moved to/from this item name during the FY.
+
+--- Item: W&N GAC 60ML TB TITA WH ---
+  Category: WINSOR & NEWTON
+  Opening: 357  |  Actual Closing: 687
+  Inward: 1,586  |  Outward: 801  |  Txns: 169
+  Formula diff: +455
+
+  DATE               IN      OUT    BALANCE  DETAILS
+  ------------ -------- -------- ----------  ----------------------------------------
+  (implied)                             -98  <- implied opening from backward calc
+  20250412            0        6       -104  OUT 6 (Sales, Vardhman Trading Company)
+  20250417            0        3       -107  OUT 3 (Sales, Star Stationeries (Trading As )
+  20250418            0       24       -131  OUT 24 (Sales, Art Lounge India)
+  20250423            0        5       -136  OUT 4 (Sales, Harsh Enterprises); OUT 1 (Sales, Marketing Supplies)
+  20250425            0       24       -160  OUT 24 (Sales, Computer Gallery)
+  20250430            0        1       -161  OUT 1 (Sales, Art Lounge India)
+  20250502            0        1       -162  OUT 1 (Sales, Vardhman Trading Company)
+  20250506          240        0         78  IN 48 (Purchase, ColArt Creative International ); IN 192 (Purchase, Co
+       ...                                   (108 more days)
+  20260205            0        3        726  OUT 3 (Sales-Tally, Mango Stationery Pvt. Ltd)
+  20260206            0       15        711  OUT 9 (Sales-Tally, Saremisons); OUT 3 (Sales-Tally, Vardhman Trading 
+  20260210            0       12        699  OUT 12 (Sales-Tally, Harsh Enterprises)
+  20260213            0        3        696  OUT 3 (Sales-Tally, Shri Ram Book Depot)
+  20260214            0        1        695  OUT 1 (Sales-Tally, MAGENTO2)
+  20260217            0        1        694  OUT 1 (Sales Store, Counter Collection - Cash)
+  20260221            5       12        687  OUT 3 (Sales-Tally, A N Commtrade LLP); OUT 9 (Sales-Tally, Shankhesh 
+
+  Implied opening (from backward calc): -98
+  Actual opening (from stock_items.xml): 357
+  Discrepancy: +455
+  -> This discrepancy likely represents a RENAME adjustment.
+     Stock was moved to/from this item name during the FY.
+
+--- Item: WN GLOSS VARNISH SPR 400ML V1 ---
+  Category: WINSOR & NEWTON
+  Opening: 13  |  Actual Closing: -848
+  Inward: 1,236  |  Outward: 1,190  |  Txns: 148
+  Formula diff: +907
+
+  DATE               IN      OUT    BALANCE  DETAILS
+  ------------ -------- -------- ----------  ----------------------------------------
+  (implied)                            -894  <- implied opening from backward calc
+  20250506        1,194        0        300  IN 996 (Purchase, ColArt Creative International ); IN 198 (Purchase, C
+  20250509            0       97        203  OUT 66 (Sales, Harsh Enterprises); OUT 3 (Sales, Harsh Enterprises); O
+  20250510            0       37        166  OUT 6 (Sales, Hindustan Trading Company); OUT 10 (Sales, A N Commtrade
+  20250512            0       37        129  OUT 1 (Sales, Gita Enterprise); OUT 6 (Sales, Vardhman Trading Company
+  20250514            0        8        121  OUT 3 (Sales, Mango Stationery Pvt. Ltd); OUT 5 (Sales, Raj Krafts)
+  20250515            0        2        119  OUT 2 (Sales, GS1916)
+  20250516            0        2        117  OUT 2 (Sales, Vardhman Trading Company)
+  20250517            0       38         79  OUT 30 (Sales, Art Lounge India); OUT 2 (Sales, Anjali International);
+       ...                                   (84 more days)
+  20260209            0        6       -792  OUT 6 (Sales-Tally, Art Lounge India)
+  20260212            0        9       -801  OUT 6 (Sales-Tally, Kumar Concern); OUT 3 (Sales-Tally, Tapan Art and 
+  20260216            0        1       -802  OUT 1 (Sales-Tally, Mendwell Agencies)
+  20260217            0        6       -808  OUT 6 (Sales-Tally, Art Lounge India)
+  20260219            0       30       -838  OUT 12 (Sales-Tally, Hindustan Trading Company); OUT 18 (Sales-Tally, 
+  20260221            4        0       -834  IN 4 (Purchase, Art Lounge India - Purchase)
+  20260224            0       14       -848  OUT 2 (Sales-Tally, Anupam Stationery Super Store ); OUT 12 (Sales-Tal
+
+  Implied opening (from backward calc): -894
+  Actual opening (from stock_items.xml): 13
+  Discrepancy: +907
+  -> This discrepancy likely represents a RENAME adjustment.
+     Stock was moved to/from this item name during the FY.
+
+==========================================================================================
+  8. POTENTIAL RENAME PAIRS (opening>0/closing=0 + opening=0/closing<0 in same category)
+==========================================================================================
+
+  [ANUPAM]
+    OLD: A4 Oil Painting Paper Loose sheets Canvas Emboss 350Gsm- 10 Shts
+      opening=1  closing=0  txns=1
+    NEW: A5 Oil Painting Paper Loose Sheets - 250 Gsm - 20 Shts  (similarity: 0.81)
+      opening=0  closing=0  in=2  out=2  txns=3
+
+  [ANUPAM]
+    OLD: A5 OIL PAINTING PAPER LOOSE SHEETS CANVAS EMBOSS 350GSM- 20 SHTS
+      opening=1  closing=0  txns=1
+    NEW: A5 Oil Painting Paper Loose Sheets - 250 Gsm - 20 Shts  (similarity: 0.85)
+      opening=0  closing=0  in=2  out=2  txns=3
+
+  [ANUPAM]
+    OLD: Acrylic Paper Loose Sheets - A4 -10Lf - 400 GSM
+      opening=7  closing=0  txns=1
+    NEW: Water Colour Paper Loose Sheets - A2 - 5Lf - 300 GSM  (similarity: 0.79)
+      opening=0  closing=0  in=1  out=1  txns=2
+
+  [ANUPAM]
+    OLD: Ash Black Toned Cartridge Book -WireO 180Gsm - 20Shts - A3
+      opening=2  closing=0  txns=1
+    NEW: Ash Black Toned Cartridge Book -WireO 180Gsm - 40Shts - A4  (similarity: 0.97)
+      opening=0  closing=2  in=2  out=1  txns=3
+
+  [ANUPAM]
+    OLD: Ash Black Toned Cartridge Drawing Paper Loose Sheets 180Gsm-10Shts -A4
+      opening=2  closing=0  txns=1
+    NEW: Smoke Grey Toned Cartridge Drawing Paper Loose Sheets 140Gsm-20Shts-A4  (similarity: 0.86)
+      opening=0  closing=-1  in=0  out=2  txns=3
+
+  [ANUPAM]
+    OLD: Cartridge Drawing Paper Loose Sheets A1 - 140 Gsm - 100 Sheets
+      opening=100  closing=0  txns=1
+    NEW: Cartridge Drawing Paper Loose Sheets A4 - 140 Gsm - 20 Sheets  (similarity: 0.96)
+      opening=0  closing=0  in=3  out=3  txns=3
+
+  [ANUPAM]
+    OLD: Dusk WC Paper Loose Sheets Grey Toned 225Gsm-10Shts-A4
+      opening=1  closing=0  txns=1
+    NEW: Skin WC Paper Loose Sheets Beige Toned 225Gsm - 5 Shts - A3  (similarity: 0.83)
+      opening=0  closing=0  in=1  out=1  txns=2
+
+  [ANUPAM]
+    OLD: Dusk WC Paper WireO - Grey Toned 225Gsm - A4
+      opening=1  closing=0  txns=1
+    NEW: Dusk WC Paper WireO - Grey Toned 225Gsm - A5  (similarity: 0.98)
+      opening=0  closing=-1  in=2  out=3  txns=3
+
+  [ANUPAM]
+    OLD: Fluent Bristol Paper Book 200 Gsm - 20Shts- A3
+      opening=1  closing=0  txns=1
+    NEW: Fluent Bristol Paper Book 200 Gsm - 20Shts- A4  (similarity: 0.98)
+      opening=0  closing=-2  in=0  out=2  txns=2
+
+  [ANUPAM]
+    OLD: Ivory Paper Loose Sheets 180Gsm - A3 - 25 Sheets
+      opening=1  closing=0  txns=1
+    NEW: Ivory Paper Loose Sheets 250Gsm - A2 - 25 Sheets  (similarity: 0.94)
+      opening=0  closing=0  in=1  out=1  txns=2
+
+  [ANUPAM]
+    OLD: Premium Artist Book 160Gsm - 40Shts - A4
+      opening=1  closing=0  txns=1
+    NEW: Ultra Artist Book 200 Gsm - 25Shts - A4  (similarity: 0.76)
+      opening=0  closing=-1  in=2  out=3  txns=4
+
+  [ANUPAM]
+    OLD: Pupil WC Paper Loose Sheets Black 250Gsm -20Shts - A5
+      opening=2  closing=0  txns=1
+    NEW: Pupil WC Paper WireO - Black 250Gsm - A5  (similarity: 0.75)
+      opening=0  closing=2  in=2  out=0  txns=1
+
+  [ANUPAM]
+    OLD: Pupil WC Paper WireO - Black 250Gsm - A4
+      opening=1  closing=0  txns=1
+    NEW: Pupil WC Paper WireO - Black 250Gsm - A5  (similarity: 0.97)
+      opening=0  closing=2  in=2  out=0  txns=1
+
+  [ANUPAM]
+    OLD: SketchO Drawing Book Hard Bound 140Gsm-128 Pgs- A4L
+      opening=2  closing=0  txns=1
+    NEW: SketchO Drawing Book Hard Bound 140Gsm-128 Pgs- A4P  (similarity: 0.98)
+      opening=0  closing=0  in=2  out=2  txns=3
+
+  [ANUPAM]
+    OLD: SketchO Drawing Book Soft Cover 25Sheets-A3
+      opening=3  closing=0  txns=1
+    NEW: SketchO Drawing Book Soft Cover 50Sheets-A4  (similarity: 0.95)
+      opening=0  closing=0  in=3  out=3  txns=4
+
+  [ANUPAM]
+    OLD: SketchO Drawing Book WireO Bound 140Gsm-128 Pgs- A3
+      opening=2  closing=0  txns=1
+    NEW: SketchO Drawing Book WireO Bound 140Gsm-128 Pgs- A4P  (similarity: 0.97)
+      opening=0  closing=1  in=2  out=1  txns=2
+
+  [ANUPAM]
+    OLD: Water Colour Paper Loose Sheets - A6 - 40Lf - 200 GSM
+      opening=2  closing=0  txns=1
+    NEW: Water Colour Paper Loose Sheets - A2 - 5Lf - 300 GSM  (similarity: 0.93)
+      opening=0  closing=0  in=1  out=1  txns=2
+
+  [ANUPAM]
+    OLD: Water Colour Wire-O Book 200 Gsm - 20 Shts - A4
+      opening=1  closing=0  txns=1
+    NEW: Water Colour Wire-O Book 300 Gsm - 12 Shts - A4  (similarity: 0.96)
+      opening=0  closing=0  in=0  out=1  txns=2
+
+  [ANUPAM]
+    OLD: Water Colour Wire-O Book 200 Gsm - 20 Shts - A5
+      opening=1  closing=0  txns=1
+    NEW: Water Colour Wire-O Book 300 Gsm - 12 Shts - A5  (similarity: 0.96)
+      opening=0  closing=0  in=2  out=2  txns=3
+
+  [ARCHES]
+    OLD: Arches WC - Aquarelle - 101 x 152 cm Natural White Cold Press 640 GSM
+      opening=45  closing=0  txns=1
+    NEW: Arches WC - Aquarelle - 56 x 76 cm Natural White Cold Press 640 GSM  (similarity: 0.93)
+      opening=0  closing=-4  in=1  out=5  txns=5
+
+  [ARCHES]
+    OLD: Arches WC - Aquarelle - 101 x 152 cm Natural White Rough Grain 640 GSM
+      opening=50  closing=0  txns=1
+    NEW: Arches WC - Aquarelle - 56 x 76 cm Natural White Rough Grain 300 GSM  (similarity: 0.90)
+      opening=0  closing=0  in=1  out=1  txns=2
+
+  [ARCHES]
+    OLD: Arches WC - Aquarelle - 130 x 914 cm Natural White Rough Grain 356 GSM Roll
+      opening=2  closing=0  txns=1
+    NEW: Arches WC - Aquarelle - 56 x 76 cm Natural White Rough Grain 300 GSM  (similarity: 0.87)
+      opening=0  closing=0  in=1  out=1  txns=2
+
+  [ARCHES]
+    OLD: Arches WC- Aquarelle - 26 cm x 36 cm Natural White Cold Press 300 GSM Paper, Block of 20 Sheets
+      opening=1  closing=0  txns=1
+    NEW: Arches WC- Aquarelle - 23 cm x 31 cm Natural White Cold Press 300 GSM Paper, Block of 20 Sheets  (similarity: 0.98)
+      opening=0  closing=0  in=9  out=9  txns=12
+
+  [ARCHES]
+    OLD: Arches WC- Aquarelle - 26 cm x 36 cm Natural White Rough Grain 185 GSM Paper, Block of 20 Sheets
+      opening=1  closing=0  txns=1
+    NEW: Arches WC- Aquarelle - 20 cm x 20 cm Natural White Rough Grain 300 GSM Paper, Block of 20 Sheets  (similarity: 0.94)
+      opening=0  closing=0  in=0  out=1  txns=2
+
+  [ARCHES]
+    OLD: Arches WC - Aquarelle - 40 x 50 cm Natural White Cold Press 300 GSM
+      opening=90  closing=0  txns=1
+    NEW: Arches WC - Aquarelle - 56 x 76 cm Natural White Cold Press 300 GSM  (similarity: 0.94)
+      opening=0  closing=91  in=165  out=74  txns=21
+
+  [ARCHES]
+    OLD: Arches WC - Aquarelle - 56 x 76 cm Bright White Cold Press 300 GSM
+      opening=100  closing=0  txns=2
+    NEW: Arches WC - Aquarelle - 56 x 76 cm Natural White Cold Press 300 GSM  (similarity: 0.92)
+      opening=0  closing=91  in=165  out=74  txns=21
+
+  [ARCHES]
+    OLD: Arches WC- Aquarelle - A4 (21 cm x 29.7 cm) Natural White Cold Press 185 GSM Paper Pad of 15 Sheets
+      opening=1  closing=0  txns=1
+    NEW: Arches WC- Aquarelle - A4 (21 cm x 29.7 cm) Natural White Cold Press 300 GSM Paper Pad of 12 Sheets  (similarity: 0.96)
+      opening=0  closing=0  in=3  out=3  txns=4
+
+  [ARISTO]
+    OLD: FINELINER BLACK0.05 MM
+      opening=10  closing=0  txns=1
+    NEW: FINELINER BLACK0.3 MM  (similarity: 0.93)
+      opening=0  closing=-2  in=0  out=2  txns=2
+
+  [ART ESSENTIALS]
+    OLD: AE BLACK WATERCOLOUR61.6 CM X 86.6 CM100 SHEET
+      opening=100  closing=0  txns=2
+    NEW: AE WATERCOLOUR PURE COTTON 56 CM X 76 CM25 SHEET  (similarity: 0.66)
+      opening=0  closing=-119  in=2  out=125  txns=24
+
+  [ART ESSENTIALS]
+    OLD: AEDIA WHITEA3 PP 30
+      opening=5  closing=0  txns=1
+    NEW: AEDIA WHITE 10  (similarity: 0.79)
+      opening=0  closing=-322  in=4  out=379  txns=30
+
+  Total potential rename pairs found: 961
+
+==========================================================================================
+  SUMMARY & RECOMMENDATIONS
+==========================================================================================
+
+  KEY FINDINGS:
+  - Total items: 22,537
+  - Formula matches perfectly: 13,182 (58.5%)
+  - Formula mismatches: 7,323 (32.5%)
+
+  RENAME EVIDENCE:
+  - Items that "disappeared" (opening>0, closing=0, no txns): 0
+  - Items that "appeared" (opening=0, closing<0): 2,429
+  - Potential rename pairs (fuzzy matched): 961
+  - Items in vouchers but NOT in stock_items: 0
+
+  RECOMMENDATION:
+  If closing_balance is authoritative (Tally computes it correctly even across renames):
+    -> Use Option A: work backwards from closing balance
+    -> opening_balance is UNRELIABLE for renamed items
+    -> The backward-reconstructed "implied opening" will differ from the XML opening
+       by exactly the rename adjustment amount
+
+
+Done.

@@ -1,0 +1,53 @@
+"""
+Brand-level metric aggregation from SKU metrics.
+"""
+
+
+def compute_brand_metrics(category_name: str, sku_metrics_list: list[dict], supplier: dict | None) -> dict:
+    """Aggregate SKU metrics to brand level (single-pass)."""
+    total = len(sku_metrics_list)
+    in_stock = 0
+    out_of_stock = 0
+    critical = 0
+    warning = 0
+    ok = 0
+    no_data = 0
+    weighted_sum = 0.0
+    weight_total = 0.0
+
+    for s in sku_metrics_list:
+        stock = s.get("current_stock", 0)
+        status = s.get("reorder_status")
+        if stock > 0:
+            in_stock += 1
+        else:
+            out_of_stock += 1
+        if status == "critical":
+            critical += 1
+        elif status == "warning":
+            warning += 1
+        elif status == "ok":
+            ok += 1
+        elif status == "no_data":
+            no_data += 1
+        dts = s.get("days_to_stockout")
+        vel = s.get("total_velocity", 0)
+        if dts is not None and vel > 0:
+            weighted_sum += dts * vel
+            weight_total += vel
+
+    avg_days = round(weighted_sum / weight_total, 1) if weight_total > 0 else None
+
+    return {
+        "category_name": category_name,
+        "total_skus": total,
+        "in_stock_skus": in_stock,
+        "out_of_stock_skus": out_of_stock,
+        "critical_skus": critical,
+        "warning_skus": warning,
+        "ok_skus": ok,
+        "no_data_skus": no_data,
+        "avg_days_to_stockout": avg_days,
+        "primary_supplier": supplier.get("name") if supplier else None,
+        "supplier_lead_time": supplier.get("lead_time_default") if supplier else None,
+    }
