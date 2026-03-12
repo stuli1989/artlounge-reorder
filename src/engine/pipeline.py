@@ -33,6 +33,9 @@ def run_computation_pipeline(db_conn):
     stock_items = fetch_all_stock_items(db_conn)
     print(f"  Computing metrics for {len(stock_items)} stock items...")
 
+    # Pre-fetch dead stock threshold for brand rollup
+    dead_stock_threshold = _fetch_dead_stock_threshold(db_conn)
+
     # Pre-fetch ALL transactions in one query (avoids N+1)
     all_txns = fetch_all_transactions(db_conn)
     print(f"  Loaded transactions for {len(all_txns)} items in bulk.")
@@ -66,6 +69,8 @@ def run_computation_pipeline(db_conn):
                 "last_import_supplier": None,
                 "reorder_status": "out_of_stock" if current_stock <= 0 else "no_data",
                 "reorder_qty_suggested": None,
+                "last_sale_date": None,
+                "total_zero_activity_days": 0,
             })
             continue
 
@@ -83,6 +88,10 @@ def run_computation_pipeline(db_conn):
 
         # Calculate velocity
         velocity = calculate_velocity(item["tally_name"], positions)
+
+        # Dead stock metrics
+        last_sale_date = compute_last_sale_date(txns)
+        zero_activity_days = compute_zero_activity_days(positions)
 
         # Import history
         import_history = detect_import_history(item["tally_name"], txns)
@@ -117,6 +126,8 @@ def run_computation_pipeline(db_conn):
             "last_import_supplier": import_history.get("last_import_supplier"),
             "reorder_status": status,
             "reorder_qty_suggested": suggested_qty,
+            "last_sale_date": last_sale_date,
+            "total_zero_activity_days": zero_activity_days,
         })
 
         processed += 1
@@ -134,7 +145,10 @@ def run_computation_pipeline(db_conn):
     for cat in categories:
         sku_metrics = fetch_sku_metrics_for_category(db_conn, cat["tally_name"])
         supplier = supplier_map.get(cat["tally_name"])
-        brand_data = compute_brand_metrics(cat["tally_name"], sku_metrics, supplier)
+        brand_data = compute_brand_metrics(
+            cat["tally_name"], sku_metrics, supplier,
+            dead_stock_threshold=dead_stock_threshold, today=today,
+        )
         upsert_brand_metrics(db_conn, brand_data)
 
     db_conn.commit()  # Single commit for all brand rollups
@@ -220,7 +234,7 @@ def fetch_sku_metrics_for_category(db_conn, category_name: str) -> list[dict]:
         cur.execute("""
             SELECT stock_item_name, current_stock, wholesale_velocity, online_velocity,
                    total_velocity, total_in_stock_days, days_to_stockout, reorder_status,
-                   reorder_qty_suggested
+                   reorder_qty_suggested, last_sale_date
             FROM sku_metrics
             WHERE category_name = %s
         """, (category_name,))
@@ -243,14 +257,16 @@ def upsert_sku_metrics(db_conn, m: dict):
             total_in_stock_days, velocity_start_date, velocity_end_date,
             days_to_stockout, estimated_stockout_date,
             last_import_date, last_import_qty, last_import_supplier,
-            reorder_status, reorder_qty_suggested, computed_at
+            reorder_status, reorder_qty_suggested,
+            last_sale_date, total_zero_activity_days, computed_at
         ) VALUES (
             %(stock_item_name)s, %(category_name)s, %(current_stock)s,
             %(wholesale_velocity)s, %(online_velocity)s, %(total_velocity)s,
             %(total_in_stock_days)s, %(velocity_start_date)s, %(velocity_end_date)s,
             %(days_to_stockout)s, %(estimated_stockout_date)s,
             %(last_import_date)s, %(last_import_qty)s, %(last_import_supplier)s,
-            %(reorder_status)s, %(reorder_qty_suggested)s, NOW()
+            %(reorder_status)s, %(reorder_qty_suggested)s,
+            %(last_sale_date)s, %(total_zero_activity_days)s, NOW()
         )
         ON CONFLICT (stock_item_name) DO UPDATE SET
             category_name = EXCLUDED.category_name,
@@ -268,6 +284,8 @@ def upsert_sku_metrics(db_conn, m: dict):
             last_import_supplier = EXCLUDED.last_import_supplier,
             reorder_status = EXCLUDED.reorder_status,
             reorder_qty_suggested = EXCLUDED.reorder_qty_suggested,
+            last_sale_date = EXCLUDED.last_sale_date,
+            total_zero_activity_days = EXCLUDED.total_zero_activity_days,
             computed_at = NOW()
     """
     # Fill defaults for missing keys
@@ -277,6 +295,7 @@ def upsert_sku_metrics(db_conn, m: dict):
         "days_to_stockout": None, "estimated_stockout_date": None,
         "last_import_date": None, "last_import_qty": None, "last_import_supplier": None,
         "reorder_status": "no_data", "reorder_qty_suggested": None,
+        "last_sale_date": None, "total_zero_activity_days": 0,
     }
     for k, v in defaults.items():
         m.setdefault(k, v)
@@ -290,11 +309,11 @@ def upsert_brand_metrics(db_conn, m: dict):
         INSERT INTO brand_metrics (
             category_name, total_skus, in_stock_skus, out_of_stock_skus,
             critical_skus, warning_skus, ok_skus, no_data_skus,
-            avg_days_to_stockout, primary_supplier, supplier_lead_time, computed_at
+            dead_stock_skus, avg_days_to_stockout, primary_supplier, supplier_lead_time, computed_at
         ) VALUES (
             %(category_name)s, %(total_skus)s, %(in_stock_skus)s, %(out_of_stock_skus)s,
             %(critical_skus)s, %(warning_skus)s, %(ok_skus)s, %(no_data_skus)s,
-            %(avg_days_to_stockout)s, %(primary_supplier)s, %(supplier_lead_time)s, NOW()
+            %(dead_stock_skus)s, %(avg_days_to_stockout)s, %(primary_supplier)s, %(supplier_lead_time)s, NOW()
         )
         ON CONFLICT (category_name) DO UPDATE SET
             total_skus = EXCLUDED.total_skus,
@@ -304,6 +323,7 @@ def upsert_brand_metrics(db_conn, m: dict):
             warning_skus = EXCLUDED.warning_skus,
             ok_skus = EXCLUDED.ok_skus,
             no_data_skus = EXCLUDED.no_data_skus,
+            dead_stock_skus = EXCLUDED.dead_stock_skus,
             avg_days_to_stockout = EXCLUDED.avg_days_to_stockout,
             primary_supplier = EXCLUDED.primary_supplier,
             supplier_lead_time = EXCLUDED.supplier_lead_time,
@@ -311,3 +331,48 @@ def upsert_brand_metrics(db_conn, m: dict):
     """
     with db_conn.cursor() as cur:
         cur.execute(sql, m)
+
+
+# ──────────────────────────────────────────────────────────────────
+# Dead stock helpers
+# ──────────────────────────────────────────────────────────────────
+
+_DEMAND_CHANNELS = {"wholesale", "online", "store"}
+_EXCLUDED_VOUCHER_TYPES = {"Credit Note", "Debit Note"}
+
+
+def compute_last_sale_date(transactions: list[dict]):
+    """Find the most recent demand sale date.
+
+    Considers outward transactions on demand channels (wholesale, online, store),
+    excluding Credit Notes and Debit Notes which are adjustments, not sales.
+    """
+    last = None
+    for t in transactions:
+        if (t.get("channel") in _DEMAND_CHANNELS
+                and not t.get("is_inward")
+                and t.get("voucher_type") not in _EXCLUDED_VOUCHER_TYPES):
+            d = t.get("date")
+            if d is not None and (last is None or d > last):
+                last = d
+    return last
+
+
+def compute_zero_activity_days(positions: list[dict]) -> int:
+    """Count days where item had stock but zero inward and outward movement."""
+    count = 0
+    for p in positions:
+        if p.get("closing_qty", 0) > 0 and p.get("inward_qty", 0) == 0 and p.get("outward_qty", 0) == 0:
+            count += 1
+    return count
+
+
+def _fetch_dead_stock_threshold(db_conn) -> int:
+    """Read dead_stock_threshold_days from app_settings, default 30."""
+    try:
+        with db_conn.cursor() as cur:
+            cur.execute("SELECT value FROM app_settings WHERE key = 'dead_stock_threshold_days'")
+            row = cur.fetchone()
+            return int(row[0]) if row else 30
+    except Exception:
+        return 30

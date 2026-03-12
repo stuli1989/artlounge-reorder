@@ -10,6 +10,7 @@ export interface BrandMetrics {
   ok_skus: number
   no_data_skus: number
   avg_days_to_stockout: number | null
+  dead_stock_skus: number
   primary_supplier: string | null
   supplier_lead_time: number | null
   computed_at: string
@@ -20,6 +21,7 @@ export interface BrandSummary {
   brands_with_critical: number
   brands_with_warning: number
   total_skus_out_of_stock: number
+  total_dead_stock_skus: number
 }
 
 export interface SkuMetrics {
@@ -57,6 +59,10 @@ export interface SkuMetrics {
   stock_override_stale: boolean
   velocity_override_stale: boolean
   hold_from_po: boolean
+  last_sale_date: string | null
+  days_since_last_sale: number | null
+  total_zero_activity_days: number
+  is_dead_stock: boolean
 }
 
 export interface DailyPosition {

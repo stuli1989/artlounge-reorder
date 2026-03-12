@@ -17,7 +17,7 @@ app.add_middleware(
 )
 
 # Import and register route modules
-from api.routes import brands, skus, po, parties, sync_status, suppliers, overrides
+from api.routes import brands, skus, po, parties, sync_status, suppliers, overrides, settings
 
 app.include_router(brands.router, prefix="/api")
 app.include_router(skus.router, prefix="/api")
@@ -26,6 +26,7 @@ app.include_router(parties.router, prefix="/api")
 app.include_router(sync_status.router, prefix="/api")
 app.include_router(suppliers.router, prefix="/api")
 app.include_router(overrides.router, prefix="/api")
+app.include_router(settings.router, prefix="/api")
 
 
 @app.get("/api/health")

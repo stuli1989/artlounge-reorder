@@ -1,10 +1,20 @@
 """
 Brand-level metric aggregation from SKU metrics.
 """
+from datetime import date as date_type
 
 
-def compute_brand_metrics(category_name: str, sku_metrics_list: list[dict], supplier: dict | None) -> dict:
+def compute_brand_metrics(
+    category_name: str,
+    sku_metrics_list: list[dict],
+    supplier: dict | None,
+    dead_stock_threshold: int = 30,
+    today: date_type | None = None,
+) -> dict:
     """Aggregate SKU metrics to brand level (single-pass)."""
+    if today is None:
+        today = date_type.today()
+
     total = len(sku_metrics_list)
     in_stock = 0
     out_of_stock = 0
@@ -12,6 +22,7 @@ def compute_brand_metrics(category_name: str, sku_metrics_list: list[dict], supp
     warning = 0
     ok = 0
     no_data = 0
+    dead_stock = 0
     weighted_sum = 0.0
     weight_total = 0.0
 
@@ -20,6 +31,10 @@ def compute_brand_metrics(category_name: str, sku_metrics_list: list[dict], supp
         status = s.get("reorder_status")
         if stock > 0:
             in_stock += 1
+            # Dead stock check: has stock but no recent demand sales
+            lsd = s.get("last_sale_date")
+            if lsd is None or (today - lsd).days >= dead_stock_threshold:
+                dead_stock += 1
         else:
             out_of_stock += 1
         if status == "critical":
@@ -47,6 +62,7 @@ def compute_brand_metrics(category_name: str, sku_metrics_list: list[dict], supp
         "warning_skus": warning,
         "ok_skus": ok,
         "no_data_skus": no_data,
+        "dead_stock_skus": dead_stock,
         "avg_days_to_stockout": avg_days,
         "primary_supplier": supplier.get("name") if supplier else None,
         "supplier_lead_time": supplier.get("lead_time_default") if supplier else None,

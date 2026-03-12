@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import StockTimelineChart from '@/components/StockTimelineChart'
 import TransactionHistory from '@/components/TransactionHistory'
 import CalculationBreakdown from '@/components/CalculationBreakdown'
-import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar, Flame } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar, Flame, Snowflake } from 'lucide-react'
 
 function formatDateForInput(d: Date): string {
   return d.toISOString().slice(0, 10)
@@ -71,6 +71,7 @@ export default function SkuDetail() {
       if (statusFilter === 'critical') params.status = 'critical'
       else if (statusFilter === 'critical_warning') params.status = 'critical,warning'
       else if (statusFilter === 'out_of_stock') params.status = 'out_of_stock'
+      else if (statusFilter === 'dead_stock') params.dead_stock = 'true'
       else if (statusFilter === 'hazardous') params.hazardous = 'true'
       if (search) params.search = search
       if (analysisRange) {
@@ -83,10 +84,11 @@ export default function SkuDetail() {
   })
 
   const counts = useMemo(() => {
-    const c = { critical: 0, warning: 0, ok: 0, out_of_stock: 0 }
+    const c = { critical: 0, warning: 0, ok: 0, out_of_stock: 0, dead_stock: 0 }
     for (const s of skus || []) {
       const st = s.effective_status ?? s.reorder_status
       if (st in c) c[st as keyof typeof c]++
+      if (s.is_dead_stock) c.dead_stock++
     }
     return c
   }, [skus])
@@ -168,12 +170,13 @@ export default function SkuDetail() {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-5 gap-4">
           {[
             { label: 'Critical', value: counts.critical, color: 'text-red-600' },
             { label: 'Warning', value: counts.warning, color: 'text-amber-600' },
             { label: 'OK', value: counts.ok, color: 'text-green-600' },
             { label: 'Out of Stock', value: counts.out_of_stock, color: 'text-red-500' },
+            { label: 'Dead Stock', value: counts.dead_stock, color: 'text-blue-600' },
           ].map(c => (
             <Card key={c.label}>
               <CardHeader className="pb-2">
@@ -206,6 +209,7 @@ export default function SkuDetail() {
               <SelectItem value="critical">Critical Only</SelectItem>
               <SelectItem value="critical_warning">Critical & Warning</SelectItem>
               <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+              <SelectItem value="dead_stock">Dead Stock</SelectItem>
               <SelectItem value="hazardous">Hazardous</SelectItem>
             </SelectContent>
           </Select>
@@ -260,6 +264,14 @@ export default function SkuDetail() {
                         <TableCell className="max-w-[250px] truncate" title={s.stock_item_name}>
                           <span className="inline-flex items-center gap-1">
                             {s.stock_item_name}
+                            {s.is_dead_stock && (
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Snowflake className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                                </TooltipTrigger>
+                                <TooltipContent>Dead stock — no sales for {s.days_since_last_sale ?? '∞'} days</TooltipContent>
+                              </Tooltip>
+                            )}
                             {s.has_note && (
                               <Tooltip>
                                 <TooltipTrigger>

@@ -145,6 +145,8 @@ CREATE TABLE IF NOT EXISTS sku_metrics (
     last_import_supplier        TEXT,
     reorder_status              TEXT DEFAULT 'ok',
     reorder_qty_suggested       NUMERIC,
+    last_sale_date              DATE,
+    total_zero_activity_days    INTEGER DEFAULT 0,
     computed_at                 TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT valid_reorder_status CHECK (reorder_status IN (
         'critical', 'warning', 'ok', 'out_of_stock', 'no_data'
@@ -168,6 +170,7 @@ CREATE TABLE IF NOT EXISTS brand_metrics (
     ok_skus                     INTEGER DEFAULT 0,
     no_data_skus                INTEGER DEFAULT 0,
     avg_days_to_stockout        NUMERIC,
+    dead_stock_skus             INTEGER DEFAULT 0,
     primary_supplier            TEXT,
     supplier_lead_time          INTEGER,
     computed_at                 TIMESTAMPTZ DEFAULT NOW()
@@ -175,7 +178,17 @@ CREATE TABLE IF NOT EXISTS brand_metrics (
 CREATE INDEX IF NOT EXISTS idx_brand_metrics_name ON brand_metrics(category_name);
 
 -- ============================================================
--- 9. sync_log — Sync audit trail
+-- 9. app_settings — Key-value configuration
+-- ============================================================
+CREATE TABLE IF NOT EXISTS app_settings (
+    key                 TEXT PRIMARY KEY,
+    value               TEXT NOT NULL,
+    updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO app_settings (key, value) VALUES ('dead_stock_threshold_days', '30') ON CONFLICT DO NOTHING;
+
+-- ============================================================
+-- 10. sync_log — Sync audit trail
 -- ============================================================
 CREATE TABLE IF NOT EXISTS sync_log (
     id                  SERIAL PRIMARY KEY,

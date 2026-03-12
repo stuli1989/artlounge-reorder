@@ -60,12 +60,13 @@ export default function BrandOverview() {
     { label: 'Brands with Critical', value: summary?.brands_with_critical, color: 'text-red-600' },
     { label: 'Brands with Warning', value: summary?.brands_with_warning, color: 'text-amber-600' },
     { label: 'SKUs Out of Stock', value: summary?.total_skus_out_of_stock, color: 'text-red-600' },
+    { label: 'Dead Stock SKUs', value: summary?.total_dead_stock_skus, color: 'text-blue-600' },
   ]
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         {summaryCards.map(c => (
           <Card key={c.label}>
             <CardHeader className="pb-2">
@@ -120,6 +121,9 @@ export default function BrandOverview() {
                   <span className="flex items-center gap-1">Warning <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
                 <TableHead>OK</TableHead>
+                <TableHead className="cursor-pointer" onClick={() => toggleSort('dead_stock_skus')}>
+                  <span className="flex items-center gap-1">Dead <ArrowUpDown className="h-3 w-3" /></span>
+                </TableHead>
                 <TableHead className="cursor-pointer" onClick={() => toggleSort('avg_days_to_stockout')}>
                   <span className="flex items-center gap-1">Avg Days Left <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
@@ -129,7 +133,7 @@ export default function BrandOverview() {
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                     No brands found
                   </TableCell>
                 </TableRow>
@@ -156,6 +160,11 @@ export default function BrandOverview() {
                       )}
                     </TableCell>
                     <TableCell>{b.ok_skus}</TableCell>
+                    <TableCell>
+                      {b.dead_stock_skus > 0
+                        ? <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">{b.dead_stock_skus}</Badge>
+                        : <span className="text-muted-foreground">0</span>}
+                    </TableCell>
                     <TableCell className={daysColor(b.avg_days_to_stockout)}>
                       {b.avg_days_to_stockout !== null ? `${b.avg_days_to_stockout} days` : 'N/A'}
                     </TableCell>
@@ -174,6 +183,13 @@ export default function BrandOverview() {
                           onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/po`)}
                         >
                           PO
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/dead-stock`)}
+                        >
+                          Dead
                         </Button>
                       </div>
                     </TableCell>

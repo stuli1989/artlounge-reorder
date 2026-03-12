@@ -28,6 +28,7 @@ def list_skus(
     sort_dir: str = Query("asc"),
     search: str = Query(None),
     hazardous: bool = Query(None, description="Filter by hazardous flag"),
+    dead_stock: bool = Query(None, description="Filter by dead stock status"),
     from_date: str = Query(None, description="Analysis period start (YYYY-MM-DD)"),
     to_date: str = Query(None, description="Analysis period end (YYYY-MM-DD)"),
 ):
@@ -93,6 +94,11 @@ def list_skus(
 
     with get_db() as conn:
         with conn.cursor() as cur:
+            # Get dead stock threshold
+            cur.execute("SELECT value FROM app_settings WHERE key = 'dead_stock_threshold_days'")
+            _thr_row = cur.fetchone()
+            dead_stock_threshold = int(_thr_row["value"]) if _thr_row else 30
+
             # Get supplier lead time for status recalculation
             cur.execute(
                 "SELECT supplier_lead_time FROM brand_metrics WHERE category_name = %s",
@@ -110,6 +116,7 @@ def list_skus(
                 range_start, range_end = resolve_date_range(from_date, to_date)
                 vel_by_sku = fetch_batch_velocities(cur, category_name, range_start, range_end)
 
+    today = date.today()
     results = []
     for r in rows:
         d = dict(r)
@@ -153,6 +160,15 @@ def list_skus(
         d["velocity_override_stale"] = bool(d.get("total_vel_override_stale"))
         d["hold_from_po"] = bool(d.get("hold_from_po"))
 
+        # Dead stock computed fields
+        last_sale_date = d.get("last_sale_date")
+        days_since = (today - last_sale_date).days if last_sale_date else None
+        eff_stock = d["effective_stock"]
+        d["last_sale_date"] = last_sale_date.isoformat() if last_sale_date else None
+        d["days_since_last_sale"] = days_since
+        d["total_zero_activity_days"] = d.get("total_zero_activity_days", 0)
+        d["is_dead_stock"] = eff_stock > 0 and (days_since is None or days_since >= dead_stock_threshold)
+
         # Clean up internal join columns
         for key in ("stock_override_value", "stock_override_note", "total_vel_override_value",
                      "total_vel_override_stale", "wholesale_vel_override_value",
@@ -170,6 +186,10 @@ def list_skus(
     # Post-recalculation min_velocity filter
     if min_velocity is not None and custom_range:
         results = [r for r in results if r["effective_velocity"] >= min_velocity]
+
+    # Dead stock filter
+    if dead_stock is not None:
+        results = [r for r in results if r["is_dead_stock"] == dead_stock]
 
     return results
 

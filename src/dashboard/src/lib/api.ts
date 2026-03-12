@@ -67,4 +67,11 @@ export const deleteOverride = (id: number, reason: string, performed_by = 'user'
 export const reviewOverride = (id: number, data: { action: 'keep' | 'remove'; reason?: string; new_value?: number; performed_by?: string }) =>
   api.post(`/api/overrides/${id}/review`, data).then(r => r.data)
 
+// Settings
+export const fetchSettings = (): Promise<Record<string, string>> =>
+  api.get('/api/settings').then(r => r.data)
+
+export const updateSetting = (key: string, value: string) =>
+  api.put(`/api/settings/${key}`, { value }).then(r => r.data)
+
 export default api
