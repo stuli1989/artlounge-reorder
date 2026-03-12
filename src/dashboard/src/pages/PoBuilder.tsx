@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { cn } from '@/lib/utils'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchPoData, exportPo } from '@/lib/api'
@@ -12,11 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import StatusBadge from '@/components/StatusBadge'
-import { ArrowLeft, Download, Calendar } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ArrowLeft, Download, Calendar, Flame, AlertTriangle } from 'lucide-react'
 
 interface PoRow {
   stock_item_name: string
   part_no: string | null
+  is_hazardous: boolean
   current_stock: number
   total_velocity: number
   days_to_stockout: number | null
@@ -108,6 +111,9 @@ export default function PoBuilder() {
   const includedRows = rows.filter(r => r.included)
   const totalItems = includedRows.length
   const totalQty = includedRows.reduce((sum, r) => sum + r.order_qty, 0)
+
+  const hazardousIncluded = useMemo(() => rows.filter(r => r.included && r.is_hazardous), [rows])
+  const hasHazardousConflict = leadTimeType === 'air' && hazardousIncluded.length > 0
 
   const handleExport = async () => {
     const payload = {
@@ -217,6 +223,26 @@ export default function PoBuilder() {
         </CardContent>
       </Card>
 
+      {/* Hazardous warning */}
+      {hasHazardousConflict && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="flex items-center justify-between">
+            <span className="text-amber-800">
+              <strong>{hazardousIncluded.length}</strong> hazardous item(s) cannot ship by air. Switch to Sea Freight or uncheck them.
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-amber-400 text-amber-700 hover:bg-amber-100 ml-4"
+              onClick={() => setLeadTimeType('sea')}
+            >
+              Switch to Sea Freight
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Table */}
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Loading PO data...</div>
@@ -239,7 +265,7 @@ export default function PoBuilder() {
             </TableHeader>
             <TableBody>
               {rows.map(r => (
-                <TableRow key={r.stock_item_name} className={!r.included ? 'opacity-40' : ''}>
+                <TableRow key={r.stock_item_name} className={cn(!r.included && 'opacity-40', hasHazardousConflict && r.is_hazardous && r.included && 'bg-amber-50')}>
                   <TableCell>
                     <Checkbox checked={r.included} onCheckedChange={() => toggleRow(r.stock_item_name)} />
                   </TableCell>
@@ -248,7 +274,10 @@ export default function PoBuilder() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.part_no || '-'}</TableCell>
                   <TableCell className="max-w-[250px] truncate" title={r.stock_item_name}>
-                    {r.stock_item_name}
+                    <span className="inline-flex items-center gap-1">
+                      {r.is_hazardous && <Flame className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
+                      {r.stock_item_name}
+                    </span>
                   </TableCell>
                   <TableCell className="text-right">{r.current_stock}</TableCell>
                   <TableCell className="text-right">{(r.total_velocity * 30).toFixed(1)}</TableCell>

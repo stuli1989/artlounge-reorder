@@ -1,7 +1,7 @@
 import { useState, useMemo, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { fetchSkus } from '@/lib/api'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchSkus, toggleHazardous } from '@/lib/api'
 import type { SkuMetrics } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import StockTimelineChart from '@/components/StockTimelineChart'
 import TransactionHistory from '@/components/TransactionHistory'
 import CalculationBreakdown from '@/components/CalculationBreakdown'
-import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar, Flame } from 'lucide-react'
 
 function formatDateForInput(d: Date): string {
   return d.toISOString().slice(0, 10)
@@ -57,6 +57,13 @@ export default function SkuDetail() {
     return getPresetRange(rangePreset)
   }, [rangePreset, customFrom, customTo])
 
+  const queryClient = useQueryClient()
+
+  const hazardousMutation = useMutation({
+    mutationFn: ({ name, value }: { name: string; value: boolean }) => toggleHazardous(name, value),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['skus', decodedName] }),
+  })
+
   const { data: skus, isLoading } = useQuery({
     queryKey: ['skus', decodedName, statusFilter, search, analysisRange?.from, analysisRange?.to],
     queryFn: () => {
@@ -64,6 +71,7 @@ export default function SkuDetail() {
       if (statusFilter === 'critical') params.status = 'critical'
       else if (statusFilter === 'critical_warning') params.status = 'critical,warning'
       else if (statusFilter === 'out_of_stock') params.status = 'out_of_stock'
+      else if (statusFilter === 'hazardous') params.hazardous = 'true'
       if (search) params.search = search
       if (analysisRange) {
         if (analysisRange.from) params.from_date = analysisRange.from
@@ -198,6 +206,7 @@ export default function SkuDetail() {
               <SelectItem value="critical">Critical Only</SelectItem>
               <SelectItem value="critical_warning">Critical & Warning</SelectItem>
               <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+              <SelectItem value="hazardous">Hazardous</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -213,6 +222,7 @@ export default function SkuDetail() {
                   <TableHead className="w-8"></TableHead>
                   <TableHead className="w-[80px]">Status</TableHead>
                   <TableHead>Part No</TableHead>
+                  <TableHead className="w-10">Haz</TableHead>
                   <TableHead>SKU Name</TableHead>
                   <TableHead className="text-right">Stock</TableHead>
                   <TableHead className="text-right">Wholesale /mo</TableHead>
@@ -238,6 +248,15 @@ export default function SkuDetail() {
                         </TableCell>
                         <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
                         <TableCell className="text-xs text-muted-foreground">{s.part_no || '-'}</TableCell>
+                        <TableCell className="text-center">
+                          <Flame
+                            className={`h-4 w-4 cursor-pointer transition-colors inline-block ${s.is_hazardous ? 'text-amber-500 fill-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
+                            onClick={e => {
+                              e.stopPropagation()
+                              hazardousMutation.mutate({ name: s.stock_item_name, value: !s.is_hazardous })
+                            }}
+                          />
+                        </TableCell>
                         <TableCell className="max-w-[250px] truncate" title={s.stock_item_name}>
                           <span className="inline-flex items-center gap-1">
                             {s.stock_item_name}
@@ -300,7 +319,7 @@ export default function SkuDetail() {
                       </TableRow>
                       {expandedRow === s.stock_item_name && (
                         <TableRow key={`${s.stock_item_name}-detail`}>
-                          <TableCell colSpan={11} className="bg-muted/30 p-4">
+                          <TableCell colSpan={12} className="bg-muted/30 p-4">
                             <Tabs defaultValue="timeline">
                               <TabsList>
                                 <TabsTrigger value="timeline">Stock Timeline</TabsTrigger>
@@ -330,7 +349,7 @@ export default function SkuDetail() {
                 })}
                 {(skus || []).length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       No SKUs found
                     </TableCell>
                   </TableRow>

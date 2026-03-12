@@ -1,6 +1,7 @@
 """SKU detail API endpoints."""
 from datetime import date, timedelta
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 from api.database import get_db
 from engine.velocity import (
     calculate_velocity, find_in_stock_periods,
@@ -26,6 +27,7 @@ def list_skus(
     sort: str = Query("days_to_stockout"),
     sort_dir: str = Query("asc"),
     search: str = Query(None),
+    hazardous: bool = Query(None, description="Filter by hazardous flag"),
     from_date: str = Query(None, description="Analysis period start (YYYY-MM-DD)"),
     to_date: str = Query(None, description="Analysis period end (YYYY-MM-DD)"),
 ):
@@ -49,6 +51,10 @@ def list_skus(
         conditions.append("sm.stock_item_name ILIKE %s")
         params.append(f"%{search}%")
 
+    if hazardous is not None:
+        conditions.append("COALESCE(si.is_hazardous, FALSE) = %s")
+        params.append(hazardous)
+
     where = " AND ".join(conditions)
 
     # Sanitize sort column
@@ -58,6 +64,7 @@ def list_skus(
     sql = f"""
         SELECT sm.*,
                si.part_no,
+               si.is_hazardous,
                os.override_value AS stock_override_value,
                os.note AS stock_override_note,
                os.is_stale AS stock_override_stale,
@@ -165,6 +172,26 @@ def list_skus(
         results = [r for r in results if r["effective_velocity"] >= min_velocity]
 
     return results
+
+
+class HazardousUpdate(BaseModel):
+    is_hazardous: bool
+
+
+@router.patch("/skus/{stock_item_name}/hazardous")
+def toggle_hazardous(stock_item_name: str, req: HazardousUpdate):
+    """Toggle hazardous flag on a stock item."""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE stock_items SET is_hazardous = %s, updated_at = NOW() WHERE tally_name = %s RETURNING tally_name, is_hazardous",
+                (req.is_hazardous, stock_item_name),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(404, "Stock item not found")
+        conn.commit()
+    return dict(row)
 
 
 @router.get("/brands/{category_name}/skus/{stock_item_name}/positions")

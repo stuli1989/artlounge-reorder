@@ -25,6 +25,7 @@ export interface BrandSummary {
 export interface SkuMetrics {
   stock_item_name: string
   part_no: string | null
+  is_hazardous: boolean
   category_name: string
   current_stock: number
   wholesale_velocity: number
@@ -250,6 +251,7 @@ export interface BreakdownResponse {
 export interface PoDataItem {
   stock_item_name: string
   part_no: string | null
+  is_hazardous: boolean
   current_stock: number
   total_velocity: number
   days_to_stockout: number | null

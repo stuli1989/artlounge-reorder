@@ -50,6 +50,10 @@ export const updateSupplier = (id: number, data: Record<string, unknown>): Promi
 export const deleteSupplier = (id: number) =>
   api.delete(`/api/suppliers/${id}`).then(r => r.data)
 
+// Hazardous
+export const toggleHazardous = (stockItemName: string, isHazardous: boolean) =>
+  api.patch(`/api/skus/${encodeURIComponent(stockItemName)}/hazardous`, { is_hazardous: isHazardous }).then(r => r.data)
+
 // Overrides
 export const fetchOverrides = (params?: Record<string, string | boolean>): Promise<Override[]> =>
   api.get('/api/overrides', { params }).then(r => r.data)

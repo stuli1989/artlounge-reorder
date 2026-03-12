@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS stock_items (
     closing_balance     NUMERIC DEFAULT 0,
     closing_value       NUMERIC DEFAULT 0,
     part_no             TEXT,
+    is_hazardous        BOOLEAN DEFAULT FALSE,
     is_active           BOOLEAN DEFAULT TRUE,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW()

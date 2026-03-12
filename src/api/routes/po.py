@@ -55,6 +55,7 @@ def po_data(
                        sm.wholesale_velocity, sm.online_velocity,
                        sm.days_to_stockout, sm.reorder_status,
                        si.part_no,
+                       si.is_hazardous,
                        os.override_value AS stock_override,
                        ov.override_value AS total_vel_override,
                        owv.override_value AS wholesale_vel_override,
@@ -122,6 +123,7 @@ def po_data(
             "lead_time": lead_time,
             "buffer": buffer,
             "has_override": vals["has_stock_override"] or vals["has_velocity_override"],
+            "is_hazardous": d.get("is_hazardous") or False,
         })
 
     # Post-recalculation status filter when custom range is active
