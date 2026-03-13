@@ -85,15 +85,12 @@ def parse_stock_items(xml_bytes: bytes) -> list[dict]:
         closing_value = parse_tally_amount(item.findtext("CLOSINGVALUE"))
         opening_balance = parse_tally_quantity(item.findtext("OPENINGBALANCE"))
 
-        # Extract Part No from LANGUAGENAME.LIST > NAME.LIST > NAME (second NAME entry)
-        part_no = None
-        lang_list = item.find("LANGUAGENAME.LIST")
-        if lang_list is not None:
-            name_list = lang_list.find("NAME.LIST")
-            if name_list is not None:
-                names = name_list.findall("NAME")
-                if len(names) >= 2 and names[1].text:
-                    part_no = names[1].text.strip() or None
+        # PartNo is stored as MAILINGNAME in Tally's XML export
+        mailing = item.find("MAILINGNAME.LIST")
+        if mailing is not None:
+            part_no = (mailing.findtext("MAILINGNAME") or "").strip() or None
+        else:
+            part_no = None
 
         results.append({
             "name": name,

@@ -61,6 +61,7 @@ STOCK_ITEMS_REQUEST = """<ENVELOPE>
             <NATIVEMETHOD>ClosingBalance</NATIVEMETHOD>
             <NATIVEMETHOD>ClosingValue</NATIVEMETHOD>
             <NATIVEMETHOD>MasterId</NATIVEMETHOD>
+            <FETCH>MailingName</FETCH>
           </COLLECTION>
         </TDLMESSAGE>
       </TDL>
