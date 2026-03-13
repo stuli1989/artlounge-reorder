@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import StockTimelineChart from '@/components/StockTimelineChart'
 import TransactionHistory from '@/components/TransactionHistory'
 import CalculationBreakdown from '@/components/CalculationBreakdown'
+import AbcBadge from '@/components/AbcBadge'
 import { ArrowLeft, Snowflake, ChevronDown, ChevronRight, Search, ClipboardList } from 'lucide-react'
 
 export default function DeadStock() {
@@ -133,7 +134,7 @@ export default function DeadStock() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/brands')}>
               <ArrowLeft className="h-4 w-4 mr-1" /> Back
             </Button>
             <ClipboardList className="h-5 w-5 text-purple-500" />
@@ -263,6 +264,7 @@ export default function DeadStock() {
                     <TableRow>
                       <TableHead className="w-8"></TableHead>
                       <TableHead className="w-[80px]">Status</TableHead>
+                      <TableHead className="w-10">ABC</TableHead>
                       <TableHead>Part No</TableHead>
                       <TableHead>SKU Name</TableHead>
                       <TableHead className="text-right">Stock</TableHead>
@@ -285,6 +287,7 @@ export default function DeadStock() {
                               : <ChevronRight className="h-4 w-4" />}
                           </TableCell>
                           <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
+                          <TableCell><AbcBadge value={s.abc_class} /></TableCell>
                           <TableCell className="text-xs text-muted-foreground">{s.part_no || '-'}</TableCell>
                           <TableCell className="max-w-[250px] truncate" title={s.stock_item_name}>
                             <span className="inline-flex items-center gap-1">
@@ -316,7 +319,7 @@ export default function DeadStock() {
                         </TableRow>
                         {expandedRow === s.stock_item_name && (
                           <TableRow key={`${s.stock_item_name}-detail`}>
-                            <TableCell colSpan={9} className="bg-muted/30 p-4">
+                            <TableCell colSpan={10} className="bg-muted/30 p-4">
                               {renderExpandedDetail(s.stock_item_name)}
                             </TableCell>
                           </TableRow>
@@ -393,7 +396,7 @@ export default function DeadStock() {
                         </TableRow>
                         {expandedRow === s.stock_item_name && (
                           <TableRow key={`${s.stock_item_name}-detail`}>
-                            <TableCell colSpan={9} className="bg-muted/30 p-4">
+                            <TableCell colSpan={10} className="bg-muted/30 p-4">
                               {renderExpandedDetail(s.stock_item_name)}
                             </TableCell>
                           </TableRow>

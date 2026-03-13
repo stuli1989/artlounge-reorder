@@ -38,6 +38,7 @@ def _get_cached_settings(cur) -> dict:
 ALLOWED_SORT_COLS = {
     "days_to_stockout", "total_velocity", "current_stock",
     "stock_item_name", "reorder_status", "wholesale_velocity", "online_velocity",
+    "wma_total_velocity", "total_revenue", "abc_class", "trend_direction",
 }
 
 
@@ -55,6 +56,10 @@ def list_skus(
     slow_mover: bool = Query(None, description="Filter by slow mover status"),
     from_date: str = Query(None, description="Analysis period start (YYYY-MM-DD)"),
     to_date: str = Query(None, description="Analysis period end (YYYY-MM-DD)"),
+    abc_class: str = Query(None, description="Filter by ABC class: A, B, C"),
+    xyz_class: str = Query(None, description="Filter by XYZ class: X, Y, Z"),
+    hide_inactive: bool = Query(True, description="Hide inactive/artifact SKUs"),
+    velocity_type: str = Query("flat", description="Velocity type for sorting: flat or wma"),
     paginated: bool = Query(False, description="Return paginated envelope for large tables"),
     limit: int = Query(100, ge=1, le=500, description="Page size when paginated=true"),
     offset: int = Query(0, ge=0, description="Page offset when paginated=true"),
@@ -86,6 +91,17 @@ def list_skus(
     if reorder_intent is not None:
         conditions.append("COALESCE(si.reorder_intent, 'normal') = %s")
         params.append(reorder_intent)
+
+    if abc_class is not None:
+        conditions.append("sm.abc_class = %s")
+        params.append(abc_class.upper())
+
+    if xyz_class is not None:
+        conditions.append("sm.xyz_class = %s")
+        params.append(xyz_class.upper())
+
+    if hide_inactive:
+        conditions.append("COALESCE(si.is_active, TRUE) = TRUE")
 
     where = " AND ".join(conditions)
 
@@ -255,6 +271,66 @@ def list_skus(
         "offset": offset,
         "limit": limit,
         "counts": counts,
+    }
+
+
+@router.get("/critical-skus")
+def list_critical_skus(
+    status: str = Query("critical,warning", description="Comma-separated statuses"),
+    abc_class: str = Query(None, description="Filter by ABC class: A, B, C"),
+    velocity_type: str = Query("flat", description="flat or wma"),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    """Cross-brand critical/warning SKU list, ordered by days_to_stockout ASC."""
+    conditions = ["COALESCE(si.is_active, TRUE) = TRUE"]
+    params = []
+
+    statuses = [s.strip() for s in status.split(",")]
+    conditions.append("sm.reorder_status = ANY(%s)")
+    params.append(statuses)
+
+    if abc_class:
+        conditions.append("sm.abc_class = %s")
+        params.append(abc_class.upper())
+
+    where = " AND ".join(conditions)
+
+    vel_col = "sm.wma_total_velocity" if velocity_type == "wma" else "sm.total_velocity"
+
+    sql = f"""
+        SELECT sm.stock_item_name, sm.category_name, sm.current_stock,
+               sm.wholesale_velocity, sm.online_velocity, sm.total_velocity,
+               sm.wma_wholesale_velocity, sm.wma_online_velocity, sm.wma_total_velocity,
+               sm.days_to_stockout, sm.reorder_status, sm.reorder_qty_suggested,
+               sm.abc_class, sm.xyz_class, sm.trend_direction, sm.trend_ratio,
+               sm.safety_buffer, sm.total_revenue, sm.demand_cv,
+               sm.estimated_stockout_date, sm.last_import_date,
+               si.part_no, si.is_hazardous
+        FROM sku_metrics sm
+        LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name
+        WHERE {where}
+        ORDER BY sm.days_to_stockout ASC NULLS LAST
+        LIMIT %s OFFSET %s
+    """
+    count_params = list(params)
+    params.extend([limit, offset])
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            # Get total count
+            count_sql = f"SELECT COUNT(*) AS cnt FROM sku_metrics sm LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name WHERE {where}"
+            cur.execute(count_sql, count_params)
+            total = cur.fetchone()["cnt"]
+
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+
+    return {
+        "items": [dict(r) for r in rows],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
     }
 
 
@@ -633,9 +709,17 @@ def get_breakdown(
     # Reorder — uses effective values
     supplier_name = supplier_row["name"] if supplier_row else None
     lead_time = supplier_row["lead_time_default"] if supplier_row else DEFAULT_LEAD_TIME
-    status, suggested_qty = determine_reorder_status(eff_stock, days_to_so, lead_time, eff_total_vel)
-    buffer_multiplier = 1.3
-    threshold_warning = lead_time + 30
+
+    # Read per-SKU safety buffer from sku_metrics
+    with get_db() as conn2:
+        with conn2.cursor() as cur2:
+            cur2.execute("SELECT safety_buffer FROM sku_metrics WHERE stock_item_name = %s", (stock_item_name,))
+            buf_row = cur2.fetchone()
+            buffer_multiplier = float(buf_row["safety_buffer"]) if buf_row and buf_row["safety_buffer"] else 1.3
+
+    status, suggested_qty = determine_reorder_status(eff_stock, days_to_so, lead_time, eff_total_vel, safety_buffer=buffer_multiplier)
+    warning_buffer = max(30, int(lead_time * 0.5))
+    threshold_warning = lead_time + warning_buffer
 
     if eff_total_vel > 0:
         reorder_formula = f"{eff_total_vel} units/day x {lead_time} days lead time x {buffer_multiplier} safety buffer = {round(eff_total_vel * lead_time * buffer_multiplier, 1)} -> {suggested_qty} units"

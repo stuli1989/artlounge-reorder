@@ -9,7 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Search, ArrowUpDown } from 'lucide-react'
+import AbcBadge from '@/components/AbcBadge'
+import ClassificationExplainer from '@/components/ClassificationExplainer'
+import { Search, ArrowUpDown, LayoutGrid, TableProperties } from 'lucide-react'
+import { daysColor } from '@/lib/formatters'
 
 export default function BrandOverview() {
   const navigate = useNavigate()
@@ -18,13 +21,12 @@ export default function BrandOverview() {
   const [criticalOnly, setCriticalOnly] = useState(false)
   const [sortCol, setSortCol] = useState<string>('critical_skus')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact')
 
-  // Prefetch first page of SKUs on brand row hover (debounced to avoid thundering herd)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleBrandHover = useCallback((categoryName: string) => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
     hoverTimer.current = setTimeout(() => {
-      // queryKey matches SkuDetail default state: status='all', search='', no date range, page 0, size 100
       queryClient.prefetchQuery({
         queryKey: ['skus', categoryName, 'all', '', undefined, undefined, 0, 100],
         queryFn: () => fetchSkusPage(categoryName, {}, { limit: 100, offset: 0 }),
@@ -61,13 +63,6 @@ export default function BrandOverview() {
       setSortCol(col)
       setSortDir('desc')
     }
-  }
-
-  const daysColor = (days: number | null) => {
-    if (days === null) return 'text-gray-400'
-    if (days < 30) return 'text-red-600 font-medium'
-    if (days < 90) return 'text-amber-600'
-    return 'text-green-600'
   }
 
   const summaryCards = [
@@ -114,15 +109,34 @@ export default function BrandOverview() {
           />
           <Label htmlFor="critical-only" className="text-sm">Show critical/warning only</Label>
         </div>
+        <div className="ml-auto flex items-center gap-2">
+          <ClassificationExplainer />
+          <div className="inline-flex rounded-md border bg-muted p-0.5">
+            <button
+              className={`p-1.5 rounded-sm transition-colors ${viewMode === 'compact' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setViewMode('compact')}
+              title="Table view"
+            >
+              <TableProperties className="h-4 w-4" />
+            </button>
+            <button
+              className={`p-1.5 rounded-sm transition-colors ${viewMode === 'detailed' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setViewMode('detailed')}
+              title="Card view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Table */}
+      {/* Content */}
       {isLoading ? (
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
               <TableRow>
-                {Array.from({ length: 11 }).map((_, i) => (
+                {Array.from({ length: 6 }).map((_, i) => (
                   <TableHead key={i}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableHead>
                 ))}
               </TableRow>
@@ -130,7 +144,7 @@ export default function BrandOverview() {
             <TableBody>
               {Array.from({ length: 8 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 11 }).map((_, j) => (
+                  {Array.from({ length: 6 }).map((_, j) => (
                     <TableCell key={j}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableCell>
                   ))}
                 </TableRow>
@@ -138,32 +152,24 @@ export default function BrandOverview() {
             </TableBody>
           </Table>
         </div>
-      ) : (
+      ) : viewMode === 'compact' ? (
+        /* Compact Table View — 6 columns */
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Brand</TableHead>
-                <TableHead className="cursor-pointer" onClick={() => toggleSort('total_skus')}>
-                  <span className="flex items-center gap-1">Total <ArrowUpDown className="h-3 w-3" /></span>
-                </TableHead>
-                <TableHead>In Stock</TableHead>
-                <TableHead>Out of Stock</TableHead>
                 <TableHead className="cursor-pointer" onClick={() => toggleSort('critical_skus')}>
-                  <span className="flex items-center gap-1">Critical <ArrowUpDown className="h-3 w-3" /></span>
+                  <span className="flex items-center gap-1">Health <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
-                <TableHead className="cursor-pointer" onClick={() => toggleSort('warning_skus')}>
-                  <span className="flex items-center gap-1">Warning <ArrowUpDown className="h-3 w-3" /></span>
+                <TableHead className="cursor-pointer" onClick={() => toggleSort('a_class_skus')}>
+                  <span className="flex items-center gap-1">ABC Split <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
-                <TableHead>OK</TableHead>
                 <TableHead className="cursor-pointer" onClick={() => toggleSort('dead_stock_skus')}>
-                  <span className="flex items-center gap-1">Dead <ArrowUpDown className="h-3 w-3" /></span>
-                </TableHead>
-                <TableHead className="cursor-pointer" onClick={() => toggleSort('slow_mover_skus')}>
-                  <span className="flex items-center gap-1">Slow <ArrowUpDown className="h-3 w-3" /></span>
+                  <span className="flex items-center gap-1">Dead / Slow <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
                 <TableHead className="cursor-pointer" onClick={() => toggleSort('avg_days_to_stockout')}>
-                  <span className="flex items-center gap-1">Avg Days Left <ArrowUpDown className="h-3 w-3" /></span>
+                  <span className="flex items-center gap-1">Avg Days <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -171,7 +177,7 @@ export default function BrandOverview() {
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No brands found
                   </TableCell>
                 </TableRow>
@@ -181,58 +187,68 @@ export default function BrandOverview() {
                     onMouseEnter={() => handleBrandHover(b.category_name)}
                     onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`)}>
                     <TableCell className="font-medium">{b.category_name}</TableCell>
-                    <TableCell>{b.total_skus}</TableCell>
-                    <TableCell className="text-green-600">{b.in_stock_skus}</TableCell>
-                    <TableCell className={b.out_of_stock_skus > 0 ? 'text-red-600' : ''}>{b.out_of_stock_skus}</TableCell>
                     <TableCell>
-                      {b.critical_skus > 0 ? (
-                        <Badge className="bg-red-100 text-red-700 hover:bg-red-100">{b.critical_skus}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {b.critical_skus > 0 && (
+                          <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-xs">{b.critical_skus} crit</Badge>
+                        )}
+                        {b.warning_skus > 0 && (
+                          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-xs">{b.warning_skus} warn</Badge>
+                        )}
+                        {b.ok_skus > 0 && (
+                          <span className="text-xs text-green-600">{b.ok_skus} ok</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
-                      {b.warning_skus > 0 ? (
-                        <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{b.warning_skus}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {(b.a_class_skus || 0) > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-xs">
+                            <AbcBadge value="A" /> {b.a_class_skus}
+                          </span>
+                        )}
+                        {(b.b_class_skus || 0) > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-xs">
+                            <AbcBadge value="B" /> {b.b_class_skus}
+                          </span>
+                        )}
+                        {(b.c_class_skus || 0) > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                            <AbcBadge value="C" /> {b.c_class_skus}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell>{b.ok_skus}</TableCell>
                     <TableCell>
-                      {b.dead_stock_skus > 0
-                        ? <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">{b.dead_stock_skus}</Badge>
-                        : <span className="text-muted-foreground">0</span>}
-                    </TableCell>
-                    <TableCell>
-                      {(b.slow_mover_skus || 0) > 0
-                        ? <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{b.slow_mover_skus}</Badge>
-                        : <span className="text-muted-foreground">0</span>}
+                      <div className="flex items-center gap-2 text-xs">
+                        {b.dead_stock_skus > 0 ? (
+                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">{b.dead_stock_skus}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                        <span className="text-muted-foreground">/</span>
+                        {(b.slow_mover_skus || 0) > 0 ? (
+                          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{b.slow_mover_skus}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className={daysColor(b.avg_days_to_stockout)}>
-                      {b.avg_days_to_stockout !== null ? `${b.avg_days_to_stockout} days` : 'N/A'}
+                      {b.avg_days_to_stockout !== null ? `${b.avg_days_to_stockout}d` : 'N/A'}
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <div className="flex gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`)}
-                        >
+                        <Button variant="outline" size="sm"
+                          onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`)}>
                           SKUs
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/po`)}
-                        >
+                        <Button variant="outline" size="sm"
+                          onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/po`)}>
                           PO
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/dead-stock`)}
-                        >
+                        <Button variant="outline" size="sm"
+                          onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/dead-stock`)}>
                           Review
                         </Button>
                       </div>
@@ -242,6 +258,73 @@ export default function BrandOverview() {
               )}
             </TableBody>
           </Table>
+        </div>
+      ) : (
+        /* Detailed Card Grid View */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredBrands.length === 0 ? (
+            <div className="col-span-3 text-center py-8 text-muted-foreground">No brands found</div>
+          ) : (
+            filteredBrands.map(b => (
+              <Card key={b.category_name} className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`)}
+                onMouseEnter={() => handleBrandHover(b.category_name)}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold">{b.category_name}</CardTitle>
+                    <span className={`text-xs font-medium ${daysColor(b.avg_days_to_stockout)}`}>
+                      {b.avg_days_to_stockout !== null ? `${b.avg_days_to_stockout}d avg` : 'N/A'}
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Status */}
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Status</div>
+                    <div className="flex gap-2 flex-wrap text-xs">
+                      {b.critical_skus > 0 && <Badge className="bg-red-100 text-red-700 hover:bg-red-100">{b.critical_skus} critical</Badge>}
+                      {b.warning_skus > 0 && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{b.warning_skus} warning</Badge>}
+                      <span className="text-green-600">{b.ok_skus} ok</span>
+                      {b.out_of_stock_skus > 0 && <span className="text-red-500">{b.out_of_stock_skus} OOS</span>}
+                    </div>
+                  </div>
+                  {/* Classification */}
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Classification</div>
+                    <div className="flex gap-2 text-xs">
+                      <span className="inline-flex items-center gap-0.5"><AbcBadge value="A" /> {b.a_class_skus || 0}</span>
+                      <span className="inline-flex items-center gap-0.5"><AbcBadge value="B" /> {b.b_class_skus || 0}</span>
+                      <span className="inline-flex items-center gap-0.5"><AbcBadge value="C" /> {b.c_class_skus || 0}</span>
+                    </div>
+                  </div>
+                  {/* Quality */}
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Inventory Quality</div>
+                    <div className="flex gap-3 text-xs">
+                      <span>{b.dead_stock_skus} dead</span>
+                      <span>{b.slow_mover_skus || 0} slow</span>
+                      <span>{b.total_skus} total</span>
+                    </div>
+                  </div>
+                  {/* Actions */}
+                  <div className="flex gap-1 pt-1" onClick={e => e.stopPropagation()}>
+                    <Button variant="outline" size="sm" className="flex-1"
+                      onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`)}>
+                      SKUs
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex-1"
+                      onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/po`)}>
+                      PO
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex-1"
+                      onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/dead-stock`)}>
+                      Review
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       )}
     </div>

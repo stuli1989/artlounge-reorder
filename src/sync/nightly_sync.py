@@ -119,8 +119,10 @@ def run_sync(full: bool = False, dry_run: bool = False, offline: bool = False):
         if dry_run:
             log("DRY RUN — skipping computation pipeline")
         else:
-            log("Running computation pipeline...")
-            run_computation_pipeline(db_conn)
+            incremental = not full
+            mode_str = "full" if full else "incremental"
+            log(f"Running computation pipeline ({mode_str})...")
+            run_computation_pipeline(db_conn, incremental=incremental)
 
             # 5b. Check override drift
             log("Checking override drift...")

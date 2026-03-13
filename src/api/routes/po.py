@@ -56,6 +56,7 @@ def po_data(
                 SELECT sm.stock_item_name, sm.current_stock, sm.total_velocity,
                        sm.wholesale_velocity, sm.online_velocity,
                        sm.days_to_stockout, sm.reorder_status,
+                       sm.abc_class, sm.trend_direction, sm.safety_buffer,
                        si.part_no,
                        si.is_hazardous,
                        si.reorder_intent,
@@ -112,7 +113,10 @@ def po_data(
         st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time)
 
         if vals["eff_total"] > 0:
-            suggested = round(vals["eff_total"] * lead_time * buffer)
+            raw_need = vals["eff_total"] * lead_time * buffer
+            suggested = max(0, round(raw_need - max(0, vals["eff_stock"])))
+            if suggested == 0:
+                suggested = None
         elif d.get("reorder_intent") == "must_stock":
             suggested = must_stock_fallback_qty(lead_time)
         else:
@@ -130,6 +134,8 @@ def po_data(
             "has_override": vals["has_stock_override"] or vals["has_velocity_override"],
             "is_hazardous": d.get("is_hazardous") or False,
             "reorder_intent": d.get("reorder_intent", "normal"),
+            "abc_class": d.get("abc_class"),
+            "trend_direction": d.get("trend_direction"),
         })
 
     # Post-recalculation status filter when custom range is active
@@ -142,6 +148,7 @@ def po_data(
 
 class PoItem(BaseModel):
     stock_item_name: str
+    part_no: str = ""
     order_qty: int
     current_stock: float = 0
     velocity_per_month: float = 0
@@ -160,6 +167,19 @@ class PoExportRequest(BaseModel):
 @router.post("/export/po")
 def export_po(req: PoExportRequest):
     """Generate and download an Excel purchase order."""
+    # Auto-fill supplier name from brand_metrics if not provided
+    supplier_name = req.supplier_name
+    if not supplier_name:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT primary_supplier FROM brand_metrics WHERE category_name = %s",
+                    (req.category_name,),
+                )
+                row = cur.fetchone()
+                if row and row["primary_supplier"]:
+                    supplier_name = row["primary_supplier"]
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Purchase Order"
@@ -174,21 +194,21 @@ def export_po(req: PoExportRequest):
     )
 
     # Header section
-    ws.merge_cells("A1:H1")
+    ws.merge_cells("A1:I1")
     ws["A1"] = "Art Lounge India - Purchase Order"
     ws["A1"].font = title_font
 
-    ws["A2"] = f"To: {req.supplier_name}" if req.supplier_name else "To: (supplier)"
+    ws["A2"] = f"To: {supplier_name}" if supplier_name else "To: (supplier)"
     ws["A3"] = f"Date: {date.today().isoformat()}"
 
     brand_prefix = req.category_name[:3].upper().replace(" ", "")
     ws["A4"] = f"Reference: PO-{brand_prefix}-{date.today().strftime('%Y%m%d')}"
     ws["A5"] = f"Lead Time: {req.lead_time} days | Buffer: {req.buffer}x"
 
-    # Column headers (row 7)
-    headers = ["#", "Item Name", "Qty", "Unit", "Current Stock",
+    # Column headers (row 7) — now includes Part No
+    headers = ["#", "Part No", "Item Name", "Qty", "Unit", "Current Stock",
                "Velocity/Month", "Days Left", "Notes"]
-    col_widths = [5, 50, 10, 8, 14, 14, 12, 20]
+    col_widths = [5, 18, 50, 10, 8, 14, 14, 12, 20]
 
     for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
         cell = ws.cell(row=7, column=col_idx, value=header)
@@ -201,20 +221,21 @@ def export_po(req: PoExportRequest):
     for i, item in enumerate(req.items, 1):
         row = 7 + i
         ws.cell(row=row, column=1, value=i).border = thin_border
-        ws.cell(row=row, column=2, value=item.stock_item_name).border = thin_border
-        ws.cell(row=row, column=3, value=item.order_qty).border = thin_border
-        ws.cell(row=row, column=4, value="Nos").border = thin_border
-        ws.cell(row=row, column=5, value=item.current_stock).border = thin_border
-        ws.cell(row=row, column=6, value=round(item.velocity_per_month, 1)).border = thin_border
-        ws.cell(row=row, column=7, value=item.days_to_stockout).border = thin_border
-        ws.cell(row=row, column=8, value=item.notes).border = thin_border
+        ws.cell(row=row, column=2, value=item.part_no or "").border = thin_border
+        ws.cell(row=row, column=3, value=item.stock_item_name).border = thin_border
+        ws.cell(row=row, column=4, value=item.order_qty).border = thin_border
+        ws.cell(row=row, column=5, value="Nos").border = thin_border
+        ws.cell(row=row, column=6, value=item.current_stock).border = thin_border
+        ws.cell(row=row, column=7, value=round(item.velocity_per_month, 1)).border = thin_border
+        ws.cell(row=row, column=8, value=item.days_to_stockout).border = thin_border
+        ws.cell(row=row, column=9, value=item.notes).border = thin_border
         total_qty += item.order_qty
 
     # Totals row
     totals_row = 8 + len(req.items)
     ws.cell(row=totals_row, column=1, value="").font = Font(bold=True)
-    ws.cell(row=totals_row, column=2, value=f"Total Items: {len(req.items)}").font = Font(bold=True)
-    ws.cell(row=totals_row, column=3, value=total_qty).font = Font(bold=True)
+    ws.cell(row=totals_row, column=3, value=f"Total Items: {len(req.items)}").font = Font(bold=True)
+    ws.cell(row=totals_row, column=4, value=total_qty).font = Font(bold=True)
 
     # Footer
     footer_row = totals_row + 2

@@ -25,6 +25,10 @@ def compute_brand_metrics(
     no_data = 0
     dead_stock = 0
     slow_mover = 0
+    a_class = 0
+    b_class = 0
+    c_class = 0
+    inactive = 0
     weighted_sum = 0.0
     weight_total = 0.0
 
@@ -52,6 +56,17 @@ def compute_brand_metrics(
             ok += 1
         elif status == "no_data":
             no_data += 1
+        # ABC class counts
+        abc = s.get("abc_class")
+        if abc == "A":
+            a_class += 1
+        elif abc == "B":
+            b_class += 1
+        elif abc == "C":
+            c_class += 1
+        # Inactive count
+        if not s.get("is_active", True):
+            inactive += 1
         dts = s.get("days_to_stockout")
         if dts is not None and vel > 0:
             weighted_sum += dts * vel
@@ -73,4 +88,8 @@ def compute_brand_metrics(
         "avg_days_to_stockout": avg_days,
         "primary_supplier": supplier.get("name") if supplier else None,
         "supplier_lead_time": supplier.get("lead_time_default") if supplier else None,
+        "a_class_skus": a_class,
+        "b_class_skus": b_class,
+        "c_class_skus": c_class,
+        "inactive_skus": inactive,
     }

@@ -33,8 +33,63 @@ def brands_summary():
                     SUM(CASE WHEN warning_skus > 0 THEN 1 ELSE 0 END) AS brands_with_warning,
                     SUM(out_of_stock_skus) AS total_skus_out_of_stock,
                     SUM(COALESCE(dead_stock_skus, 0)) AS total_dead_stock_skus,
-                    SUM(COALESCE(slow_mover_skus, 0)) AS total_slow_mover_skus
+                    SUM(COALESCE(slow_mover_skus, 0)) AS total_slow_mover_skus,
+                    SUM(COALESCE(a_class_skus, 0)) AS total_a_class_skus,
+                    SUM(COALESCE(b_class_skus, 0)) AS total_b_class_skus,
+                    SUM(COALESCE(c_class_skus, 0)) AS total_c_class_skus,
+                    SUM(COALESCE(inactive_skus, 0)) AS total_inactive_skus
                 FROM brand_metrics
             """)
             row = cur.fetchone()
     return dict(row)
+
+
+@router.get("/dashboard-summary")
+def dashboard_summary():
+    """Cross-cutting summary for the command center home page."""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            # ABC x Status cross-product + trend counts from sku_metrics
+            cur.execute("""
+                SELECT
+                  COUNT(*) AS total_active_skus,
+                  SUM(CASE WHEN abc_class='A' AND reorder_status='critical' THEN 1 ELSE 0 END) AS a_critical,
+                  SUM(CASE WHEN abc_class='A' AND reorder_status='warning' THEN 1 ELSE 0 END) AS a_warning,
+                  SUM(CASE WHEN abc_class='B' AND reorder_status='critical' THEN 1 ELSE 0 END) AS b_critical,
+                  SUM(CASE WHEN abc_class='B' AND reorder_status='warning' THEN 1 ELSE 0 END) AS b_warning,
+                  SUM(CASE WHEN abc_class='C' AND reorder_status='critical' THEN 1 ELSE 0 END) AS c_critical,
+                  SUM(CASE WHEN abc_class='C' AND reorder_status='warning' THEN 1 ELSE 0 END) AS c_warning,
+                  SUM(CASE WHEN reorder_status='critical' THEN 1 ELSE 0 END) AS total_critical,
+                  SUM(CASE WHEN reorder_status='warning' THEN 1 ELSE 0 END) AS total_warning,
+                  SUM(CASE WHEN reorder_status='ok' THEN 1 ELSE 0 END) AS total_ok,
+                  SUM(CASE WHEN reorder_status='out_of_stock' THEN 1 ELSE 0 END) AS total_out_of_stock,
+                  SUM(CASE WHEN trend_direction='up' AND total_velocity>0 THEN 1 ELSE 0 END) AS trending_up,
+                  SUM(CASE WHEN trend_direction='down' AND total_velocity>0 THEN 1 ELSE 0 END) AS trending_down,
+                  SUM(CASE WHEN trend_direction='flat' AND total_velocity>0 THEN 1 ELSE 0 END) AS trending_flat
+                FROM sku_metrics sm
+                LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name
+                WHERE COALESCE(si.is_active, TRUE) = TRUE
+            """)
+            sku_row = dict(cur.fetchone())
+
+            # Top priority brands (with per-brand A-critical counts)
+            cur.execute("""
+                SELECT bm.category_name, bm.critical_skus, bm.warning_skus,
+                       bm.a_class_skus, bm.b_class_skus, bm.avg_days_to_stockout,
+                       COALESCE(ac.a_critical_skus, 0) AS a_critical_skus
+                FROM brand_metrics bm
+                LEFT JOIN (
+                    SELECT category_name, COUNT(*) AS a_critical_skus
+                    FROM sku_metrics
+                    WHERE abc_class = 'A' AND reorder_status = 'critical'
+                    GROUP BY category_name
+                ) ac ON ac.category_name = bm.category_name
+                WHERE bm.critical_skus > 0 OR bm.warning_skus > 0
+                ORDER BY (COALESCE(bm.a_class_skus,0)*3 + COALESCE(bm.b_class_skus,0)) * COALESCE(bm.critical_skus,0) DESC
+                LIMIT 7
+            """)
+            top_brands = [dict(r) for r in cur.fetchall()]
+
+    # Reuse brands_summary() to avoid duplicating its SQL
+    brand_row = brands_summary()
+    return {**sku_row, **brand_row, "top_brands": top_brands}

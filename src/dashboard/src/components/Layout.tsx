@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSyncStatus, fetchOverrides } from '@/lib/api'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Package, Users, Truck, AlertTriangle, Pencil } from 'lucide-react'
+import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAlert } from 'lucide-react'
 
 const freshnessColors = {
   fresh: 'bg-green-500',
@@ -29,7 +29,9 @@ export default function Layout() {
   const staleCount = staleOverrides?.length ?? 0
 
   const navItems = [
-    { path: '/', label: 'Brands', icon: Package },
+    { path: '/', label: 'Home', icon: LayoutDashboard, exact: true },
+    { path: '/brands', label: 'Brands', icon: Package, exact: true },
+    { path: '/critical', label: 'Critical', icon: ShieldAlert },
     { path: '/parties', label: 'Parties', icon: Users },
     { path: '/suppliers', label: 'Suppliers', icon: Truck },
     { path: '/overrides', label: 'Overrides', icon: Pencil },
@@ -43,9 +45,9 @@ export default function Layout() {
           <div className="flex items-center gap-6">
             <h1 className="text-lg font-semibold">Art Lounge — Stock Intelligence</h1>
             <nav className="flex gap-1">
-              {navItems.map(({ path, label, icon: Icon }) => {
-                const isActive = path === '/'
-                  ? location.pathname === '/'
+              {navItems.map(({ path, label, icon: Icon, exact }) => {
+                const isActive = exact
+                  ? location.pathname === path
                   : location.pathname.startsWith(path)
                 return (
                   <Link

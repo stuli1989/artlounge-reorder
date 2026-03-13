@@ -10,7 +10,7 @@ items were clearly selling. Inactive days (no stock AND no sales) are
 excluded from both numerator and denominator, so stockouts don't dilute
 the velocity estimate.
 """
-from datetime import date
+from datetime import date, timedelta
 
 from config.settings import FY_START_DATE, FY_END_DATE
 
@@ -134,3 +134,60 @@ def velocities_from_batch_row(vel_row: dict | None) -> tuple[float, float, float
 def opt_float(v):
     """Convert to float if not None, else return None."""
     return float(v) if v is not None else None
+
+
+def fetch_batch_wma_velocities(
+    cur, sku_names: list[str], range_end: date, window_days: int = 90,
+) -> dict[str, dict]:
+    """Batch-query daily_stock_positions for per-SKU velocity over a trailing window.
+
+    Same shape as fetch_batch_velocities but filtered to last `window_days` of data.
+    Returns {stock_item_name: {in_stock_days, wholesale_total, online_total, store_total}}.
+    Works with both dict cursors (API) and tuple cursors (pipeline).
+    """
+    if not sku_names:
+        return {}
+    window_start = range_end - timedelta(days=window_days)
+    cur.execute("""
+        SELECT dsp.stock_item_name,
+               COUNT(*) FILTER (WHERE dsp.is_in_stock) AS in_stock_days,
+               COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.wholesale_out ELSE 0 END), 0) AS wholesale_total,
+               COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.online_out ELSE 0 END), 0) AS online_total,
+               COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.store_out ELSE 0 END), 0) AS store_total
+        FROM daily_stock_positions dsp
+        WHERE dsp.stock_item_name = ANY(%s)
+        AND dsp.position_date >= %s AND dsp.position_date <= %s
+        GROUP BY dsp.stock_item_name
+    """, (sku_names, window_start, range_end))
+    cols = [desc[0] for desc in cur.description]
+    result = {}
+    for row in cur.fetchall():
+        if isinstance(row, dict):
+            d = dict(row)
+        else:
+            d = dict(zip(cols, row))
+        result[d["stock_item_name"]] = d
+    return result
+
+
+def detect_trend(
+    flat_velocity: float,
+    wma_velocity: float,
+    up_threshold: float = 1.2,
+    down_threshold: float = 0.8,
+) -> tuple[str, float | None]:
+    """Compare WMA velocity to flat velocity to detect trend direction.
+
+    Returns (direction, ratio) where direction is 'up', 'down', or 'flat'.
+    """
+    if flat_velocity <= 0 and wma_velocity <= 0:
+        return ("flat", None)
+    if flat_velocity <= 0 and wma_velocity > 0:
+        return ("up", None)
+    ratio = wma_velocity / flat_velocity
+    if ratio > up_threshold:
+        return ("up", round(ratio, 3))
+    elif ratio < down_threshold:
+        return ("down", round(ratio, 3))
+    else:
+        return ("flat", round(ratio, 3))

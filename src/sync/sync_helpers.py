@@ -51,3 +51,53 @@ def get_last_sync_end_date(db_conn) -> date | None:
         """)
         row = cur.fetchone()
         return row[0] if row else None
+
+
+def validate_extraction_counts(db_conn, new_counts: dict) -> list[str]:
+    """Compare new extraction counts against previous sync to detect data issues.
+
+    Returns list of warning messages. Raises ValueError if critical drop detected.
+    """
+    warnings = []
+
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT categories_synced, items_synced, transactions_synced
+            FROM sync_log WHERE status = 'completed'
+            ORDER BY sync_completed DESC LIMIT 1
+        """)
+        prev = cur.fetchone()
+
+    if not prev:
+        return warnings  # First sync, nothing to compare
+
+    prev_cats = prev[0] or 0
+    prev_items = prev[1] or 0
+    prev_txns = prev[2] or 0
+
+    new_cats = new_counts.get("categories", 0)
+    new_items = new_counts.get("items", 0)
+
+    # Critical: categories dropped to 0
+    if prev_cats > 0 and new_cats == 0:
+        raise ValueError(
+            f"Categories dropped from {prev_cats} to 0 — aborting sync. "
+            "Tally may not be responding correctly."
+        )
+
+    # Critical: items dropped >10%
+    if prev_items > 0 and new_items < prev_items * 0.9:
+        raise ValueError(
+            f"Items dropped >10%: {prev_items} → {new_items} — aborting sync. "
+            "Check Tally data integrity."
+        )
+
+    # Warning: transaction count dropped
+    new_txns = new_counts.get("transactions", 0)
+    if prev_txns > 0 and new_txns < prev_txns:
+        warnings.append(
+            f"Transaction count dropped: {prev_txns} → {new_txns}. "
+            "This could indicate a Tally issue."
+        )
+
+    return warnings

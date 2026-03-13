@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { cn } from '@/lib/utils'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -15,8 +15,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import StatusBadge from '@/components/StatusBadge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
+import SkuSecondaryLine from '@/components/SkuSecondaryLine'
+import TrendIndicator from '@/components/TrendIndicator'
+import ClassificationExplainer from '@/components/ClassificationExplainer'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { ArrowLeft, Download, Calendar, Flame, AlertTriangle } from 'lucide-react'
-import type { ReorderStatus, ReorderIntent } from '@/lib/types'
+import type { ReorderStatus, ReorderIntent, AbcClass, TrendDirection } from '@/lib/types'
 
 interface PoRow {
   stock_item_name: string
@@ -28,6 +32,8 @@ interface PoRow {
   reorder_status: ReorderStatus
   suggested_qty: number | null
   reorder_intent: ReorderIntent
+  abc_class: AbcClass | null
+  trend_direction: TrendDirection | null
   included: boolean
   order_qty: number
   notes: string
@@ -72,11 +78,8 @@ export default function PoBuilder() {
     enabled: !!decodedName,
   })
 
-  // Track user overrides per item (included, order_qty, notes)
-  // Overrides persist across poData changes; stale keys are harmlessly ignored by useMemo
   const [overrides, setOverrides] = useState<Record<string, RowOverride>>({})
 
-  // Derive rows from API data + user overrides
   const rows: PoRow[] = useMemo(() =>
     (poData || []).map(item => {
       const o = overrides[item.stock_item_name] || {}
@@ -126,6 +129,7 @@ export default function PoBuilder() {
       buffer,
       items: includedRows.map(r => ({
         stock_item_name: r.stock_item_name,
+        part_no: r.part_no || '',
         order_qty: r.order_qty,
         current_stock: r.current_stock,
         velocity_per_month: r.total_velocity * 30,
@@ -147,6 +151,7 @@ export default function PoBuilder() {
   }
 
   return (
+    <TooltipProvider>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -154,6 +159,9 @@ export default function PoBuilder() {
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to SKUs
         </Button>
         <h2 className="text-xl font-semibold">Purchase Order — {decodedName}</h2>
+        <div className="ml-auto">
+          <ClassificationExplainer />
+        </div>
       </div>
 
       {/* Active analysis period indicator */}
@@ -204,6 +212,10 @@ export default function PoBuilder() {
                 step={0.1}
                 className="mt-2"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Defaults to ABC/XYZ-optimized values (A+Z = 1.8x, C+X = 1.1x).
+                This slider overrides all items globally.
+              </p>
             </div>
 
             <div className="space-y-3">
@@ -246,7 +258,7 @@ export default function PoBuilder() {
         </Alert>
       )}
 
-      {/* Table */}
+      {/* Table — two-line rows */}
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Loading PO data...</div>
       ) : (
@@ -256,7 +268,6 @@ export default function PoBuilder() {
               <TableRow>
                 <TableHead className="w-10"></TableHead>
                 <TableHead className="w-[80px]">Status</TableHead>
-                <TableHead>Part No</TableHead>
                 <TableHead>SKU Name</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
                 <TableHead className="text-right">Velocity /mo</TableHead>
@@ -268,52 +279,69 @@ export default function PoBuilder() {
             </TableHeader>
             <TableBody>
               {rows.map(r => (
-                <TableRow key={r.stock_item_name} className={cn(!r.included && 'opacity-40', hasHazardousConflict && r.is_hazardous && r.included && 'bg-amber-50', r.reorder_intent === 'must_stock' && 'border-l-2 border-l-purple-400')}>
-                  <TableCell>
-                    <Checkbox checked={r.included} onCheckedChange={() => toggleRow(r.stock_item_name)} />
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={r.reorder_status as 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'} />
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{r.part_no || '-'}</TableCell>
-                  <TableCell className="max-w-[250px] truncate" title={r.stock_item_name}>
-                    <span className="inline-flex items-center gap-1">
-                      {r.is_hazardous && <Flame className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
-                      {r.stock_item_name}
-                      {r.reorder_intent === 'must_stock' && (
-                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px] px-1 py-0">Must Stock</Badge>
-                      )}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">{r.current_stock}</TableCell>
-                  <TableCell className="text-right">{(r.total_velocity * 30).toFixed(1)}</TableCell>
-                  <TableCell className="text-right">
-                    {r.days_to_stockout === null ? 'N/A' : r.days_to_stockout === 0 ? 'OUT' : `${r.days_to_stockout}d`}
-                  </TableCell>
-                  <TableCell className="text-right">{r.suggested_qty ?? '-'}</TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      value={r.order_qty}
-                      onChange={e => updateQty(r.stock_item_name, Number(e.target.value))}
-                      className="w-20 text-right"
-                      disabled={!r.included}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={r.notes}
-                      onChange={e => updateNotes(r.stock_item_name, e.target.value)}
-                      placeholder="Notes"
-                      className="text-xs"
-                      disabled={!r.included}
-                    />
-                  </TableCell>
-                </TableRow>
+                <Fragment key={r.stock_item_name}>
+                  <TableRow className={cn(!r.included && 'opacity-40', hasHazardousConflict && r.is_hazardous && r.included && 'bg-amber-50', r.reorder_intent === 'must_stock' && 'border-l-2 border-l-purple-400')}>
+                    <TableCell>
+                      <Checkbox checked={r.included} onCheckedChange={() => toggleRow(r.stock_item_name)} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={r.reorder_status as 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'} />
+                    </TableCell>
+                    <TableCell className="max-w-[250px] truncate" title={r.stock_item_name}>
+                      <span className="inline-flex items-center gap-1">
+                        {r.is_hazardous && <Flame className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
+                        {r.stock_item_name}
+                        {r.reorder_intent === 'must_stock' && (
+                          <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px] px-1 py-0">Must Stock</Badge>
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">{r.current_stock}</TableCell>
+                    <TableCell className="text-right">
+                      <span className="inline-flex items-center gap-1 justify-end">
+                        {(r.total_velocity * 30).toFixed(1)}
+                        <TrendIndicator direction={r.trend_direction} ratio={null} />
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {r.days_to_stockout === null ? 'N/A' : r.days_to_stockout === 0 ? 'OUT' : `${r.days_to_stockout}d`}
+                    </TableCell>
+                    <TableCell className="text-right">{r.suggested_qty ?? '-'}</TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        value={r.order_qty}
+                        onChange={e => updateQty(r.stock_item_name, Number(e.target.value))}
+                        className="w-20 text-right"
+                        disabled={!r.included}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={r.notes}
+                        onChange={e => updateNotes(r.stock_item_name, e.target.value)}
+                        placeholder="Notes"
+                        className="text-xs"
+                        disabled={!r.included}
+                      />
+                    </TableCell>
+                  </TableRow>
+                  {/* Secondary metadata line */}
+                  <TableRow className="border-0">
+                    <TableCell colSpan={9} className="pt-0 pb-2 pl-12">
+                      <SkuSecondaryLine
+                        abc_class={r.abc_class}
+                        xyz_class={null}
+                        part_no={r.part_no}
+                        is_hazardous={r.is_hazardous}
+                      />
+                    </TableCell>
+                  </TableRow>
+                </Fragment>
               ))}
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No items need reordering
                   </TableCell>
                 </TableRow>
@@ -329,5 +357,6 @@ export default function PoBuilder() {
         <span className="text-sm font-medium">Total Order Quantity: {totalQty.toLocaleString()}</span>
       </div>
     </div>
+    </TooltipProvider>
   )
 }

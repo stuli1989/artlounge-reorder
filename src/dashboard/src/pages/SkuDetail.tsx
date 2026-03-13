@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, memo, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchSkusPage, toggleHazardous } from '@/lib/api'
+import { useQuery } from '@tanstack/react-query'
+import { fetchSkusPage } from '@/lib/api'
 import type { SkuCounts, SkuMetrics } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,7 +16,12 @@ import TransactionHistory from '@/components/TransactionHistory'
 import CalculationBreakdown from '@/components/CalculationBreakdown'
 import ReorderIntentSelector from '@/components/ReorderIntentSelector'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar, Flame, Snowflake } from 'lucide-react'
+import SkuSecondaryLine from '@/components/SkuSecondaryLine'
+import VelocityToggle from '@/components/VelocityToggle'
+import TrendIndicator from '@/components/TrendIndicator'
+import ClassificationExplainer from '@/components/ClassificationExplainer'
+import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar, Snowflake, Filter } from 'lucide-react'
+import { vel, daysDisplay } from '@/lib/formatters'
 
 function formatDateForInput(d: Date): string {
   return d.toISOString().slice(0, 10)
@@ -46,33 +51,24 @@ const DEFAULT_COUNTS: SkuCounts = {
   dead_stock: 0,
 }
 
-const daysDisplay = (d: number | null) => {
-  if (d === null) return <span className="text-gray-400">N/A</span>
-  if (d === 0) return <span className="text-red-600 font-bold">OUT</span>
-  if (d < 30) return <span className="text-red-600 font-medium">{d}d</span>
-  if (d < 90) return <span className="text-amber-600">{d}d</span>
-  return <span className="text-green-600">{d}d</span>
-}
-
-const vel = (v: number) => (v * 30).toFixed(1)
-
 const SkuRow = memo(function SkuRow({
   s,
   isExpanded,
   onToggle,
-  onHazardousToggle,
   decodedName,
   analysisRange,
+  velocityType,
 }: {
   s: SkuMetrics
   isExpanded: boolean
   onToggle: (name: string) => void
-  onHazardousToggle: (name: string, value: boolean) => void
   decodedName: string
   analysisRange: { from: string; to: string } | null
+  velocityType: 'flat' | 'wma'
 }) {
   return (
     <Fragment>
+      {/* Primary row — 8 columns */}
       <TableRow
         className="cursor-pointer hover:bg-muted/50"
         onClick={() => onToggle(s.stock_item_name)}
@@ -83,17 +79,7 @@ const SkuRow = memo(function SkuRow({
             : <ChevronRight className="h-4 w-4" />}
         </TableCell>
         <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
-        <TableCell className="text-xs text-muted-foreground">{s.part_no || '-'}</TableCell>
-        <TableCell className="text-center">
-          <Flame
-            className={`h-4 w-4 cursor-pointer transition-colors inline-block ${s.is_hazardous ? 'text-amber-500 fill-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
-            onClick={e => {
-              e.stopPropagation()
-              onHazardousToggle(s.stock_item_name, !s.is_hazardous)
-            }}
-          />
-        </TableCell>
-        <TableCell className="max-w-[250px] truncate" title={s.stock_item_name}>
+        <TableCell className="max-w-[280px] truncate" title={s.stock_item_name}>
           <span className="inline-flex items-center gap-1">
             {s.stock_item_name}
             {s.reorder_intent === 'must_stock' && (
@@ -120,12 +106,6 @@ const SkuRow = memo(function SkuRow({
             )}
           </span>
         </TableCell>
-        <TableCell onClick={e => e.stopPropagation()}>
-          <ReorderIntentSelector
-            stockItemName={s.stock_item_name}
-            currentIntent={s.reorder_intent || 'normal'}
-          />
-        </TableCell>
         <TableCell className={`text-right ${(s.effective_stock ?? s.current_stock) <= 0 ? 'text-red-600 font-medium' : ''}`}>
           <span className="inline-flex items-center gap-1 justify-end">
             {s.effective_stock ?? s.current_stock}
@@ -144,11 +124,12 @@ const SkuRow = memo(function SkuRow({
             )}
           </span>
         </TableCell>
-        <TableCell className="text-right">{vel(s.effective_wholesale_velocity ?? s.wholesale_velocity)}</TableCell>
-        <TableCell className="text-right">{vel(s.effective_online_velocity ?? s.online_velocity)}</TableCell>
         <TableCell className="text-right font-medium">
           <span className="inline-flex items-center gap-1 justify-end">
-            {vel(s.effective_velocity ?? s.total_velocity)}
+            {velocityType === 'wma'
+              ? vel(s.wma_total_velocity ?? 0)
+              : vel(s.effective_velocity ?? s.total_velocity)}
+            <TrendIndicator direction={s.trend_direction} ratio={s.trend_ratio} />
             {s.has_velocity_override && (
               <Tooltip>
                 <TooltipTrigger>
@@ -165,17 +146,31 @@ const SkuRow = memo(function SkuRow({
           </span>
         </TableCell>
         <TableCell className="text-right">{daysDisplay(s.effective_days_to_stockout ?? s.days_to_stockout)}</TableCell>
-        <TableCell className="text-xs">
-          {s.last_import_date
-            ? new Date(s.last_import_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: '2-digit' })
-            : '-'}
-          {s.last_import_qty ? ` (${s.last_import_qty})` : ''}
-        </TableCell>
         <TableCell className="text-right">{s.effective_suggested_qty ?? s.reorder_qty_suggested ?? '-'}</TableCell>
+        <TableCell onClick={e => e.stopPropagation()}>
+          <ReorderIntentSelector
+            stockItemName={s.stock_item_name}
+            currentIntent={s.reorder_intent || 'normal'}
+          />
+        </TableCell>
       </TableRow>
+
+      {/* Secondary metadata line */}
+      <TableRow className="border-0">
+        <TableCell colSpan={8} className="pt-0 pb-2 pl-12">
+          <SkuSecondaryLine
+            abc_class={s.abc_class}
+            xyz_class={s.xyz_class}
+            part_no={s.part_no}
+            is_hazardous={s.is_hazardous}
+          />
+        </TableCell>
+      </TableRow>
+
+      {/* Expanded detail */}
       {isExpanded && (
         <TableRow>
-          <TableCell colSpan={13} className="bg-muted/30 p-4">
+          <TableCell colSpan={8} className="bg-muted/30 p-4">
             <Tabs defaultValue="timeline">
               <TabsList>
                 <TabsTrigger value="timeline">Stock Timeline</TabsTrigger>
@@ -216,6 +211,27 @@ export default function SkuDetail() {
   const [pageSize, setPageSize] = useState(100)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
 
+  // V2 controls
+  const [velocityType, setVelocityType] = useState<'flat' | 'wma'>('flat')
+  const [abcFilter, setAbcFilter] = useState('')
+  const [hideInactive, setHideInactive] = useState(true)
+
+  // More filters collapse
+  const [showMoreFilters, setShowMoreFilters] = useState(false)
+  const [xyzFilter, setXyzFilter] = useState('')
+  const [hazardousFilter, setHazardousFilter] = useState(false)
+  const [deadStockFilter, setDeadStockFilter] = useState(false)
+  const [intentFilter, setIntentFilter] = useState('')
+
+  // Count of active hidden filters
+  const hiddenFilterCount = [
+    xyzFilter,
+    hazardousFilter,
+    deadStockFilter,
+    intentFilter,
+    !hideInactive,
+  ].filter(Boolean).length
+
   // Analysis date range state
   const [rangePreset, setRangePreset] = useState('full_fy')
   const [customFrom, setCustomFrom] = useState('')
@@ -236,37 +252,30 @@ export default function SkuDetail() {
     return () => window.clearTimeout(handle)
   }, [search])
 
-  const queryClient = useQueryClient()
-
-  const hazardousMutation = useMutation({
-    mutationFn: ({ name, value }: { name: string; value: boolean }) => toggleHazardous(name, value),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['skus', decodedName] }),
-  })
-
   const handleToggleRow = useCallback((name: string) => {
     setExpandedRow(prev => prev === name ? null : name)
   }, [])
 
-  const handleHazardousToggle = useCallback((name: string, value: boolean) => {
-    hazardousMutation.mutate({ name, value })
-  }, [hazardousMutation])
-
   const { data: skuPage, isLoading, isFetching } = useQuery({
-    queryKey: ['skus', decodedName, statusFilter, debouncedSearch, analysisRange?.from, analysisRange?.to, page, pageSize],
+    queryKey: ['skus', decodedName, statusFilter, debouncedSearch, analysisRange?.from, analysisRange?.to, page, pageSize, abcFilter, hideInactive, velocityType, xyzFilter, hazardousFilter, deadStockFilter, intentFilter],
     queryFn: () => {
       const params: Record<string, string> = {}
       if (statusFilter === 'critical') params.status = 'critical'
       else if (statusFilter === 'critical_warning') params.status = 'critical,warning'
       else if (statusFilter === 'out_of_stock') params.status = 'out_of_stock'
-      else if (statusFilter === 'dead_stock') params.dead_stock = 'true'
-      else if (statusFilter === 'hazardous') params.hazardous = 'true'
-      else if (statusFilter === 'must_stock') params.reorder_intent = 'must_stock'
-      else if (statusFilter === 'do_not_reorder') params.reorder_intent = 'do_not_reorder'
+      if (deadStockFilter) params.dead_stock = 'true'
+      if (hazardousFilter) params.hazardous = 'true'
+      if (intentFilter === 'must_stock') params.reorder_intent = 'must_stock'
+      else if (intentFilter === 'do_not_reorder') params.reorder_intent = 'do_not_reorder'
       if (debouncedSearch) params.search = debouncedSearch
       if (analysisRange) {
         if (analysisRange.from) params.from_date = analysisRange.from
         if (analysisRange.to) params.to_date = analysisRange.to
       }
+      if (abcFilter) params.abc_class = abcFilter
+      if (xyzFilter) params.xyz_class = xyzFilter
+      params.hide_inactive = String(hideInactive)
+      params.velocity_type = velocityType
       return fetchSkusPage(decodedName, params, {
         limit: pageSize,
         offset: page * pageSize,
@@ -294,13 +303,15 @@ export default function SkuDetail() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/brands')}>
               <ArrowLeft className="h-4 w-4 mr-1" /> Back
             </Button>
             <h2 className="text-xl font-semibold">{decodedName}</h2>
             <span className="text-muted-foreground">{isLoading && !skuPage ? '...' : totalSkus} SKUs</span>
           </div>
           <div className="flex items-center gap-3">
+            <ClassificationExplainer />
+            <VelocityToggle value={velocityType} onChange={setVelocityType} />
             {/* Date Range Selector */}
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -383,8 +394,8 @@ export default function SkuDetail() {
           ))}
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-4">
+        {/* Filters — always visible */}
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -412,24 +423,97 @@ export default function SkuDetail() {
               <SelectItem value="critical">Critical Only</SelectItem>
               <SelectItem value="critical_warning">Critical & Warning</SelectItem>
               <SelectItem value="out_of_stock">Out of Stock</SelectItem>
-              <SelectItem value="dead_stock">Dead Stock</SelectItem>
-              <SelectItem value="hazardous">Hazardous</SelectItem>
-              <SelectItem value="must_stock">Must Stock</SelectItem>
-              <SelectItem value="do_not_reorder">Do Not Reorder</SelectItem>
             </SelectContent>
           </Select>
-            {isFetching && (
-              <span className="text-xs text-muted-foreground">Updating…</span>
+          <Select value={abcFilter || 'all'} onValueChange={v => { if (v) { setAbcFilter(v === 'all' ? '' : v); setPage(0); setExpandedRow(null) } }}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="ABC Class" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Classes</SelectItem>
+              <SelectItem value="A">A Class</SelectItem>
+              <SelectItem value="B">B Class</SelectItem>
+              <SelectItem value="C">C Class</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMoreFilters(v => !v)}
+            className="gap-1"
+          >
+            <Filter className="h-3.5 w-3.5" />
+            More filters
+            {hiddenFilterCount > 0 && (
+              <Badge className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0 ml-1">{hiddenFilterCount}</Badge>
             )}
-          </div>
+          </Button>
+          {isFetching && (
+            <span className="text-xs text-muted-foreground">Updating...</span>
+          )}
+        </div>
 
-        {/* Table */}
+        {/* More filters — collapsible */}
+        {showMoreFilters && (
+          <div className="flex items-center gap-4 pl-1 flex-wrap">
+            <Select value={xyzFilter || 'all'} onValueChange={v => { if (v) { setXyzFilter(v === 'all' ? '' : v); setPage(0); setExpandedRow(null) } }}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="XYZ Class" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All XYZ</SelectItem>
+                <SelectItem value="X">X Class</SelectItem>
+                <SelectItem value="Y">Y Class</SelectItem>
+                <SelectItem value="Z">Z Class</SelectItem>
+              </SelectContent>
+            </Select>
+            <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hazardousFilter}
+                onChange={e => { setHazardousFilter(e.target.checked); setPage(0); setExpandedRow(null) }}
+                className="rounded border-gray-300"
+              />
+              Hazardous only
+            </label>
+            <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={deadStockFilter}
+                onChange={e => { setDeadStockFilter(e.target.checked); setPage(0); setExpandedRow(null) }}
+                className="rounded border-gray-300"
+              />
+              Dead stock
+            </label>
+            <Select value={intentFilter || 'all'} onValueChange={v => { if (v) { setIntentFilter(v === 'all' ? '' : v); setPage(0); setExpandedRow(null) } }}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Intent" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Intents</SelectItem>
+                <SelectItem value="must_stock">Must Stock</SelectItem>
+                <SelectItem value="do_not_reorder">Do Not Reorder</SelectItem>
+              </SelectContent>
+            </Select>
+            <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!hideInactive}
+                onChange={e => { setHideInactive(!e.target.checked); setPage(0); setExpandedRow(null) }}
+                className="rounded border-gray-300"
+              />
+              Show inactive
+            </label>
+          </div>
+        )}
+
+        {/* Table — 8 columns */}
         {isLoading ? (
           <div className="border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
-                  {Array.from({ length: 13 }).map((_, i) => (
+                  {Array.from({ length: 8 }).map((_, i) => (
                     <TableHead key={i}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableHead>
                   ))}
                 </TableRow>
@@ -437,7 +521,7 @@ export default function SkuDetail() {
               <TableBody>
                 {Array.from({ length: 10 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 13 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <TableCell key={j}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableCell>
                     ))}
                   </TableRow>
@@ -452,17 +536,12 @@ export default function SkuDetail() {
                 <TableRow>
                   <TableHead className="w-8"></TableHead>
                   <TableHead className="w-[80px]">Status</TableHead>
-                  <TableHead>Part No</TableHead>
-                  <TableHead className="w-10">Haz</TableHead>
                   <TableHead>SKU Name</TableHead>
-                  <TableHead>Intent</TableHead>
                   <TableHead className="text-right">Stock</TableHead>
-                  <TableHead className="text-right">Wholesale /mo</TableHead>
-                  <TableHead className="text-right">Online /mo</TableHead>
-                  <TableHead className="text-right">Total /mo</TableHead>
+                  <TableHead className="text-right">Velocity /mo</TableHead>
                   <TableHead className="text-right">Days Left</TableHead>
-                  <TableHead>Last Import</TableHead>
                   <TableHead className="text-right">Suggested</TableHead>
+                  <TableHead>Intent</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -472,14 +551,14 @@ export default function SkuDetail() {
                     s={s}
                     isExpanded={expandedRow === s.stock_item_name}
                     onToggle={handleToggleRow}
-                    onHazardousToggle={handleHazardousToggle}
                     decodedName={decodedName}
                     analysisRange={analysisRange}
+                    velocityType={velocityType}
                   />
                 ))}
                 {skus.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No SKUs found
                     </TableCell>
                   </TableRow>

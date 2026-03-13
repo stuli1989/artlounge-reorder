@@ -40,3 +40,10 @@
 - Voucher types without inventory: Journal, Receipt, Payment, Contra, Sales-Freight
 - Inventory entry fields: `STOCKITEMNAME`, `ACTUALQTY`, `RATE`, `AMOUNT` (inside `ALLINVENTORYENTRIES.LIST`)
 - Party name is the ONLY way to distinguish sales channels (wholesale vs online vs store)
+
+## Unicommerce (RESEARCH ONLY)
+
+- Unicommerce is Art Lounge's actual ERP and a better source of truth than Tally
+- **Do NOT build Unicommerce integration** — the team works based on Tally, so the current system stays Tally-based
+- Unicommerce API research has been done (see memory) for future migration planning
+- This is a future change, not a current task

@@ -1,6 +1,10 @@
 export type ReorderStatus = 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'
 export type ReorderIntent = 'must_stock' | 'normal' | 'do_not_reorder'
 
+export type AbcClass = 'A' | 'B' | 'C'
+export type XyzClass = 'X' | 'Y' | 'Z'
+export type TrendDirection = 'up' | 'down' | 'flat'
+
 export interface BrandMetrics {
   category_name: string
   total_skus: number
@@ -15,6 +19,10 @@ export interface BrandMetrics {
   slow_mover_skus: number
   primary_supplier: string | null
   supplier_lead_time: number | null
+  a_class_skus: number
+  b_class_skus: number
+  c_class_skus: number
+  inactive_skus: number
   computed_at: string
 }
 
@@ -25,6 +33,10 @@ export interface BrandSummary {
   total_skus_out_of_stock: number
   total_dead_stock_skus: number
   total_slow_mover_skus: number
+  total_a_class_skus: number
+  total_b_class_skus: number
+  total_c_class_skus: number
+  total_inactive_skus: number
 }
 
 export interface SkuMetrics {
@@ -68,6 +80,17 @@ export interface SkuMetrics {
   is_dead_stock: boolean
   reorder_intent: ReorderIntent
   is_slow_mover: boolean
+  // V2 fields
+  abc_class: AbcClass | null
+  xyz_class: XyzClass | null
+  demand_cv: number | null
+  total_revenue: number
+  wma_wholesale_velocity: number
+  wma_online_velocity: number
+  wma_total_velocity: number
+  trend_direction: TrendDirection
+  trend_ratio: number | null
+  safety_buffer: number
 }
 
 export interface SkuCounts {
@@ -276,6 +299,49 @@ export interface BreakdownResponse {
   }
 }
 
+export interface DashboardSummaryBrand {
+  category_name: string
+  critical_skus: number
+  warning_skus: number
+  a_class_skus: number
+  b_class_skus: number
+  avg_days_to_stockout: number | null
+  a_critical_skus: number
+}
+
+export interface DashboardSummary {
+  // ABC x Status
+  total_active_skus: number
+  a_critical: number
+  a_warning: number
+  b_critical: number
+  b_warning: number
+  c_critical: number
+  c_warning: number
+  // Status totals
+  total_critical: number
+  total_warning: number
+  total_ok: number
+  total_out_of_stock: number
+  // Trends
+  trending_up: number
+  trending_down: number
+  trending_flat: number
+  // Brand summary
+  total_brands: number
+  brands_with_critical: number
+  brands_with_warning: number
+  total_skus_out_of_stock: number
+  total_dead_stock_skus: number
+  total_slow_mover_skus: number
+  total_a_class_skus: number
+  total_b_class_skus: number
+  total_c_class_skus: number
+  total_inactive_skus: number
+  // Top priority brands
+  top_brands: DashboardSummaryBrand[]
+}
+
 export interface PoDataItem {
   stock_item_name: string
   part_no: string | null
@@ -288,4 +354,6 @@ export interface PoDataItem {
   lead_time: number
   buffer: number
   reorder_intent: ReorderIntent
+  abc_class: AbcClass | null
+  trend_direction: TrendDirection | null
 }

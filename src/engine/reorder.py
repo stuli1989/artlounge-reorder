@@ -49,10 +49,12 @@ def determine_reorder_status(
     days_to_stockout: float | None,
     supplier_lead_time: int,
     total_velocity: float,
+    safety_buffer: float = 1.3,
 ) -> tuple[str, float | None]:
     """
     Determine reorder status and suggested order quantity.
 
+    Suggested qty subtracts current stock: velocity * lead_time * buffer - stock.
     Returns (status, suggested_qty).
     """
     if total_velocity <= 0:
@@ -60,18 +62,24 @@ def determine_reorder_status(
             return ("out_of_stock", None)
         return ("no_data", None)
 
-    suggested_qty = round(total_velocity * supplier_lead_time * 1.3)
+    raw_need = total_velocity * supplier_lead_time * safety_buffer
+    suggested_qty = max(0, round(raw_need - max(0, current_stock)))
+    if suggested_qty == 0:
+        suggested_qty = None
 
     if current_stock <= 0:
-        return ("out_of_stock", suggested_qty)
+        return ("out_of_stock", round(raw_need))
 
     if days_to_stockout is None:
         return ("no_data", None)
 
+    # Warning buffer: wider for long lead times, minimum 30 days
+    warning_buffer = max(30, int(supplier_lead_time * 0.5))
+
     if days_to_stockout <= supplier_lead_time:
-        return ("critical", suggested_qty)
-    elif days_to_stockout <= supplier_lead_time + 30:
-        return ("warning", suggested_qty)
+        return ("critical", suggested_qty or round(raw_need))
+    elif days_to_stockout <= supplier_lead_time + warning_buffer:
+        return ("warning", suggested_qty or round(raw_need))
     else:
         return ("ok", suggested_qty)
 
