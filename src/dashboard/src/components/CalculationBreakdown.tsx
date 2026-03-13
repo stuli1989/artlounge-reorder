@@ -104,11 +104,13 @@ function OverrideForm({
   label,
   currentOverride,
   stockItemName,
+  categoryName,
 }: {
   fieldName: string
   label: string
   currentOverride?: OverrideInfo
   stockItemName: string
+  categoryName?: string
 }) {
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState(currentOverride?.value?.toString() || '')
@@ -116,13 +118,18 @@ function OverrideForm({
   const [holdFromPo, setHoldFromPo] = useState(false)
   const queryClient = useQueryClient()
 
+  const invalidateRelated = () => {
+    // Scope invalidation to this specific item/category to avoid refetching unrelated brands
+    queryClient.invalidateQueries({ queryKey: ['breakdown', categoryName, stockItemName] })
+    queryClient.invalidateQueries({ queryKey: ['skus', categoryName] })
+    queryClient.invalidateQueries({ queryKey: ['poData', categoryName] })
+    queryClient.invalidateQueries({ queryKey: ['overrides'] })
+  }
+
   const createMut = useMutation({
     mutationFn: createOverride,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['breakdown'] })
-      queryClient.invalidateQueries({ queryKey: ['skus'] })
-      queryClient.invalidateQueries({ queryKey: ['poData'] })
-      queryClient.invalidateQueries({ queryKey: ['overrides'] })
+      invalidateRelated()
       setOpen(false)
     },
   })
@@ -130,10 +137,7 @@ function OverrideForm({
   const removeMut = useMutation({
     mutationFn: () => deleteOverride(currentOverride!.id, 'Removed by user'),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['breakdown'] })
-      queryClient.invalidateQueries({ queryKey: ['skus'] })
-      queryClient.invalidateQueries({ queryKey: ['poData'] })
-      queryClient.invalidateQueries({ queryKey: ['overrides'] })
+      invalidateRelated()
       setOpen(false)
     },
   })
@@ -274,7 +278,7 @@ export default function CalculationBreakdown({
             label="Stock"
             currentOverride={stockOvr}
             stockItemName={stockItemName}
-
+            categoryName={categoryName}
           />
         </CardContent>
       </Card>
@@ -405,7 +409,7 @@ export default function CalculationBreakdown({
                         label={`${ch} velocity`}
                         currentOverride={ovr}
                         stockItemName={stockItemName}
-            
+                        categoryName={categoryName}
                       />
                     </TableCell>
                   </TableRow>
@@ -426,7 +430,7 @@ export default function CalculationBreakdown({
                     label="total velocity"
                     currentOverride={overrides.total_velocity}
                     stockItemName={stockItemName}
-        
+                    categoryName={categoryName}
                   />
                 </TableCell>
               </TableRow>
@@ -529,7 +533,7 @@ export default function CalculationBreakdown({
               label="Note"
               currentOverride={overrides.note}
               stockItemName={stockItemName}
-  
+              categoryName={categoryName}
             />
           </div>
 

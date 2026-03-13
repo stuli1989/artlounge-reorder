@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Fragment } from 'react'
+import { useState, useMemo, useEffect, useCallback, memo, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchSkusPage, toggleHazardous } from '@/lib/api'
@@ -46,6 +46,164 @@ const DEFAULT_COUNTS: SkuCounts = {
   dead_stock: 0,
 }
 
+const daysDisplay = (d: number | null) => {
+  if (d === null) return <span className="text-gray-400">N/A</span>
+  if (d === 0) return <span className="text-red-600 font-bold">OUT</span>
+  if (d < 30) return <span className="text-red-600 font-medium">{d}d</span>
+  if (d < 90) return <span className="text-amber-600">{d}d</span>
+  return <span className="text-green-600">{d}d</span>
+}
+
+const vel = (v: number) => (v * 30).toFixed(1)
+
+const SkuRow = memo(function SkuRow({
+  s,
+  isExpanded,
+  onToggle,
+  onHazardousToggle,
+  decodedName,
+  analysisRange,
+}: {
+  s: SkuMetrics
+  isExpanded: boolean
+  onToggle: (name: string) => void
+  onHazardousToggle: (name: string, value: boolean) => void
+  decodedName: string
+  analysisRange: { from: string; to: string } | null
+}) {
+  return (
+    <Fragment>
+      <TableRow
+        className="cursor-pointer hover:bg-muted/50"
+        onClick={() => onToggle(s.stock_item_name)}
+      >
+        <TableCell>
+          {isExpanded
+            ? <ChevronDown className="h-4 w-4" />
+            : <ChevronRight className="h-4 w-4" />}
+        </TableCell>
+        <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
+        <TableCell className="text-xs text-muted-foreground">{s.part_no || '-'}</TableCell>
+        <TableCell className="text-center">
+          <Flame
+            className={`h-4 w-4 cursor-pointer transition-colors inline-block ${s.is_hazardous ? 'text-amber-500 fill-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
+            onClick={e => {
+              e.stopPropagation()
+              onHazardousToggle(s.stock_item_name, !s.is_hazardous)
+            }}
+          />
+        </TableCell>
+        <TableCell className="max-w-[250px] truncate" title={s.stock_item_name}>
+          <span className="inline-flex items-center gap-1">
+            {s.stock_item_name}
+            {s.reorder_intent === 'must_stock' && (
+              <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px] px-1 py-0">Must Stock</Badge>
+            )}
+            {s.reorder_intent === 'do_not_reorder' && (
+              <Badge className="bg-gray-100 text-gray-500 hover:bg-gray-100 text-[10px] px-1 py-0">DNR</Badge>
+            )}
+            {s.is_dead_stock && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Snowflake className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent>Dead stock — no sales for {s.days_since_last_sale ?? '∞'} days</TooltipContent>
+              </Tooltip>
+            )}
+            {s.has_note && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <StickyNote className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent>Has annotation note</TooltipContent>
+              </Tooltip>
+            )}
+          </span>
+        </TableCell>
+        <TableCell onClick={e => e.stopPropagation()}>
+          <ReorderIntentSelector
+            stockItemName={s.stock_item_name}
+            currentIntent={s.reorder_intent || 'normal'}
+          />
+        </TableCell>
+        <TableCell className={`text-right ${(s.effective_stock ?? s.current_stock) <= 0 ? 'text-red-600 font-medium' : ''}`}>
+          <span className="inline-flex items-center gap-1 justify-end">
+            {s.effective_stock ?? s.current_stock}
+            {s.has_stock_override && (
+              <Tooltip>
+                <TooltipTrigger>
+                  {s.stock_override_stale
+                    ? <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    : <Pencil className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                </TooltipTrigger>
+                <TooltipContent>
+                  Stock override active (computed: {s.current_stock})
+                  {s.stock_override_stale && ' — STALE: Tally data changed'}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </span>
+        </TableCell>
+        <TableCell className="text-right">{vel(s.effective_wholesale_velocity ?? s.wholesale_velocity)}</TableCell>
+        <TableCell className="text-right">{vel(s.effective_online_velocity ?? s.online_velocity)}</TableCell>
+        <TableCell className="text-right font-medium">
+          <span className="inline-flex items-center gap-1 justify-end">
+            {vel(s.effective_velocity ?? s.total_velocity)}
+            {s.has_velocity_override && (
+              <Tooltip>
+                <TooltipTrigger>
+                  {s.velocity_override_stale
+                    ? <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    : <Pencil className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                </TooltipTrigger>
+                <TooltipContent>
+                  Velocity override active (computed: {vel(s.total_velocity)}/mo)
+                  {s.velocity_override_stale && ' — STALE'}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </span>
+        </TableCell>
+        <TableCell className="text-right">{daysDisplay(s.effective_days_to_stockout ?? s.days_to_stockout)}</TableCell>
+        <TableCell className="text-xs">
+          {s.last_import_date
+            ? new Date(s.last_import_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: '2-digit' })
+            : '-'}
+          {s.last_import_qty ? ` (${s.last_import_qty})` : ''}
+        </TableCell>
+        <TableCell className="text-right">{s.effective_suggested_qty ?? s.reorder_qty_suggested ?? '-'}</TableCell>
+      </TableRow>
+      {isExpanded && (
+        <TableRow>
+          <TableCell colSpan={13} className="bg-muted/30 p-4">
+            <Tabs defaultValue="timeline">
+              <TabsList>
+                <TabsTrigger value="timeline">Stock Timeline</TabsTrigger>
+                <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                <TabsTrigger value="calculation">Calculation</TabsTrigger>
+              </TabsList>
+              <TabsContent value="timeline" className="pt-4">
+                <StockTimelineChart categoryName={decodedName} stockItemName={s.stock_item_name} />
+              </TabsContent>
+              <TabsContent value="transactions" className="pt-4">
+                <TransactionHistory categoryName={decodedName} stockItemName={s.stock_item_name} />
+              </TabsContent>
+              <TabsContent value="calculation" className="pt-4">
+                <CalculationBreakdown
+                  categoryName={decodedName}
+                  stockItemName={s.stock_item_name}
+                  fromDate={analysisRange?.from}
+                  toDate={analysisRange?.to}
+                />
+              </TabsContent>
+            </Tabs>
+          </TableCell>
+        </TableRow>
+      )}
+    </Fragment>
+  )
+})
+
 export default function SkuDetail() {
   const { categoryName } = useParams<{ categoryName: string }>()
   const navigate = useNavigate()
@@ -85,6 +243,14 @@ export default function SkuDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['skus', decodedName] }),
   })
 
+  const handleToggleRow = useCallback((name: string) => {
+    setExpandedRow(prev => prev === name ? null : name)
+  }, [])
+
+  const handleHazardousToggle = useCallback((name: string, value: boolean) => {
+    hazardousMutation.mutate({ name, value })
+  }, [hazardousMutation])
+
   const { data: skuPage, isLoading, isFetching } = useQuery({
     queryKey: ['skus', decodedName, statusFilter, debouncedSearch, analysisRange?.from, analysisRange?.to, page, pageSize],
     queryFn: () => {
@@ -117,16 +283,6 @@ export default function SkuDetail() {
   const pageEnd = Math.min((page + 1) * pageSize, totalSkus)
   const hasPreviousPage = page > 0
   const hasNextPage = pageEnd < totalSkus
-
-  const daysDisplay = (d: number | null) => {
-    if (d === null) return <span className="text-gray-400">N/A</span>
-    if (d === 0) return <span className="text-red-600 font-bold">OUT</span>
-    if (d < 30) return <span className="text-red-600 font-medium">{d}d</span>
-    if (d < 90) return <span className="text-amber-600">{d}d</span>
-    return <span className="text-green-600">{d}d</span>
-  }
-
-  const vel = (v: number) => (v * 30).toFixed(1)
 
   const poSearchParams = analysisRange
     ? `?from_date=${encodeURIComponent(analysisRange.from)}&to_date=${encodeURIComponent(analysisRange.to)}`
@@ -269,7 +425,26 @@ export default function SkuDetail() {
 
         {/* Table */}
         {isLoading ? (
-          <div className="text-center py-12 text-muted-foreground">Loading SKUs...</div>
+          <div className="border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {Array.from({ length: 13 }).map((_, i) => (
+                    <TableHead key={i}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 13 }).map((_, j) => (
+                      <TableCell key={j}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         ) : (
           <div className="border rounded-lg">
             <Table>
@@ -291,139 +466,17 @@ export default function SkuDetail() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {skus.map((s: SkuMetrics) => {
-                  return (
-                    <Fragment key={s.stock_item_name}>
-                      <TableRow
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setExpandedRow(expandedRow === s.stock_item_name ? null : s.stock_item_name)}
-                      >
-                        <TableCell>
-                          {expandedRow === s.stock_item_name
-                            ? <ChevronDown className="h-4 w-4" />
-                            : <ChevronRight className="h-4 w-4" />}
-                        </TableCell>
-                        <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{s.part_no || '-'}</TableCell>
-                        <TableCell className="text-center">
-                          <Flame
-                            className={`h-4 w-4 cursor-pointer transition-colors inline-block ${s.is_hazardous ? 'text-amber-500 fill-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
-                            onClick={e => {
-                              e.stopPropagation()
-                              hazardousMutation.mutate({ name: s.stock_item_name, value: !s.is_hazardous })
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="max-w-[250px] truncate" title={s.stock_item_name}>
-                          <span className="inline-flex items-center gap-1">
-                            {s.stock_item_name}
-                            {s.reorder_intent === 'must_stock' && (
-                              <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px] px-1 py-0">Must Stock</Badge>
-                            )}
-                            {s.reorder_intent === 'do_not_reorder' && (
-                              <Badge className="bg-gray-100 text-gray-500 hover:bg-gray-100 text-[10px] px-1 py-0">DNR</Badge>
-                            )}
-                            {s.is_dead_stock && (
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <Snowflake className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent>Dead stock — no sales for {s.days_since_last_sale ?? '∞'} days</TooltipContent>
-                              </Tooltip>
-                            )}
-                            {s.has_note && (
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <StickyNote className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent>Has annotation note</TooltipContent>
-                              </Tooltip>
-                            )}
-                          </span>
-                        </TableCell>
-                        <TableCell onClick={e => e.stopPropagation()}>
-                          <ReorderIntentSelector
-                            stockItemName={s.stock_item_name}
-                            currentIntent={s.reorder_intent || 'normal'}
-                          />
-                        </TableCell>
-                        <TableCell className={`text-right ${(s.effective_stock ?? s.current_stock) <= 0 ? 'text-red-600 font-medium' : ''}`}>
-                          <span className="inline-flex items-center gap-1 justify-end">
-                            {s.effective_stock ?? s.current_stock}
-                            {s.has_stock_override && (
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  {s.stock_override_stale
-                                    ? <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                                    : <Pencil className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Stock override active (computed: {s.current_stock})
-                                  {s.stock_override_stale && ' — STALE: Tally data changed'}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">{vel(s.effective_wholesale_velocity ?? s.wholesale_velocity)}</TableCell>
-                        <TableCell className="text-right">{vel(s.effective_online_velocity ?? s.online_velocity)}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          <span className="inline-flex items-center gap-1 justify-end">
-                            {vel(s.effective_velocity ?? s.total_velocity)}
-                            {s.has_velocity_override && (
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  {s.velocity_override_stale
-                                    ? <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                                    : <Pencil className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Velocity override active (computed: {vel(s.total_velocity)}/mo)
-                                  {s.velocity_override_stale && ' — STALE'}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">{daysDisplay(s.effective_days_to_stockout ?? s.days_to_stockout)}</TableCell>
-                        <TableCell className="text-xs">
-                          {s.last_import_date
-                            ? new Date(s.last_import_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: '2-digit' })
-                            : '-'}
-                          {s.last_import_qty ? ` (${s.last_import_qty})` : ''}
-                        </TableCell>
-                        <TableCell className="text-right">{s.effective_suggested_qty ?? s.reorder_qty_suggested ?? '-'}</TableCell>
-                      </TableRow>
-                      {expandedRow === s.stock_item_name && (
-                        <TableRow key={`${s.stock_item_name}-detail`}>
-                          <TableCell colSpan={13} className="bg-muted/30 p-4">
-                            <Tabs defaultValue="timeline">
-                              <TabsList>
-                                <TabsTrigger value="timeline">Stock Timeline</TabsTrigger>
-                                <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                                <TabsTrigger value="calculation">Calculation</TabsTrigger>
-                              </TabsList>
-                              <TabsContent value="timeline" className="pt-4">
-                                <StockTimelineChart categoryName={decodedName} stockItemName={s.stock_item_name} />
-                              </TabsContent>
-                              <TabsContent value="transactions" className="pt-4">
-                                <TransactionHistory categoryName={decodedName} stockItemName={s.stock_item_name} />
-                              </TabsContent>
-                              <TabsContent value="calculation" className="pt-4">
-                                <CalculationBreakdown
-                                  categoryName={decodedName}
-                                  stockItemName={s.stock_item_name}
-                                  fromDate={analysisRange?.from}
-                                  toDate={analysisRange?.to}
-                                />
-                              </TabsContent>
-                            </Tabs>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </Fragment>
-                  )
-                })}
+                {skus.map((s: SkuMetrics) => (
+                  <SkuRow
+                    key={s.stock_item_name}
+                    s={s}
+                    isExpanded={expandedRow === s.stock_item_name}
+                    onToggle={handleToggleRow}
+                    onHazardousToggle={handleHazardousToggle}
+                    decodedName={decodedName}
+                    analysisRange={analysisRange}
+                  />
+                ))}
                 {skus.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">

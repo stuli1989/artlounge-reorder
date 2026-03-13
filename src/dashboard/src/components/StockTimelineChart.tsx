@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { fetchPositions } from '@/lib/api'
@@ -8,7 +8,7 @@ interface Props {
   stockItemName: string
 }
 
-export default function StockTimelineChart({ categoryName, stockItemName }: Props) {
+export default memo(function StockTimelineChart({ categoryName, stockItemName }: Props) {
   const { data: positions, isLoading } = useQuery({
     queryKey: ['positions', categoryName, stockItemName],
     queryFn: () => fetchPositions(categoryName, stockItemName),
@@ -59,4 +59,4 @@ export default function StockTimelineChart({ categoryName, stockItemName }: Prop
       </AreaChart>
     </ResponsiveContainer>
   )
-}
+})

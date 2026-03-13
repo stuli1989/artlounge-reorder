@@ -2,6 +2,7 @@
 import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -15,6 +16,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# GZip compression — SKU list responses compress ~85% (150KB → 15KB)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Import and register route modules
 from api.routes import brands, skus, po, parties, sync_status, suppliers, overrides, settings

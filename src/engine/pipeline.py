@@ -47,6 +47,7 @@ def run_computation_pipeline(db_conn):
     print(f"  Loaded supplier mappings for {len(supplier_map)} categories.")
 
     processed = 0
+    metrics_batch = []  # Collect for batch upsert
     for i, item in enumerate(stock_items):
         txns = all_txns.get(item["tally_name"], [])
 
@@ -54,7 +55,7 @@ def run_computation_pipeline(db_conn):
 
         if not txns:
             # No transactions — just set status based on stock level
-            upsert_sku_metrics(db_conn, {
+            metrics_batch.append({
                 "stock_item_name": item["tally_name"],
                 "category_name": item["category_name"],
                 "current_stock": current_stock,
@@ -127,8 +128,8 @@ def run_computation_pipeline(db_conn):
         if days_to_stockout is not None and days_to_stockout > 0:
             stockout_date = today + timedelta(days=int(days_to_stockout))
 
-        # Save SKU metrics
-        upsert_sku_metrics(db_conn, {
+        # Collect SKU metrics for batch upsert
+        m = {
             "stock_item_name": item["tally_name"],
             "category_name": item["category_name"],
             "current_stock": current_stock,
@@ -142,20 +143,27 @@ def run_computation_pipeline(db_conn):
             "reorder_qty_suggested": suggested_qty,
             "last_sale_date": last_sale_date,
             "total_zero_activity_days": zero_activity_days,
-        })
+        }
+        metrics_batch.append(m)
 
         processed += 1
         if (i + 1) % 500 == 0:
-            db_conn.commit()  # Batch commit every 500 items
+            db_conn.commit()  # Batch commit positions every 500 items
             print(f"  Processed {i + 1}/{len(stock_items)} items...")
 
-    # Final commit for remaining SKU metrics
+    # Final commit for remaining positions
     db_conn.commit()
     print(f"  {processed} items with transactions computed.")
 
-    # 3. Brand rollups
+    # Batch upsert all SKU metrics (22.5K items → ~23 batches of 1000)
+    print(f"  Batch-upserting {len(metrics_batch)} SKU metrics...")
+    batch_upsert_sku_metrics(db_conn, metrics_batch)
+    db_conn.commit()
+
+    # 3. Brand rollups (batch)
     print("  Computing brand rollups...")
     categories = fetch_all_categories(db_conn)
+    brand_batch = []
     for cat in categories:
         sku_metrics = fetch_sku_metrics_for_category(db_conn, cat["tally_name"])
         supplier = supplier_map.get(cat["tally_name"])
@@ -165,9 +173,10 @@ def run_computation_pipeline(db_conn):
             slow_mover_threshold=slow_mover_threshold,
             today=today,
         )
-        upsert_brand_metrics(db_conn, brand_data)
+        brand_batch.append(brand_data)
 
-    db_conn.commit()  # Single commit for all brand rollups
+    batch_upsert_brand_metrics(db_conn, brand_batch)
+    db_conn.commit()
     print("  Computation pipeline complete.")
 
 
@@ -266,89 +275,98 @@ def fetch_sku_metrics_for_category(db_conn, category_name: str) -> list[dict]:
         return rows
 
 
-def upsert_sku_metrics(db_conn, m: dict):
-    sql = """
-        INSERT INTO sku_metrics (
-            stock_item_name, category_name, current_stock,
-            wholesale_velocity, online_velocity, total_velocity,
-            total_in_stock_days, velocity_start_date, velocity_end_date,
-            days_to_stockout, estimated_stockout_date,
-            last_import_date, last_import_qty, last_import_supplier,
-            reorder_status, reorder_qty_suggested,
-            last_sale_date, total_zero_activity_days, computed_at
-        ) VALUES (
-            %(stock_item_name)s, %(category_name)s, %(current_stock)s,
-            %(wholesale_velocity)s, %(online_velocity)s, %(total_velocity)s,
-            %(total_in_stock_days)s, %(velocity_start_date)s, %(velocity_end_date)s,
-            %(days_to_stockout)s, %(estimated_stockout_date)s,
-            %(last_import_date)s, %(last_import_qty)s, %(last_import_supplier)s,
-            %(reorder_status)s, %(reorder_qty_suggested)s,
-            %(last_sale_date)s, %(total_zero_activity_days)s, NOW()
-        )
-        ON CONFLICT (stock_item_name) DO UPDATE SET
-            category_name = EXCLUDED.category_name,
-            current_stock = EXCLUDED.current_stock,
-            wholesale_velocity = EXCLUDED.wholesale_velocity,
-            online_velocity = EXCLUDED.online_velocity,
-            total_velocity = EXCLUDED.total_velocity,
-            total_in_stock_days = EXCLUDED.total_in_stock_days,
-            velocity_start_date = EXCLUDED.velocity_start_date,
-            velocity_end_date = EXCLUDED.velocity_end_date,
-            days_to_stockout = EXCLUDED.days_to_stockout,
-            estimated_stockout_date = EXCLUDED.estimated_stockout_date,
-            last_import_date = EXCLUDED.last_import_date,
-            last_import_qty = EXCLUDED.last_import_qty,
-            last_import_supplier = EXCLUDED.last_import_supplier,
-            reorder_status = EXCLUDED.reorder_status,
-            reorder_qty_suggested = EXCLUDED.reorder_qty_suggested,
-            last_sale_date = EXCLUDED.last_sale_date,
-            total_zero_activity_days = EXCLUDED.total_zero_activity_days,
-            computed_at = NOW()
-    """
-    # Fill defaults for missing keys
-    defaults = {
-        "wholesale_velocity": 0, "online_velocity": 0, "total_velocity": 0,
-        "total_in_stock_days": 0, "velocity_start_date": None, "velocity_end_date": None,
-        "days_to_stockout": None, "estimated_stockout_date": None,
-        "last_import_date": None, "last_import_qty": None, "last_import_supplier": None,
-        "reorder_status": "no_data", "reorder_qty_suggested": None,
-        "last_sale_date": None, "total_zero_activity_days": 0,
-    }
-    for k, v in defaults.items():
-        m.setdefault(k, v)
+_SKU_METRICS_UPSERT_SQL = """
+    INSERT INTO sku_metrics (
+        stock_item_name, category_name, current_stock,
+        wholesale_velocity, online_velocity, total_velocity,
+        total_in_stock_days, velocity_start_date, velocity_end_date,
+        days_to_stockout, estimated_stockout_date,
+        last_import_date, last_import_qty, last_import_supplier,
+        reorder_status, reorder_qty_suggested,
+        last_sale_date, total_zero_activity_days, computed_at
+    ) VALUES (
+        %(stock_item_name)s, %(category_name)s, %(current_stock)s,
+        %(wholesale_velocity)s, %(online_velocity)s, %(total_velocity)s,
+        %(total_in_stock_days)s, %(velocity_start_date)s, %(velocity_end_date)s,
+        %(days_to_stockout)s, %(estimated_stockout_date)s,
+        %(last_import_date)s, %(last_import_qty)s, %(last_import_supplier)s,
+        %(reorder_status)s, %(reorder_qty_suggested)s,
+        %(last_sale_date)s, %(total_zero_activity_days)s, NOW()
+    )
+    ON CONFLICT (stock_item_name) DO UPDATE SET
+        category_name = EXCLUDED.category_name,
+        current_stock = EXCLUDED.current_stock,
+        wholesale_velocity = EXCLUDED.wholesale_velocity,
+        online_velocity = EXCLUDED.online_velocity,
+        total_velocity = EXCLUDED.total_velocity,
+        total_in_stock_days = EXCLUDED.total_in_stock_days,
+        velocity_start_date = EXCLUDED.velocity_start_date,
+        velocity_end_date = EXCLUDED.velocity_end_date,
+        days_to_stockout = EXCLUDED.days_to_stockout,
+        estimated_stockout_date = EXCLUDED.estimated_stockout_date,
+        last_import_date = EXCLUDED.last_import_date,
+        last_import_qty = EXCLUDED.last_import_qty,
+        last_import_supplier = EXCLUDED.last_import_supplier,
+        reorder_status = EXCLUDED.reorder_status,
+        reorder_qty_suggested = EXCLUDED.reorder_qty_suggested,
+        last_sale_date = EXCLUDED.last_sale_date,
+        total_zero_activity_days = EXCLUDED.total_zero_activity_days,
+        computed_at = NOW()
+"""
 
+_SKU_METRICS_DEFAULTS = {
+    "wholesale_velocity": 0, "online_velocity": 0, "total_velocity": 0,
+    "total_in_stock_days": 0, "velocity_start_date": None, "velocity_end_date": None,
+    "days_to_stockout": None, "estimated_stockout_date": None,
+    "last_import_date": None, "last_import_qty": None, "last_import_supplier": None,
+    "reorder_status": "no_data", "reorder_qty_suggested": None,
+    "last_sale_date": None, "total_zero_activity_days": 0,
+}
+
+_BRAND_METRICS_UPSERT_SQL = """
+    INSERT INTO brand_metrics (
+        category_name, total_skus, in_stock_skus, out_of_stock_skus,
+        critical_skus, warning_skus, ok_skus, no_data_skus,
+        dead_stock_skus, slow_mover_skus, avg_days_to_stockout, primary_supplier, supplier_lead_time, computed_at
+    ) VALUES (
+        %(category_name)s, %(total_skus)s, %(in_stock_skus)s, %(out_of_stock_skus)s,
+        %(critical_skus)s, %(warning_skus)s, %(ok_skus)s, %(no_data_skus)s,
+        %(dead_stock_skus)s, %(slow_mover_skus)s, %(avg_days_to_stockout)s, %(primary_supplier)s, %(supplier_lead_time)s, NOW()
+    )
+    ON CONFLICT (category_name) DO UPDATE SET
+        total_skus = EXCLUDED.total_skus,
+        in_stock_skus = EXCLUDED.in_stock_skus,
+        out_of_stock_skus = EXCLUDED.out_of_stock_skus,
+        critical_skus = EXCLUDED.critical_skus,
+        warning_skus = EXCLUDED.warning_skus,
+        ok_skus = EXCLUDED.ok_skus,
+        no_data_skus = EXCLUDED.no_data_skus,
+        dead_stock_skus = EXCLUDED.dead_stock_skus,
+        slow_mover_skus = EXCLUDED.slow_mover_skus,
+        avg_days_to_stockout = EXCLUDED.avg_days_to_stockout,
+        primary_supplier = EXCLUDED.primary_supplier,
+        supplier_lead_time = EXCLUDED.supplier_lead_time,
+        computed_at = NOW()
+"""
+
+
+def batch_upsert_sku_metrics(db_conn, metrics_list: list[dict]):
+    """Batch upsert SKU metrics using execute_batch for ~1000x fewer round-trips."""
+    if not metrics_list:
+        return
+    for m in metrics_list:
+        for k, v in _SKU_METRICS_DEFAULTS.items():
+            m.setdefault(k, v)
     with db_conn.cursor() as cur:
-        cur.execute(sql, m)
+        psycopg2.extras.execute_batch(cur, _SKU_METRICS_UPSERT_SQL, metrics_list, page_size=1000)
 
 
-def upsert_brand_metrics(db_conn, m: dict):
-    sql = """
-        INSERT INTO brand_metrics (
-            category_name, total_skus, in_stock_skus, out_of_stock_skus,
-            critical_skus, warning_skus, ok_skus, no_data_skus,
-            dead_stock_skus, slow_mover_skus, avg_days_to_stockout, primary_supplier, supplier_lead_time, computed_at
-        ) VALUES (
-            %(category_name)s, %(total_skus)s, %(in_stock_skus)s, %(out_of_stock_skus)s,
-            %(critical_skus)s, %(warning_skus)s, %(ok_skus)s, %(no_data_skus)s,
-            %(dead_stock_skus)s, %(slow_mover_skus)s, %(avg_days_to_stockout)s, %(primary_supplier)s, %(supplier_lead_time)s, NOW()
-        )
-        ON CONFLICT (category_name) DO UPDATE SET
-            total_skus = EXCLUDED.total_skus,
-            in_stock_skus = EXCLUDED.in_stock_skus,
-            out_of_stock_skus = EXCLUDED.out_of_stock_skus,
-            critical_skus = EXCLUDED.critical_skus,
-            warning_skus = EXCLUDED.warning_skus,
-            ok_skus = EXCLUDED.ok_skus,
-            no_data_skus = EXCLUDED.no_data_skus,
-            dead_stock_skus = EXCLUDED.dead_stock_skus,
-            slow_mover_skus = EXCLUDED.slow_mover_skus,
-            avg_days_to_stockout = EXCLUDED.avg_days_to_stockout,
-            primary_supplier = EXCLUDED.primary_supplier,
-            supplier_lead_time = EXCLUDED.supplier_lead_time,
-            computed_at = NOW()
-    """
+def batch_upsert_brand_metrics(db_conn, brand_list: list[dict]):
+    """Batch upsert brand metrics."""
+    if not brand_list:
+        return
     with db_conn.cursor() as cur:
-        cur.execute(sql, m)
+        psycopg2.extras.execute_batch(cur, _BRAND_METRICS_UPSERT_SQL, brand_list, page_size=1000)
 
 
 # ──────────────────────────────────────────────────────────────────

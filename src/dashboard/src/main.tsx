@@ -8,7 +8,7 @@ import App from './App.tsx'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
+      staleTime: 5 * 60 * 1000,
       retry: 1,
     },
   },

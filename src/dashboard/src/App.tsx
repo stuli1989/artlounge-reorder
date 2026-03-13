@@ -1,25 +1,50 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
-import BrandOverview from './pages/BrandOverview'
-import SkuDetail from './pages/SkuDetail'
-import PoBuilder from './pages/PoBuilder'
-import PartyClassification from './pages/PartyClassification'
-import SupplierManagement from './pages/SupplierManagement'
-import OverrideReview from './pages/OverrideReview'
-import DeadStock from './pages/DeadStock'
+
+const BrandOverview = lazy(() => import('./pages/BrandOverview'))
+const SkuDetail = lazy(() => import('./pages/SkuDetail'))
+const PoBuilder = lazy(() => import('./pages/PoBuilder'))
+const PartyClassification = lazy(() => import('./pages/PartyClassification'))
+const SupplierManagement = lazy(() => import('./pages/SupplierManagement'))
+const OverrideReview = lazy(() => import('./pages/OverrideReview'))
+const DeadStock = lazy(() => import('./pages/DeadStock'))
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4 p-6">
+      <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+      <div className="grid grid-cols-5 gap-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
+        ))}
+      </div>
+      <div className="h-10 w-full bg-muted animate-pulse rounded" />
+      <div className="space-y-2">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="h-10 w-full bg-muted animate-pulse rounded" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SuspenseWrapper({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<LoadingSkeleton />}>{children}</Suspense>
+}
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<BrandOverview />} />
-          <Route path="/brands/:categoryName/skus" element={<SkuDetail />} />
-          <Route path="/brands/:categoryName/po" element={<PoBuilder />} />
-          <Route path="/brands/:categoryName/dead-stock" element={<DeadStock />} />
-          <Route path="/parties" element={<PartyClassification />} />
-          <Route path="/suppliers" element={<SupplierManagement />} />
-          <Route path="/overrides" element={<OverrideReview />} />
+          <Route path="/" element={<SuspenseWrapper><BrandOverview /></SuspenseWrapper>} />
+          <Route path="/brands/:categoryName/skus" element={<SuspenseWrapper><SkuDetail /></SuspenseWrapper>} />
+          <Route path="/brands/:categoryName/po" element={<SuspenseWrapper><PoBuilder /></SuspenseWrapper>} />
+          <Route path="/brands/:categoryName/dead-stock" element={<SuspenseWrapper><DeadStock /></SuspenseWrapper>} />
+          <Route path="/parties" element={<SuspenseWrapper><PartyClassification /></SuspenseWrapper>} />
+          <Route path="/suppliers" element={<SuspenseWrapper><SupplierManagement /></SuspenseWrapper>} />
+          <Route path="/overrides" element={<SuspenseWrapper><OverrideReview /></SuspenseWrapper>} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -1,9 +1,12 @@
 """SKU detail API endpoints."""
+import threading
+import time
 from datetime import date, timedelta
 from typing import Literal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from api.database import get_db
+from api.sql_fragments import OVERRIDE_AGG_SUBQUERY
 from engine.velocity import (
     calculate_velocity, find_in_stock_periods,
     resolve_date_range, fetch_batch_velocities, velocities_from_batch_row, opt_float,
@@ -13,6 +16,24 @@ from engine.effective_values import compute_effective_values, compute_effective_
 from config.settings import FY_START_DATE, FY_END_DATE
 
 router = APIRouter(tags=["skus"])
+
+# In-memory settings cache (60s TTL, thread-safe)
+_settings_lock = threading.Lock()
+_settings_cache: dict = {"data": None, "expires": 0.0}
+_SETTINGS_TTL = 60.0
+
+
+def _get_cached_settings(cur) -> dict:
+    now = time.monotonic()
+    with _settings_lock:
+        if _settings_cache["data"] is not None and now < _settings_cache["expires"]:
+            return _settings_cache["data"]
+    cur.execute("SELECT key, value FROM app_settings WHERE key IN ('dead_stock_threshold_days', 'slow_mover_velocity_threshold')")
+    data = {r["key"]: r["value"] for r in cur.fetchall()}
+    with _settings_lock:
+        _settings_cache["data"] = data
+        _settings_cache["expires"] = time.monotonic() + _SETTINGS_TTL
+    return data
 
 ALLOWED_SORT_COLS = {
     "days_to_stockout", "total_velocity", "current_stock",
@@ -77,37 +98,31 @@ def list_skus(
                si.part_no,
                si.is_hazardous,
                si.reorder_intent,
-               os.override_value AS stock_override_value,
-               os.note AS stock_override_note,
-               os.is_stale AS stock_override_stale,
-               os.hold_from_po AS stock_hold_from_po,
-               ov.override_value AS total_vel_override_value,
-               ov.is_stale AS total_vel_override_stale,
-               owv.override_value AS wholesale_vel_override_value,
-               oov.override_value AS online_vel_override_value,
-               osv.override_value AS store_vel_override_value,
-               on2.note AS override_note,
-               on2.is_stale AS note_override_stale,
-               COALESCE(os.hold_from_po, ov.hold_from_po,
-                        owv.hold_from_po, oov.hold_from_po,
-                        osv.hold_from_po, FALSE) AS hold_from_po
+               ovr.stock_override_value,
+               ovr.stock_override_note,
+               ovr.stock_override_stale,
+               ovr.stock_hold_from_po,
+               ovr.total_vel_override_value,
+               ovr.total_vel_override_stale,
+               ovr.wholesale_vel_override_value,
+               ovr.online_vel_override_value,
+               ovr.store_vel_override_value,
+               ovr.override_note,
+               ovr.note_override_stale,
+               COALESCE(ovr.stock_hold_from_po, ovr.total_vel_hold,
+                        ovr.wholesale_vel_hold, ovr.online_vel_hold,
+                        ovr.store_vel_hold, FALSE) AS hold_from_po
         FROM sku_metrics sm
         LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name
-        LEFT JOIN overrides os  ON os.stock_item_name = sm.stock_item_name AND os.field_name = 'current_stock' AND os.is_active = TRUE
-        LEFT JOIN overrides ov  ON ov.stock_item_name = sm.stock_item_name AND ov.field_name = 'total_velocity' AND ov.is_active = TRUE
-        LEFT JOIN overrides owv ON owv.stock_item_name = sm.stock_item_name AND owv.field_name = 'wholesale_velocity' AND owv.is_active = TRUE
-        LEFT JOIN overrides oov ON oov.stock_item_name = sm.stock_item_name AND oov.field_name = 'online_velocity' AND oov.is_active = TRUE
-        LEFT JOIN overrides osv ON osv.stock_item_name = sm.stock_item_name AND osv.field_name = 'store_velocity' AND osv.is_active = TRUE
-        LEFT JOIN overrides on2 ON on2.stock_item_name = sm.stock_item_name AND on2.field_name = 'note' AND on2.is_active = TRUE
+        LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.stock_item_name = sm.stock_item_name
         WHERE {where}
         ORDER BY sm.{sort_col} {direction} NULLS LAST
     """
 
     with get_db() as conn:
         with conn.cursor() as cur:
-            # Get thresholds in one query
-            cur.execute("SELECT key, value FROM app_settings WHERE key IN ('dead_stock_threshold_days', 'slow_mover_velocity_threshold')")
-            _settings = {r["key"]: r["value"] for r in cur.fetchall()}
+            # Get thresholds (cached in-memory, 60s TTL)
+            _settings = _get_cached_settings(cur)
             dead_stock_threshold = int(_settings.get("dead_stock_threshold_days", "30"))
             slow_mover_threshold = float(_settings.get("slow_mover_velocity_threshold", "0.1"))
 
@@ -126,7 +141,8 @@ def list_skus(
             vel_by_sku = {}
             if custom_range:
                 range_start, range_end = resolve_date_range(from_date, to_date)
-                vel_by_sku = fetch_batch_velocities(cur, category_name, range_start, range_end)
+                sku_names = [r["stock_item_name"] for r in rows]
+                vel_by_sku = fetch_batch_velocities(cur, sku_names, range_start, range_end)
 
     today = date.today()
     results = []

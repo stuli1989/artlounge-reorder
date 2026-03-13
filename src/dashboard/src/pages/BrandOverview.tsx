@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useMemo, useCallback, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { fetchBrands, fetchBrandSummary } from '@/lib/api'
+import { fetchBrands, fetchBrandSummary, fetchSkusPage } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -13,10 +13,25 @@ import { Search, ArrowUpDown } from 'lucide-react'
 
 export default function BrandOverview() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [criticalOnly, setCriticalOnly] = useState(false)
   const [sortCol, setSortCol] = useState<string>('critical_skus')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  // Prefetch first page of SKUs on brand row hover (debounced to avoid thundering herd)
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handleBrandHover = useCallback((categoryName: string) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current)
+    hoverTimer.current = setTimeout(() => {
+      // queryKey matches SkuDetail default state: status='all', search='', no date range, page 0, size 100
+      queryClient.prefetchQuery({
+        queryKey: ['skus', categoryName, 'all', '', undefined, undefined, 0, 100],
+        queryFn: () => fetchSkusPage(categoryName, {}, { limit: 100, offset: 0 }),
+        staleTime: 5 * 60 * 1000,
+      })
+    }, 200)
+  }, [queryClient])
 
   const { data: summary } = useQuery({
     queryKey: ['brandSummary'],
@@ -103,7 +118,26 @@ export default function BrandOverview() {
 
       {/* Table */}
       {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground">Loading brands...</div>
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {Array.from({ length: 11 }).map((_, i) => (
+                  <TableHead key={i}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <TableRow key={i}>
+                  {Array.from({ length: 11 }).map((_, j) => (
+                    <TableCell key={j}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       ) : (
         <div className="border rounded-lg">
           <Table>
@@ -144,6 +178,7 @@ export default function BrandOverview() {
               ) : (
                 filteredBrands.map(b => (
                   <TableRow key={b.category_name} className="cursor-pointer hover:bg-muted/50"
+                    onMouseEnter={() => handleBrandHover(b.category_name)}
                     onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`)}>
                     <TableCell className="font-medium">{b.category_name}</TableCell>
                     <TableCell>{b.total_skus}</TableCell>

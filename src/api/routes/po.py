@@ -8,6 +8,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side
 
 from api.database import get_db
+from api.sql_fragments import OVERRIDE_AGG_SUBQUERY
 from engine.effective_values import compute_effective_values, compute_effective_status
 from engine.reorder import must_stock_fallback_qty
 from engine.velocity import resolve_date_range, fetch_batch_velocities, velocities_from_batch_row, opt_float
@@ -58,21 +59,17 @@ def po_data(
                        si.part_no,
                        si.is_hazardous,
                        si.reorder_intent,
-                       os.override_value AS stock_override,
-                       ov.override_value AS total_vel_override,
-                       owv.override_value AS wholesale_vel_override,
-                       oov.override_value AS online_vel_override,
-                       osv.override_value AS store_vel_override,
-                       COALESCE(os.hold_from_po, ov.hold_from_po,
-                                owv.hold_from_po, oov.hold_from_po,
-                                osv.hold_from_po, FALSE) AS hold_from_po
+                       ovr.stock_override_value AS stock_override,
+                       ovr.total_vel_override_value AS total_vel_override,
+                       ovr.wholesale_vel_override_value AS wholesale_vel_override,
+                       ovr.online_vel_override_value AS online_vel_override,
+                       ovr.store_vel_override_value AS store_vel_override,
+                       COALESCE(ovr.stock_hold_from_po, ovr.total_vel_hold,
+                                ovr.wholesale_vel_hold, ovr.online_vel_hold,
+                                ovr.store_vel_hold, FALSE) AS hold_from_po
                 FROM sku_metrics sm
                 LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name
-                LEFT JOIN overrides os  ON os.stock_item_name = sm.stock_item_name AND os.field_name = 'current_stock' AND os.is_active = TRUE
-                LEFT JOIN overrides ov  ON ov.stock_item_name = sm.stock_item_name AND ov.field_name = 'total_velocity' AND ov.is_active = TRUE
-                LEFT JOIN overrides owv ON owv.stock_item_name = sm.stock_item_name AND owv.field_name = 'wholesale_velocity' AND owv.is_active = TRUE
-                LEFT JOIN overrides oov ON oov.stock_item_name = sm.stock_item_name AND oov.field_name = 'online_velocity' AND oov.is_active = TRUE
-                LEFT JOIN overrides osv ON osv.stock_item_name = sm.stock_item_name AND osv.field_name = 'store_velocity' AND osv.is_active = TRUE
+                LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.stock_item_name = sm.stock_item_name
                 WHERE sm.category_name = %s {status_clause}
                 ORDER BY sm.days_to_stockout ASC NULLS LAST
             """, query_params)
@@ -82,7 +79,8 @@ def po_data(
             vel_by_sku = {}
             if custom_range:
                 range_start, range_end = resolve_date_range(from_date, to_date)
-                vel_by_sku = fetch_batch_velocities(cur, category_name, range_start, range_end)
+                sku_names = [r["stock_item_name"] for r in rows]
+                vel_by_sku = fetch_batch_velocities(cur, sku_names, range_start, range_end)
 
     result = []
     for r in rows:

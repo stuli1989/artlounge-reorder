@@ -47,6 +47,18 @@ def process_override_drift(db_conn) -> dict:
         """)
         overrides = cur.fetchall()
 
+        # Batch-fetch all sku_metrics for override items (eliminates N+1)
+        override_item_names = list({ovr["stock_item_name"] for ovr in overrides})
+        metrics_lookup = {}
+        if override_item_names:
+            cur.execute(
+                "SELECT stock_item_name, current_stock, total_velocity, wholesale_velocity, online_velocity "
+                "FROM sku_metrics WHERE stock_item_name = ANY(%s)",
+                (override_item_names,),
+            )
+            for row in cur.fetchall():
+                metrics_lookup[row["stock_item_name"]] = dict(row)
+
         for ovr in overrides:
             col = OVERRIDE_FIELD_TO_COLUMN.get(ovr["field_name"])
             if not col:
@@ -55,12 +67,7 @@ def process_override_drift(db_conn) -> dict:
 
             overrides_checked += 1
 
-            # Get current computed value
-            cur.execute(
-                f"SELECT {col} FROM sku_metrics WHERE stock_item_name = %s",
-                (ovr["stock_item_name"],),
-            )
-            sm_row = cur.fetchone()
+            sm_row = metrics_lookup.get(ovr["stock_item_name"])
             if not sm_row:
                 continue
 

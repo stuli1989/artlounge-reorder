@@ -93,7 +93,7 @@ def resolve_date_range(from_date: str | None, to_date: str | None) -> tuple[date
     return range_start, range_end
 
 
-def fetch_batch_velocities(cur, category_name: str, range_start: date, range_end: date) -> dict[str, dict]:
+def fetch_batch_velocities(cur, sku_names: list[str], range_start: date, range_end: date) -> dict[str, dict]:
     """Batch-query daily_stock_positions for per-SKU velocity aggregates in a date range.
 
     The is_in_stock column includes days with demand even if closing_qty <= 0,
@@ -101,6 +101,8 @@ def fetch_batch_velocities(cur, category_name: str, range_start: date, range_end
 
     Returns {stock_item_name: {in_stock_days, wholesale_total, online_total, store_total}}.
     """
+    if not sku_names:
+        return {}
     cur.execute("""
         SELECT dsp.stock_item_name,
                COUNT(*) FILTER (WHERE dsp.is_in_stock) AS in_stock_days,
@@ -108,12 +110,10 @@ def fetch_batch_velocities(cur, category_name: str, range_start: date, range_end
                COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.online_out ELSE 0 END), 0) AS online_total,
                COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.store_out ELSE 0 END), 0) AS store_total
         FROM daily_stock_positions dsp
-        WHERE dsp.stock_item_name IN (
-            SELECT stock_item_name FROM sku_metrics WHERE category_name = %s
-        )
+        WHERE dsp.stock_item_name = ANY(%s)
         AND dsp.position_date >= %s AND dsp.position_date <= %s
         GROUP BY dsp.stock_item_name
-    """, (category_name, range_start, range_end))
+    """, (sku_names, range_start, range_end))
     return {row["stock_item_name"]: dict(row) for row in cur.fetchall()}
 
 
