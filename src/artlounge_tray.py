@@ -48,9 +48,8 @@ class ArtLoungeTrayApp:
             "Art Lounge Reorder",
             menu=pystray.Menu(
                 pystray.MenuItem("Start / Restart", self.on_start),
-                pystray.MenuItem("Stop", self.on_stop),
                 pystray.MenuItem("Open Dashboard", self.on_open_dashboard),
-                pystray.MenuItem("Exit Tray", self.on_exit),
+                pystray.MenuItem("Exit", self.on_exit),
             ),
         )
 
@@ -230,11 +229,13 @@ class ArtLoungeTrayApp:
         if proc.returncode != 0:
             return set()
 
-        target = f":{port}"
+        import re
+        # Match local address ending with :<exact port> followed by whitespace
+        pattern = re.compile(rf":\b{port}\b\s")
         pids: set[int] = set()
         for raw_line in proc.stdout.splitlines():
             line = raw_line.strip()
-            if "LISTENING" not in line or target not in line:
+            if "LISTENING" not in line or not pattern.search(line):
                 continue
             parts = line.split()
             if not parts:
@@ -322,47 +323,13 @@ class ArtLoungeTrayApp:
 
         threading.Thread(target=do_start_or_restart, daemon=True).start()
 
-    def on_stop(self, _icon, _item) -> None:
-        def do_stop() -> None:
-            was_running = self._backend_running() or self._frontend_running()
-
-            if was_running:
-                self._notify("Art Lounge", "Stopping local app...")
-            else:
-                # Even if we think it's not running, still try to clean up
-                self._notify("Art Lounge", "App is not running, ensuring clean stop...")
-
-            # Always attempt to stop any processes we started
-            self._stop_backend()
-            self._stop_frontend()
-
-            if was_running:
-                self._notify("Art Lounge", "App has been stopped.")
-            else:
-                self._notify("Art Lounge", "App was not running.")
-
-            # Clear health flags so any final icon update (if visible) shows warning
-            with self.status_lock:
-                self.backend_ok = False
-                self.frontend_ok = False
-            self._set_icon_state()
-
-        threading.Thread(target=do_stop, daemon=True).start()
-
     def on_open_dashboard(self, _icon, _item) -> None:
         self._open_dashboard()
 
     def on_exit(self, icon, _item) -> None:
-        # Stop processes then remove tray icon
+        # Stop icon immediately so the UI thread is unblocked.
+        # Process cleanup happens after icon.run() returns in run().
         self._health_monitor_running = False
-        self._stop_backend()
-        self._stop_frontend()
-        if self._instance_lock_socket:
-            try:
-                self._instance_lock_socket.close()
-            except Exception:
-                pass
-            self._instance_lock_socket = None
         icon.stop()
 
     # Helpers --------------------------------------------------------------
@@ -379,10 +346,23 @@ class ArtLoungeTrayApp:
 
     # Public API -----------------------------------------------------------
 
+    def _cleanup(self) -> None:
+        """Clean up processes and instance lock after tray icon is gone."""
+        self._stop_backend()
+        self._stop_frontend()
+        if self._instance_lock_socket:
+            try:
+                self._instance_lock_socket.close()
+            except Exception:
+                pass
+            self._instance_lock_socket = None
+
     def run(self) -> None:
         # Start background health monitor
         threading.Thread(target=self._health_monitor_loop, daemon=True).start()
         self.icon.run()
+        # Tray is gone — now clean up processes on the main thread
+        self._cleanup()
 
 
 def _acquire_instance_lock() -> Optional[socket.socket]:
