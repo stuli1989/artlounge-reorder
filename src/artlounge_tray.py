@@ -22,21 +22,25 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 SRC_DIR = PROJECT_ROOT
 DASHBOARD_DIR = os.path.join(SRC_DIR, "dashboard")
 VENV_PYTHON = os.path.join(SRC_DIR, "venv", "Scripts", "python.exe")
+ICO_PATH = os.path.join(SRC_DIR, "artlounge.ico")
+INSTANCE_LOCK_PORT = 64888
 
 
 class ArtLoungeTrayApp:
     def __init__(self) -> None:
         self.backend_proc: Optional[subprocess.Popen] = None
         self.frontend_proc: Optional[subprocess.Popen] = None
+        self._instance_lock_socket: Optional[socket.socket] = None
         self.lock = threading.Lock()
         self.status_lock = threading.Lock()
         self.backend_ok: bool = False
         self.frontend_ok: bool = False
         self._health_monitor_running: bool = False
 
-        # Pre-create icon images for different states
-        self._icon_warn = self._create_icon_image((255, 140, 0, 255))  # orange
-        self._icon_ok = self._create_icon_image((0, 180, 0, 255))      # green
+        # Load branded icon or fall back to generated circles
+        self._icon_branded = self._load_branded_icon()
+        self._icon_warn = self._icon_branded or self._create_circle_icon((255, 140, 0, 255))
+        self._icon_ok = self._icon_branded or self._create_circle_icon((0, 180, 0, 255))
 
         self.icon = pystray.Icon(
             "ArtLoungeReorder",
@@ -50,8 +54,21 @@ class ArtLoungeTrayApp:
             ),
         )
 
-    def _create_icon_image(self, fill_color) -> Image.Image:
-        """Create a simple in-memory icon (circle with given fill color)."""
+    @staticmethod
+    def _load_branded_icon() -> Optional[Image.Image]:
+        """Load artlounge.ico if it exists, resized for the system tray."""
+        if not os.path.isfile(ICO_PATH):
+            return None
+        try:
+            img = Image.open(ICO_PATH)
+            img = img.resize((64, 64), Image.LANCZOS)
+            return img.convert("RGBA")
+        except Exception:
+            return None
+
+    @staticmethod
+    def _create_circle_icon(fill_color) -> Image.Image:
+        """Fallback: simple coloured circle."""
         size = 64
         image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
@@ -197,25 +214,82 @@ class ArtLoungeTrayApp:
             except Exception as exc:
                 self._notify("Art Lounge", f"Error starting dashboard: {exc}")
 
+    @staticmethod
+    def _list_pids_listening_on_port(port: int) -> set[int]:
+        """Return PIDs currently listening on a TCP port (Windows netstat)."""
+        try:
+            proc = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except Exception:
+            return set()
+
+        if proc.returncode != 0:
+            return set()
+
+        target = f":{port}"
+        pids: set[int] = set()
+        for raw_line in proc.stdout.splitlines():
+            line = raw_line.strip()
+            if "LISTENING" not in line or target not in line:
+                continue
+            parts = line.split()
+            if not parts:
+                continue
+            pid_str = parts[-1]
+            if pid_str.isdigit():
+                pids.add(int(pid_str))
+        return pids
+
+    @staticmethod
+    def _kill_pid_tree(pid: int) -> None:
+        """Force-kill a process and descendants (best effort)."""
+        if pid <= 0 or pid == os.getpid():
+            return
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except Exception:
+            pass
+
+    def _kill_processes_on_port(self, port: int) -> None:
+        """Kill any stale listeners on the given port."""
+        for pid in self._list_pids_listening_on_port(port):
+            self._kill_pid_tree(pid)
+
+    def _terminate_tracked_process(self, proc: Optional[subprocess.Popen]) -> None:
+        """Terminate a tracked process and its process tree."""
+        if not proc or proc.poll() is not None:
+            return
+        try:
+            proc.terminate()
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        except Exception:
+            pass
+
+        # Uvicorn --reload / npm wrappers may leave child processes behind.
+        self._kill_pid_tree(proc.pid)
+
     def _stop_backend(self) -> None:
         with self.lock:
-            if self.backend_proc and self.backend_proc.poll() is None:
-                self.backend_proc.terminate()
-                try:
-                    self.backend_proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self.backend_proc.kill()
+            self._terminate_tracked_process(self.backend_proc)
             self.backend_proc = None
+        self._kill_processes_on_port(8000)
 
     def _stop_frontend(self) -> None:
         with self.lock:
-            if self.frontend_proc and self.frontend_proc.poll() is None:
-                self.frontend_proc.terminate()
-                try:
-                    self.frontend_proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self.frontend_proc.kill()
+            self._terminate_tracked_process(self.frontend_proc)
             self.frontend_proc = None
+        self._kill_processes_on_port(5173)
 
     # Tray menu callbacks -------------------------------------------------
 
@@ -273,10 +347,6 @@ class ArtLoungeTrayApp:
                 self.frontend_ok = False
             self._set_icon_state()
 
-            # Stop health monitor and remove tray icon entirely
-            self._health_monitor_running = False
-            self.icon.stop()
-
         threading.Thread(target=do_stop, daemon=True).start()
 
     def on_open_dashboard(self, _icon, _item) -> None:
@@ -287,6 +357,12 @@ class ArtLoungeTrayApp:
         self._health_monitor_running = False
         self._stop_backend()
         self._stop_frontend()
+        if self._instance_lock_socket:
+            try:
+                self._instance_lock_socket.close()
+            except Exception:
+                pass
+            self._instance_lock_socket = None
         icon.stop()
 
     # Helpers --------------------------------------------------------------
@@ -309,11 +385,45 @@ class ArtLoungeTrayApp:
         self.icon.run()
 
 
+def _acquire_instance_lock() -> Optional[socket.socket]:
+    """Prevent multiple tray instances by binding a local lock port."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind(("127.0.0.1", INSTANCE_LOCK_PORT))
+        sock.listen(1)
+        return sock
+    except OSError:
+        try:
+            sock.close()
+        except Exception:
+            pass
+        return None
+
+
+def _show_already_running_message() -> None:
+    try:
+        import ctypes
+
+        ctypes.windll.user32.MessageBoxW(
+            0,
+            "Art Lounge tray is already running.",
+            "Art Lounge",
+            0x40,
+        )
+    except Exception:
+        pass
+
+
 def main() -> None:
+    lock_socket = _acquire_instance_lock()
+    if lock_socket is None:
+        _show_already_running_message()
+        return
+
     app = ArtLoungeTrayApp()
+    app._instance_lock_socket = lock_socket
     app.run()
 
 
 if __name__ == "__main__":
     main()
-

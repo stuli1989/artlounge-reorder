@@ -34,6 +34,9 @@ def list_skus(
     slow_mover: bool = Query(None, description="Filter by slow mover status"),
     from_date: str = Query(None, description="Analysis period start (YYYY-MM-DD)"),
     to_date: str = Query(None, description="Analysis period end (YYYY-MM-DD)"),
+    paginated: bool = Query(False, description="Return paginated envelope for large tables"),
+    limit: int = Query(100, ge=1, le=500, description="Page size when paginated=true"),
+    offset: int = Query(0, ge=0, description="Page offset when paginated=true"),
 ):
     """List SKU metrics for a brand with filtering and sorting."""
     custom_range = from_date is not None or to_date is not None
@@ -209,7 +212,34 @@ def list_skus(
     if slow_mover is not None:
         results = [r for r in results if r["is_slow_mover"] == slow_mover]
 
-    return results
+    if not paginated:
+        return results
+
+    counts = {
+        "critical": 0,
+        "warning": 0,
+        "ok": 0,
+        "out_of_stock": 0,
+        "no_data": 0,
+        "dead_stock": 0,
+    }
+
+    for row in results:
+        status_key = row.get("effective_status") or row.get("reorder_status")
+        if status_key in counts:
+            counts[status_key] += 1
+        if row.get("is_dead_stock"):
+            counts["dead_stock"] += 1
+
+    total = len(results)
+    page_items = results[offset: offset + limit]
+    return {
+        "items": page_items,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "counts": counts,
+    }
 
 
 class HazardousUpdate(BaseModel):

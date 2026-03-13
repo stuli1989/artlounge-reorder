@@ -1,8 +1,8 @@
-import { useState, useMemo, Fragment } from 'react'
+import { useState, useMemo, useEffect, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchSkus, toggleHazardous } from '@/lib/api'
-import type { SkuMetrics } from '@/lib/types'
+import { fetchSkusPage, toggleHazardous } from '@/lib/api'
+import type { SkuCounts, SkuMetrics } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -37,6 +37,15 @@ function getPresetRange(preset: string): { from: string; to: string } | null {
   return { from: formatDateForInput(from), to }
 }
 
+const DEFAULT_COUNTS: SkuCounts = {
+  critical: 0,
+  warning: 0,
+  ok: 0,
+  out_of_stock: 0,
+  no_data: 0,
+  dead_stock: 0,
+}
+
 export default function SkuDetail() {
   const { categoryName } = useParams<{ categoryName: string }>()
   const navigate = useNavigate()
@@ -44,6 +53,9 @@ export default function SkuDetail() {
 
   const [statusFilter, setStatusFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(100)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
 
   // Analysis date range state
@@ -59,6 +71,13 @@ export default function SkuDetail() {
     return getPresetRange(rangePreset)
   }, [rangePreset, customFrom, customTo])
 
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedSearch(search.trim())
+    }, 300)
+    return () => window.clearTimeout(handle)
+  }, [search])
+
   const queryClient = useQueryClient()
 
   const hazardousMutation = useMutation({
@@ -66,8 +85,8 @@ export default function SkuDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['skus', decodedName] }),
   })
 
-  const { data: skus, isLoading } = useQuery({
-    queryKey: ['skus', decodedName, statusFilter, search, analysisRange?.from, analysisRange?.to],
+  const { data: skuPage, isLoading, isFetching } = useQuery({
+    queryKey: ['skus', decodedName, statusFilter, debouncedSearch, analysisRange?.from, analysisRange?.to, page, pageSize],
     queryFn: () => {
       const params: Record<string, string> = {}
       if (statusFilter === 'critical') params.status = 'critical'
@@ -77,25 +96,27 @@ export default function SkuDetail() {
       else if (statusFilter === 'hazardous') params.hazardous = 'true'
       else if (statusFilter === 'must_stock') params.reorder_intent = 'must_stock'
       else if (statusFilter === 'do_not_reorder') params.reorder_intent = 'do_not_reorder'
-      if (search) params.search = search
+      if (debouncedSearch) params.search = debouncedSearch
       if (analysisRange) {
         if (analysisRange.from) params.from_date = analysisRange.from
         if (analysisRange.to) params.to_date = analysisRange.to
       }
-      return fetchSkus(decodedName, params)
+      return fetchSkusPage(decodedName, params, {
+        limit: pageSize,
+        offset: page * pageSize,
+      })
     },
     enabled: !!decodedName,
+    placeholderData: previous => previous,
   })
 
-  const counts = useMemo(() => {
-    const c = { critical: 0, warning: 0, ok: 0, out_of_stock: 0, dead_stock: 0 }
-    for (const s of skus || []) {
-      const st = s.effective_status ?? s.reorder_status
-      if (st in c) c[st as keyof typeof c]++
-      if (s.is_dead_stock) c.dead_stock++
-    }
-    return c
-  }, [skus])
+  const skus = skuPage?.items || []
+  const totalSkus = skuPage?.total ?? 0
+  const counts = skuPage?.counts ?? DEFAULT_COUNTS
+  const pageStart = totalSkus === 0 ? 0 : page * pageSize + 1
+  const pageEnd = Math.min((page + 1) * pageSize, totalSkus)
+  const hasPreviousPage = page > 0
+  const hasNextPage = pageEnd < totalSkus
 
   const daysDisplay = (d: number | null) => {
     if (d === null) return <span className="text-gray-400">N/A</span>
@@ -121,13 +142,18 @@ export default function SkuDetail() {
               <ArrowLeft className="h-4 w-4 mr-1" /> Back
             </Button>
             <h2 className="text-xl font-semibold">{decodedName}</h2>
-            <span className="text-muted-foreground">{skus?.length ?? '...'} SKUs</span>
+            <span className="text-muted-foreground">{isLoading && !skuPage ? '...' : totalSkus} SKUs</span>
           </div>
           <div className="flex items-center gap-3">
             {/* Date Range Selector */}
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <Select value={rangePreset} onValueChange={v => { if (v) setRangePreset(v) }}>
+              <Select value={rangePreset} onValueChange={v => {
+                if (!v) return
+                setRangePreset(v)
+                setPage(0)
+                setExpandedRow(null)
+              }}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Analysis period" />
                 </SelectTrigger>
@@ -145,14 +171,22 @@ export default function SkuDetail() {
                   <input
                     type="date"
                     value={customFrom}
-                    onChange={e => setCustomFrom(e.target.value)}
+                    onChange={e => {
+                      setCustomFrom(e.target.value)
+                      setPage(0)
+                      setExpandedRow(null)
+                    }}
                     className="border rounded px-2 py-1 text-sm h-9"
                   />
                   <span className="text-muted-foreground text-sm">to</span>
                   <input
                     type="date"
                     value={customTo}
-                    onChange={e => setCustomTo(e.target.value)}
+                    onChange={e => {
+                      setCustomTo(e.target.value)
+                      setPage(0)
+                      setExpandedRow(null)
+                    }}
                     className="border rounded px-2 py-1 text-sm h-9"
                   />
                 </div>
@@ -200,11 +234,20 @@ export default function SkuDetail() {
             <Input
               placeholder="Search SKUs..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => {
+                setSearch(e.target.value)
+                setPage(0)
+                setExpandedRow(null)
+              }}
               className="pl-9"
             />
           </div>
-          <Select value={statusFilter} onValueChange={v => { if (v) setStatusFilter(v) }}>
+          <Select value={statusFilter} onValueChange={v => {
+            if (!v) return
+            setStatusFilter(v)
+            setPage(0)
+            setExpandedRow(null)
+          }}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
@@ -219,7 +262,10 @@ export default function SkuDetail() {
               <SelectItem value="do_not_reorder">Do Not Reorder</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+            {isFetching && (
+              <span className="text-xs text-muted-foreground">Updating…</span>
+            )}
+          </div>
 
         {/* Table */}
         {isLoading ? (
@@ -245,7 +291,7 @@ export default function SkuDetail() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(skus || []).map((s: SkuMetrics) => {
+                {skus.map((s: SkuMetrics) => {
                   return (
                     <Fragment key={s.stock_item_name}>
                       <TableRow
@@ -378,7 +424,7 @@ export default function SkuDetail() {
                     </Fragment>
                   )
                 })}
-                {(skus || []).length === 0 && (
+                {skus.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                       No SKUs found
@@ -387,8 +433,56 @@ export default function SkuDetail() {
                 )}
               </TableBody>
             </Table>
-          </div>
-        )}
+              <div className="border-t px-4 py-3 flex items-center justify-between gap-3">
+                <div className="text-sm text-muted-foreground">
+                  Showing {pageStart}-{pageEnd} of {totalSkus}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Rows</span>
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={value => {
+                      if (!value) return
+                      setPageSize(Number(value))
+                      setPage(0)
+                      setExpandedRow(null)
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[90px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="200">200</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!hasPreviousPage}
+                    onClick={() => {
+                      setExpandedRow(null)
+                      setPage(p => Math.max(p - 1, 0))
+                    }}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!hasNextPage}
+                    onClick={() => {
+                      setExpandedRow(null)
+                      setPage(p => p + 1)
+                    }}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
       </div>
     </TooltipProvider>
   )

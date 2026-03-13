@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { BrandMetrics, BrandSummary, SkuMetrics, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent } from './types'
+import type { BrandMetrics, BrandSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent } from './types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
@@ -13,6 +13,60 @@ export const fetchBrandSummary = (): Promise<BrandSummary> =>
 
 export const fetchSkus = (categoryName: string, params?: Record<string, string | number | boolean>): Promise<SkuMetrics[]> =>
   api.get(`/api/brands/${encodeURIComponent(categoryName)}/skus`, { params }).then(r => r.data)
+
+const EMPTY_SKU_COUNTS: SkuCounts = {
+  critical: 0,
+  warning: 0,
+  ok: 0,
+  out_of_stock: 0,
+  no_data: 0,
+  dead_stock: 0,
+}
+
+function computeSkuCounts(items: SkuMetrics[]): SkuCounts {
+  const counts = { ...EMPTY_SKU_COUNTS }
+  for (const item of items) {
+    const status = item.effective_status ?? item.reorder_status
+    if (status in counts) {
+      counts[status as keyof SkuCounts] += 1
+    }
+    if (item.is_dead_stock) {
+      counts.dead_stock += 1
+    }
+  }
+  return counts
+}
+
+export const fetchSkusPage = (
+  categoryName: string,
+  params?: Record<string, string | number | boolean>,
+  pagination?: { limit?: number; offset?: number },
+): Promise<SkuPage> =>
+  api.get(`/api/brands/${encodeURIComponent(categoryName)}/skus`, {
+    params: {
+      ...(params || {}),
+      paginated: true,
+      limit: pagination?.limit ?? 100,
+      offset: pagination?.offset ?? 0,
+    },
+  }).then(r => {
+    const data = r.data as SkuPage | SkuMetrics[]
+    const limit = pagination?.limit ?? 100
+    const offset = pagination?.offset ?? 0
+
+    // Backward compatibility: older API servers may still return a plain list.
+    if (Array.isArray(data)) {
+      return {
+        items: data.slice(offset, offset + limit),
+        total: data.length,
+        offset,
+        limit,
+        counts: computeSkuCounts(data),
+      }
+    }
+
+    return data
+  })
 
 export const fetchPositions = (categoryName: string, itemName: string): Promise<DailyPosition[]> =>
   api.get(`/api/brands/${encodeURIComponent(categoryName)}/skus/${encodeURIComponent(itemName)}/positions`).then(r => r.data)

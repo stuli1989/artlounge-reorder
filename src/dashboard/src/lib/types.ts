@@ -70,6 +70,23 @@ export interface SkuMetrics {
   is_slow_mover: boolean
 }
 
+export interface SkuCounts {
+  critical: number
+  warning: number
+  ok: number
+  out_of_stock: number
+  no_data: number
+  dead_stock: number
+}
+
+export interface SkuPage {
+  items: SkuMetrics[]
+  total: number
+  offset: number
+  limit: number
+  counts: SkuCounts
+}
+
 export interface DailyPosition {
   position_date: string
   opening_qty: number
