@@ -76,13 +76,14 @@ def run_computation_pipeline(db_conn):
             })
             continue
 
-        # Reconstruct daily positions using BACKWARD method (from closing balance)
+        # Reconstruct daily positions using dual-anchor method
         positions = reconstruct_daily_positions(
             stock_item_name=item["tally_name"],
             closing_balance=current_stock,
             opening_date=fy_start,
             transactions=txns,
             end_date=today,
+            tally_opening=item["opening_balance"],
         )
 
         # Save positions (batch for performance)
@@ -93,7 +94,8 @@ def run_computation_pipeline(db_conn):
 
         # Dead stock metrics
         last_sale_date = compute_last_sale_date(txns)
-        zero_activity_days = compute_zero_activity_days(positions)
+        opening_gap = (item["opening_balance"] or 0) - positions[0]["opening_qty"] if positions else 0.0
+        zero_activity_days = compute_zero_activity_days(positions, opening_gap)
 
         # Import history
         import_history = detect_import_history(item["tally_name"], txns)
@@ -374,11 +376,11 @@ def compute_last_sale_date(transactions: list[dict]):
     return last
 
 
-def compute_zero_activity_days(positions: list[dict]) -> int:
+def compute_zero_activity_days(positions: list[dict], opening_gap: float = 0.0) -> int:
     """Count days where item had stock but zero inward and outward movement."""
     count = 0
     for p in positions:
-        if p.get("closing_qty", 0) > 0 and p.get("inward_qty", 0) == 0 and p.get("outward_qty", 0) == 0:
+        if (p.get("closing_qty", 0) + opening_gap) > 0 and p.get("inward_qty", 0) == 0 and p.get("outward_qty", 0) == 0:
             count += 1
     return count
 

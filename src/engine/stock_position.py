@@ -1,22 +1,19 @@
 """
-Daily stock position reconstruction using BACKWARD method.
+Daily stock position reconstruction using DUAL-ANCHOR method.
 
-Instead of walking forward from opening balance (which is broken due to SKU renames),
-we anchor on Tally's closing balance (authoritative) and replay transactions backwards
-to reconstruct historical daily positions.
+Two parallel reconstructions run in a single pass:
 
-Algorithm:
-  For each day, working backwards from today:
-    stock[day] = stock[day+1] + outward[day+1] - inward[day+1]
-  Equivalently, forward from an implied opening:
-    implied_opening = closing - sum(inward) + sum(outward)
-    stock[day] = implied_opening + cumulative_inward - cumulative_outward
+1. Backward (closing-anchored): implied_opening = closing - sum(inward) + sum(outward).
+   Used for stored opening_qty/closing_qty — internally consistent with transactions.
+
+2. Forward (opening-anchored): starts from Tally's authoritative opening_balance.
+   Used ONLY for is_in_stock determination — gives the most accurate estimate of
+   whether stock was actually available, since Tally may include stock from company
+   mergers that have no corresponding vouchers in our extraction.
 
 is_in_stock semantics:
-  A day is "in stock" if closing_qty > 0 OR if real demand (wholesale/online/store
-  sales) occurred that day. This prevents artificial negative balances (from Tally
-  data quality issues like SKU renames and company mergers) from excluding days
-  where items were clearly available and selling.
+  A day is "in stock" if forward_closing > 0 OR if real demand (wholesale/online/store
+  sales) occurred that day.
 """
 from datetime import date, timedelta
 from collections import defaultdict
@@ -30,6 +27,7 @@ def reconstruct_daily_positions(
     opening_date: date,
     transactions: list[dict],
     end_date: date,
+    tally_opening: float | None = None,
 ) -> list[dict]:
     """
     Reconstruct daily stock positions by anchoring on closing_balance (from Tally)
@@ -61,9 +59,16 @@ def reconstruct_daily_positions(
 
     implied_opening = closing_balance - total_inward + total_outward
 
+    # Forward anchor: Tally's authoritative opening balance.
+    # When available, gives a more accurate picture of actual stock levels
+    # for is_in_stock determination, since Tally may include stock from
+    # company mergers that have no corresponding vouchers in our data.
+    forward_opening = tally_opening if tally_opening is not None else implied_opening
+
     # Second pass: walk forward from implied opening, recording daily positions
     positions = []
-    running_balance = implied_opening
+    running_balance = implied_opening       # backward: ensures closing matches Tally
+    forward_balance = forward_opening       # forward: ensures opening matches Tally
     current = opening_date
 
     while current <= end_date:
@@ -103,6 +108,10 @@ def reconstruct_daily_positions(
         closing_qty = opening_qty + day_inward - day_outward
         running_balance = closing_qty
 
+        # Forward reconstruction: tracks stock from Tally's opening
+        forward_closing = forward_balance + day_inward - day_outward
+        forward_balance = forward_closing
+
         positions.append({
             "stock_item_name": stock_item_name,
             "position_date": current,
@@ -113,7 +122,7 @@ def reconstruct_daily_positions(
             "wholesale_out": day_wholesale_out,
             "online_out": day_online_out,
             "store_out": day_store_out,
-            "is_in_stock": closing_qty > 0 or had_demand,
+            "is_in_stock": forward_closing > 0 or had_demand,
         })
 
         current += timedelta(days=1)
