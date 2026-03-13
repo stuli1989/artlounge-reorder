@@ -1,7 +1,7 @@
 import { useState, useMemo, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchSkus, toggleHazardous, updateReorderIntent } from '@/lib/api'
+import { fetchSkus, toggleHazardous } from '@/lib/api'
 import type { SkuMetrics } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'

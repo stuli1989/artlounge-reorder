@@ -500,13 +500,13 @@ def get_breakdown(
     # Confidence
     if in_stock_count >= 90:
         confidence = "high"
-        confidence_reason = f"Based on {in_stock_count} in-stock days of data (high = >90 days)"
+        confidence_reason = f"Based on {in_stock_count} active days of data (high = >90 days)"
     elif in_stock_count >= 30:
         confidence = "medium"
-        confidence_reason = f"Based on {in_stock_count} in-stock days of data (medium = 30-90 days)"
+        confidence_reason = f"Based on {in_stock_count} active days of data (medium = 30-90 days)"
     else:
         confidence = "low"
-        confidence_reason = f"Based on {in_stock_count} in-stock days of data (low = <30 days)"
+        confidence_reason = f"Based on {in_stock_count} active days of data (low = <30 days)"
 
     periods_json = [
         {"from": p["from"].isoformat(), "to": p["to"].isoformat(), "days": p["days"]}
@@ -518,7 +518,7 @@ def get_breakdown(
         "out_of_stock_days": oos_count,
         "in_stock_pct": round(in_stock_count / total_days * 100, 1) if total_days > 0 else 0,
         "in_stock_periods": periods_json,
-        "out_of_stock_exclusion_reason": "Days with zero stock are excluded because unmet demand is invisible — including them would undercount the true demand rate",
+        "out_of_stock_exclusion_reason": "Days with no stock and no sales are excluded — if a sale happened, the item was on the shelf regardless of book balance. Only truly inactive days (no stock, no demand) are excluded to avoid undercounting the demand rate.",
         "wholesale": {
             "total_units": round(wholesale_total, 2),
             "daily_velocity": wholesale_vel,
@@ -539,7 +539,7 @@ def get_breakdown(
             "daily_velocity": total_vel,
             "monthly_velocity": round(total_vel * 30, 2),
         },
-        "formula": f"{round(demand_total, 2)} units sold during {in_stock_count} in-stock days = {total_vel} units/day = {round(total_vel * 30, 2)} units/month" if in_stock_count > 0 else "No in-stock days — velocity cannot be calculated",
+        "formula": f"{round(demand_total, 2)} units sold during {in_stock_count} active days = {total_vel} units/day = {round(total_vel * 30, 2)} units/month" if in_stock_count > 0 else "No active days — velocity cannot be calculated",
         "confidence": confidence,
         "confidence_reason": confidence_reason,
     }

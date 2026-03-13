@@ -1,10 +1,14 @@
 """
-Velocity calculation — units per day during in-stock periods only.
+Velocity calculation — units per day during active (sellable) periods only.
 
-Velocity = total demand during in-stock days / count of in-stock days
+Velocity = total demand during active days / count of active days
 
-Out-of-stock days are excluded from both numerator and denominator,
-so backorders don't dilute the velocity estimate.
+A day is "active" (is_in_stock=True) if closing_qty > 0 OR if real demand
+(wholesale/online/store sales) occurred. This ensures days with negative
+closing balances due to Tally data quality issues are still counted when
+items were clearly selling. Inactive days (no stock AND no sales) are
+excluded from both numerator and denominator, so stockouts don't dilute
+the velocity estimate.
 """
 from datetime import date
 
@@ -13,8 +17,9 @@ from config.settings import FY_START_DATE, FY_END_DATE
 
 def find_in_stock_periods(daily_positions: list[dict]) -> list[dict]:
     """
-    Group contiguous in-stock days into periods.
+    Group contiguous active days into periods.
 
+    A day is active (is_in_stock) if closing_qty > 0 or demand occurred.
     Returns list of {"from": date, "to": date, "days": int}.
     """
     periods = []
@@ -47,7 +52,7 @@ def calculate_velocity(stock_item_name: str, daily_positions: list[dict]) -> dic
     """
     Calculate wholesale, online, and total velocity from daily positions.
 
-    Only in-stock days (closing_qty > 0) are included.
+    Only active days (is_in_stock: closing_qty > 0 or demand occurred) are included.
     Returns units/day values (multiply by 30 for monthly display).
     """
     in_stock_days = [p for p in daily_positions if p["is_in_stock"]]
@@ -90,6 +95,9 @@ def resolve_date_range(from_date: str | None, to_date: str | None) -> tuple[date
 
 def fetch_batch_velocities(cur, category_name: str, range_start: date, range_end: date) -> dict[str, dict]:
     """Batch-query daily_stock_positions for per-SKU velocity aggregates in a date range.
+
+    The is_in_stock column includes days with demand even if closing_qty <= 0,
+    so velocity calculations correctly capture all real selling activity.
 
     Returns {stock_item_name: {in_stock_days, wholesale_total, online_total, store_total}}.
     """

@@ -51,8 +51,8 @@ function InStockBar({ data }: { data: BreakdownResponse }) {
 
   return (
     <div className="space-y-1">
-      <div className="text-xs text-muted-foreground">In-stock periods (green) vs out-of-stock (red)</div>
-      <div className="relative h-6 rounded bg-red-200 overflow-hidden" title={`${velocity.out_of_stock_days} out-of-stock days`}>
+      <div className="text-xs text-muted-foreground">Active periods (green) vs inactive (red)</div>
+      <div className="relative h-6 rounded bg-red-200 overflow-hidden" title={`${velocity.out_of_stock_days} inactive days`}>
         {velocity.in_stock_periods.map((p, i) => {
           const start = new Date(p.from).getTime()
           const end = new Date(p.to).getTime()
@@ -356,11 +356,11 @@ export default function CalculationBreakdown({
 
           <div className="flex flex-wrap gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">In-stock: </span>
+              <span className="text-muted-foreground">Active: </span>
               <span className="font-medium text-green-600">{velocity.in_stock_days} days ({velocity.in_stock_pct}%)</span>
             </div>
             <div>
-              <span className="text-muted-foreground">Out-of-stock: </span>
+              <span className="text-muted-foreground">Inactive: </span>
               <span className="font-medium text-red-600">{velocity.out_of_stock_days} days</span>
             </div>
           </div>
@@ -372,13 +372,13 @@ export default function CalculationBreakdown({
             </div>
           )}
 
-          <div className="text-sm font-medium">Velocity by channel (in-stock days only)</div>
+          <div className="text-sm font-medium">Velocity by channel (active days only)</div>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Channel</TableHead>
                 <TableHead className="text-right">Units Sold</TableHead>
-                <TableHead className="text-right">/ In-Stock Days</TableHead>
+                <TableHead className="text-right">/ Active Days</TableHead>
                 <TableHead className="text-right">= Daily Rate</TableHead>
                 <TableHead className="text-right">x30 = Monthly</TableHead>
                 <TableHead className="w-8"></TableHead>

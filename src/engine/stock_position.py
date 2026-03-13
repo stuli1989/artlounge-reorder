@@ -11,6 +11,12 @@ Algorithm:
   Equivalently, forward from an implied opening:
     implied_opening = closing - sum(inward) + sum(outward)
     stock[day] = implied_opening + cumulative_inward - cumulative_outward
+
+is_in_stock semantics:
+  A day is "in stock" if closing_qty > 0 OR if real demand (wholesale/online/store
+  sales) occurred that day. This prevents artificial negative balances (from Tally
+  data quality issues like SKU renames and company mergers) from excluding days
+  where items were clearly available and selling.
 """
 from datetime import date, timedelta
 from collections import defaultdict
@@ -92,6 +98,7 @@ def reconstruct_daily_positions(
                 elif channel == "store":
                     day_store_out += t["quantity"]
 
+        had_demand = (day_wholesale_out + day_online_out + day_store_out) > 0
         opening_qty = running_balance
         closing_qty = opening_qty + day_inward - day_outward
         running_balance = closing_qty
@@ -106,7 +113,7 @@ def reconstruct_daily_positions(
             "wholesale_out": day_wholesale_out,
             "online_out": day_online_out,
             "store_out": day_store_out,
-            "is_in_stock": closing_qty > 0,
+            "is_in_stock": closing_qty > 0 or had_demand,
         })
 
         current += timedelta(days=1)
