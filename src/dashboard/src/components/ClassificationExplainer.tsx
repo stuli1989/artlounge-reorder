@@ -1,31 +1,82 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { fetchBrandSummary } from '@/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchBrandSummary, fetchSettings, updateSetting } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { HelpCircle } from 'lucide-react'
+import { HelpCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import AbcBadge from '@/components/AbcBadge'
 import XyzBadge from '@/components/XyzBadge'
 
+function MatrixTable({ data, className }: { data: string[][]; className?: string }) {
+  return (
+    <table className={`w-full text-xs border-collapse ${className ?? ''}`}>
+      <tbody>
+        {data.map((row, i) => (
+          <tr key={i}>
+            {row.map((cell, j) => (
+              <td
+                key={j}
+                className={`border px-2 py-1.5 ${i === 0 || j === 0 ? 'font-medium bg-muted' : ''}`}
+              >
+                {cell}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
 export default function ClassificationExplainer() {
   const [open, setOpen] = useState(false)
+  const [showFullMatrix, setShowFullMatrix] = useState(false)
+  const queryClient = useQueryClient()
+
   const { data: summary } = useQuery({
     queryKey: ['brandSummary'],
     queryFn: fetchBrandSummary,
     enabled: open,
   })
 
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: fetchSettings,
+    enabled: open,
+  })
+
+  const useXyzBuffer = settings?.use_xyz_buffer === 'true'
+
   const a = summary?.total_a_class_skus ?? 0
   const b = summary?.total_b_class_skus ?? 0
   const c = summary?.total_c_class_skus ?? 0
   const total = a + b + c || 1
 
-  const bufferMatrix = [
+  const abcOnlyTable = [
+    ['', 'Buffer'],
+    ['A (80% rev)', `${settings?.buffer_a ?? '1.5'}x`],
+    ['B (15% rev)', `${settings?.buffer_b ?? '1.3'}x`],
+    ['C (5% rev)', `${settings?.buffer_c ?? '1.1'}x`],
+  ]
+
+  const fullMatrix = [
     ['', 'X (Steady)', 'Y (Variable)', 'Z (Sporadic)'],
     ['A (80% rev)', '1.3x', '1.5x', '1.8x'],
     ['B (15% rev)', '1.2x', '1.3x', '1.5x'],
     ['C (5% rev)', '1.1x', '1.2x', '1.3x'],
   ]
+
+  const [toggleError, setToggleError] = useState(false)
+  const handleToggleXyz = async (checked: boolean) => {
+    try {
+      setToggleError(false)
+      await updateSetting('use_xyz_buffer', checked ? 'true' : 'false')
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+    } catch {
+      setToggleError(true)
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -89,26 +140,53 @@ export default function ClassificationExplainer() {
 
           {/* Buffer Matrix */}
           <section>
-            <h3 className="font-semibold mb-2">Safety Buffer Matrix</h3>
-            <p className="text-muted-foreground mb-2 text-xs">
-              Higher buffer = order more. A+Z gets 1.8x because it's high-revenue AND unpredictable.
-            </p>
-            <table className="w-full text-xs border-collapse">
-              <tbody>
-                {bufferMatrix.map((row, i) => (
-                  <tr key={i}>
-                    {row.map((cell, j) => (
-                      <td
-                        key={j}
-                        className={`border px-2 py-1.5 ${i === 0 || j === 0 ? 'font-medium bg-muted' : ''}`}
-                      >
-                        {cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <h3 className="font-semibold mb-2">Safety Buffer {useXyzBuffer ? '(ABC×XYZ Matrix)' : '(ABC Only)'}</h3>
+
+            {!useXyzBuffer ? (
+              <>
+                <p className="text-muted-foreground mb-2 text-xs">
+                  Buffers are based on ABC revenue class only. XYZ demand variability is computed and shown for reference, but does not affect buffer calculations.
+                </p>
+                <MatrixTable data={abcOnlyTable} className="mb-3" />
+                <p className="text-muted-foreground text-xs italic">
+                  99.6% of classifiable SKUs are Z-class, so the XYZ dimension provides no useful discrimination for art supplies.
+                </p>
+
+                {/* Collapsed full matrix */}
+                <button
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-2"
+                  onClick={() => setShowFullMatrix(v => !v)}
+                >
+                  {showFullMatrix ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  Full ABC×XYZ matrix (reference)
+                </button>
+                {showFullMatrix && <MatrixTable data={fullMatrix} className="mt-2" />}
+              </>
+            ) : (
+              <>
+                <p className="text-muted-foreground mb-2 text-xs">
+                  Higher buffer = order more. A+Z gets 1.8x because it's high-revenue AND unpredictable.
+                </p>
+                <MatrixTable data={fullMatrix} />
+              </>
+            )}
+
+            {/* Global toggle */}
+            <div className="flex items-center gap-3 mt-4 p-3 rounded-lg border bg-muted/30">
+              <Switch
+                checked={useXyzBuffer}
+                onCheckedChange={handleToggleXyz}
+              />
+              <div>
+                <div className="text-sm font-medium">Use XYZ-adjusted buffers</div>
+                <div className="text-xs text-muted-foreground">
+                  Changes take effect after next nightly sync. Per-item overrides are unaffected.
+                </div>
+                {toggleError && (
+                  <div className="text-xs text-red-600 mt-1">Failed to update setting</div>
+                )}
+              </div>
+            </div>
           </section>
 
           {/* Trends */}

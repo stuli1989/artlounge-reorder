@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchBreakdown, createOverride, deleteOverride } from '@/lib/api'
+import { fetchBreakdown, createOverride, deleteOverride, updateXyzBuffer } from '@/lib/api'
 import type { BreakdownResponse, BreakdownTransactionRow, OverrideInfo } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CheckCircle2, XCircle, ArrowRight, Info, Pencil, AlertTriangle, X } from 'lucide-react'
 
 // Toggle to show/hide the assumptions summary strip in Stockout & Reorder
@@ -205,6 +206,54 @@ function OverrideForm({
       {createMut.isError && (
         <div className="text-sm text-red-600">Failed to save override</div>
       )}
+    </div>
+  )
+}
+
+function BufferModeSelector({
+  stockItemName,
+  categoryName,
+  currentValue,
+  bufferMode,
+}: {
+  stockItemName: string
+  categoryName: string
+  currentValue: boolean | null
+  bufferMode: 'abc_only' | 'abc_xyz'
+}) {
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (val: boolean | null) => updateXyzBuffer(stockItemName, val),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['breakdown', categoryName, stockItemName] })
+      queryClient.invalidateQueries({ queryKey: ['skus', categoryName] })
+    },
+  })
+
+  const selectValue = currentValue === null ? 'global' : currentValue ? 'xyz' : 'abc'
+  const globalLabel = `Follow global (${bufferMode === 'abc_xyz' && currentValue === null ? 'ABC×XYZ' : 'ABC only'})`
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className="text-muted-foreground">Buffer mode:</span>
+      <Select
+        value={selectValue}
+        onValueChange={(v) => {
+          if (!v) return
+          const val = v === 'global' ? null : v === 'xyz' ? true : false
+          mutation.mutate(val)
+        }}
+      >
+        <SelectTrigger className="w-[220px] h-8 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="global">{globalLabel}</SelectItem>
+          <SelectItem value="xyz">Use XYZ buffer</SelectItem>
+          <SelectItem value="abc">ABC only</SelectItem>
+        </SelectContent>
+      </Select>
+      {mutation.isPending && <span className="text-xs text-muted-foreground">Saving...</span>}
     </div>
   )
 }
@@ -524,6 +573,12 @@ export default function CalculationBreakdown({
                 Suggested order: <span className="font-semibold">{reorder.suggested_qty} units</span>
               </div>
             )}
+            <BufferModeSelector
+              stockItemName={stockItemName}
+              categoryName={categoryName}
+              currentValue={reorder.use_xyz_buffer}
+              bufferMode={reorder.buffer_mode}
+            />
           </div>
 
           {/* Note override */}
