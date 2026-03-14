@@ -41,6 +41,38 @@
 - Inventory entry fields: `STOCKITEMNAME`, `ACTUALQTY`, `RATE`, `AMOUNT` (inside `ALLINVENTORYENTRIES.LIST`)
 - Party name is the ONLY way to distinguish sales channels (wholesale vs online vs store)
 
+## Railway Deployment
+
+- **Project:** artlounge-reorder
+- **Public URL:** https://artlounge-reorder-production.up.railway.app
+- **Auto-deploy:** Pushes to `main` on GitHub trigger automatic Railway deploys
+- **Railway CLI auth:** `RAILWAY_API_TOKEN` env var (NOT `RAILWAY_TOKEN` — that's project-scoped)
+- **Railway Postgres:** credentials in sync scripts (not committed — see `.gitignore`)
+
+### Syncing Local DB to Railway
+
+After any local database changes (schema migrations, Tally sync, manual data fixes), sync to Railway:
+
+1. **Quick sync (all tables except daily_stock_positions, ~30s):**
+   ```bash
+   bash sync-to-railway.sh --exclude-positions
+   ```
+
+2. **Positions sync (5.3M rows, ~10min, resumable):**
+   ```bash
+   bash sync-positions-chunked.sh
+   ```
+
+3. **Schema only (no data):**
+   ```bash
+   bash sync-to-railway.sh --schema-only
+   ```
+
+- Scripts live in project root: `sync-to-railway.sh`, `sync-positions-chunked.sh`
+- `sync-positions-chunked.sh` is resumable — if interrupted, re-running picks up where it left off
+- Always run `sync-to-railway.sh --exclude-positions` first (recreates schema), then `sync-positions-chunked.sh`
+- Railway volume auto-scales but can't handle bulk pg_restore — that's why we use the chunked script
+
 ## Unicommerce (RESEARCH ONLY)
 
 - Unicommerce is Art Lounge's actual ERP and a better source of truth than Tally
