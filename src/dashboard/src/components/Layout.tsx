@@ -1,8 +1,12 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSyncStatus, fetchOverrides } from '@/lib/api'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAlert, ClipboardList, Settings } from 'lucide-react'
+import HelpMenu from '@/components/HelpMenu'
+import GuidedTour, { isTourCompleted, resetTour } from '@/components/GuidedTour'
+import HelpTip from '@/components/HelpTip'
 
 const freshnessColors = {
   fresh: 'bg-green-500',
@@ -12,6 +16,15 @@ const freshnessColors = {
 
 export default function Layout() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const [tourRunning, setTourRunning] = useState(() => !isTourCompleted())
+
+  const handleReplayTour = () => {
+    resetTour()
+    navigate('/')
+    setTimeout(() => setTourRunning(true), 300)
+  }
+
   const { data: sync } = useQuery({
     queryKey: ['syncStatus'],
     queryFn: fetchSyncStatus,
@@ -86,14 +99,20 @@ export default function Layout() {
           </div>
 
           {/* Sync Status */}
+          <div className="flex items-center gap-3">
           {sync && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div data-tour="sync-indicator" className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className={`h-2 w-2 rounded-full ${freshnessColors[sync.freshness]}`} />
               {sync.last_sync_completed
                 ? `Synced ${new Date(sync.last_sync_completed).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
                 : 'Never synced'}
+              <HelpTip tip="Last successful data sync from Tally. Runs nightly." helpAnchor="getting-started" />
             </div>
           )}
+          <div data-tour="help-menu">
+            <HelpMenu onReplayTour={handleReplayTour} />
+          </div>
+          </div>
         </div>
       </header>
 
@@ -127,6 +146,8 @@ export default function Layout() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         <Outlet />
       </main>
+
+      <GuidedTour run={tourRunning} onFinish={() => setTourRunning(false)} />
     </div>
   )
 }
