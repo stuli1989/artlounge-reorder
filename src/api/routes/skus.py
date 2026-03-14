@@ -82,7 +82,8 @@ def list_skus(
         params.append(min_velocity)
 
     if search:
-        conditions.append("sm.stock_item_name ILIKE %s")
+        conditions.append("(sm.stock_item_name ILIKE %s OR COALESCE(si.part_no, '') ILIKE %s)")
+        params.append(f"%{search}%")
         params.append(f"%{search}%")
 
     if hazardous is not None:
