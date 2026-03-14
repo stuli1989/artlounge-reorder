@@ -32,7 +32,8 @@ Secondary row below each SKU: ABC badge, XYZ badge, Part No, Hazardous indicator
 **Changes:**
 - **Part No promoted** to a primary column — bold monospace, immediately visible without expanding. This is the supplier's code and the single most important identifier for operations.
 - **ABC class promoted** from secondary row to primary column — small colored badge (A=red, B=amber, C=gray).
-- **Days Left, Suggested Qty, Intent removed** from main row — moved to expanded summary strip (Change 2). These are detail-level data points, not scan-level.
+- **Days Left, Suggested Qty removed** from main row — moved to expanded summary strip (Change 2). These are detail-level data points, not scan-level.
+- **Intent column removed** from main row — intent badges (Must Stock, DNR) shown inline with SKU Name for display. The editable `ReorderIntentSelector` dropdown moves into the expanded row's summary strip, in the Reorder section next to the suggested qty.
 - **Secondary metadata row removed entirely** — Hazardous shown as a small amber square icon inline with SKU Name. XYZ shown only in expanded strip (informational, not actionable at scan level).
 - **SKU Name column** shows just the name + hazardous icon (amber ■) + intent badges (Must Stock, DNR) if set. No other badges.
 
@@ -47,7 +48,7 @@ Secondary row below each SKU: ABC badge, XYZ badge, Part No, Hazardous indicator
 **Files:** `src/dashboard/src/pages/SkuDetail.tsx`
 
 ### Current expanded row
-Three tabs: Stock Timeline | Transaction History | Calculation Breakdown. No summary — must click into tabs to see any detail.
+Three tabs: Stock Timeline | Transactions | Calculation. No summary — must click into tabs to see any detail.
 
 ### New expanded row
 **Summary strip** (always visible on expand) → **Tabs** below.
@@ -67,14 +68,15 @@ Three tabs: Stock Timeline | Transaction History | Calculation Breakdown. No sum
 - ABC and XYZ badges shown as small pills in the reorder section footer.
 - Horizontal border-bottom (2px) separates strip from tabs.
 
-**Tabs below** — same 3 tabs, but renamed:
-1. **Stock Timeline** (unchanged)
-2. **Transactions** (renamed from "Transaction History")
-3. **Calculation** (renamed from "Calculation Breakdown" — less intimidating)
+**Tabs below** — same 3 tabs (Stock Timeline, Transactions, Calculation), unchanged.
 
-**Data availability:** All fields already exist in `SkuMetrics`: `wholesale_velocity`, `online_velocity`, `store_velocity` (or computed from breakdown), `current_stock`, `days_to_stockout`, `reorder_qty_suggested`, `safety_buffer`, `abc_class`, `xyz_class`, `trend_direction`. The summary strip uses data already fetched in the SKU list — no additional API call needed.
+**Data availability:**
+- `wholesale_velocity` and `online_velocity` exist in `SkuMetrics` and are returned by the SKU list API.
+- `store_velocity` does NOT exist as a stored field — it is derived at runtime as `max(0, total - wholesale - online)`. Must be added to the SKU list API response and the `SkuMetrics` TypeScript type as a computed field.
+- `current_stock`, `days_to_stockout`, `reorder_qty_suggested`, `safety_buffer`, `abc_class`, `xyz_class`, `trend_direction` — all already in `SkuMetrics`.
+- `supplier_lead_time` is NOT on `SkuMetrics` — it lives on `BrandMetrics`. The summary strip should receive lead time from the page-level brand query (SkuDetail already fetches brand data for the header). Pass it as a prop to the expanded row.
 
-**Note:** Channel velocities (`wholesale_velocity`, `online_velocity`, `store_velocity`) are currently only in the breakdown API response, not in the SKU list response. The implementation plan should include adding these 3 fields to the SKU list API endpoint and the `SkuMetrics` type so they're available without a separate API call.
+**ReorderIntentSelector placement:** The editable intent dropdown (removed from main row in Change 1) is placed in the summary strip's Reorder section, below the suggested qty and buffer info.
 
 ---
 
@@ -93,7 +95,7 @@ A green-bordered card with a human-readable recommendation:
 
 This is generated from existing data fields: `reorder.suggested_qty`, channel velocities, `stockout.days_to_stockout`, `reorder.supplier_lead_time`, `reorder.buffer_multiplier`, `reorder.status`.
 
-Verdict templates by status:
+Verdict templates by status (`{dominant_channel}` is derived in frontend by comparing wholesale/online/store velocities — not an API field):
 - **Critical:** "Order {qty} units. {dominant_channel} demand is driving this at {velocity}/mo. At current velocity you have ~{days} days of stock, but with {lead_time}-day lead time and {buffer}x {abc}-class buffer, you should order now."
 - **Warning:** "Consider ordering {qty} units. You have ~{days} days of stock — within the {lead_time}-day lead time window."
 - **OK:** "No immediate action needed. You have ~{days} days of stock, well above the {lead_time}-day lead time."
@@ -111,7 +113,11 @@ A table of input values the system used, each with an "Edit" link to override:
 | Current Stock | 42 units | Edit |
 | In-Stock Days | 285 of 365 days (78%) | *(gut check — not editable)* |
 
-"Edit" links open the existing OverrideForm inline (already built). In-Stock Days is shown as a gut check — labeled as such, not editable.
+"Edit" behavior varies by row:
+- **Lead Time:** "Edit" links to the Suppliers page (`/suppliers`) where lead times are managed — this is a supplier-level setting, not a per-SKU override.
+- **Safety Buffer:** "Edit" opens the existing `BufferModeSelector` inline (already built) — allows switching between ABC-only, XYZ, or follow-global.
+- **Total Velocity / Current Stock:** "Edit" opens the existing `OverrideForm` inline (already built) — creates a per-SKU override.
+- **In-Stock Days:** Not editable — shown as a gut check, labeled as such.
 
 The BufferModeSelector (already built) is shown below this table.
 
@@ -201,6 +207,7 @@ Each section is a scroll target within the same page (not separate routes). Acti
 - Velocity type: Flat vs WMA (currently only a frontend toggle with no persistence — this makes it a persisted default).
 - Default date range: Full FY, Last 6 months, Last 3 months.
 - These are new `app_settings` keys: `default_velocity_type`, `default_date_range`.
+- **Consumers:** `SkuDetail.tsx`, `CriticalSkus.tsx`, and `DeadStock.tsx` should read these settings via `fetchSettings()` on mount and use them as initial state values for their velocity type and date range selectors. This replaces the current hardcoded defaults (`'flat'` and `'full_fy'`).
 
 **Dead Stock Thresholds:**
 - Dead stock threshold: days input (currently in DeadStock page header — move canonical control here).
@@ -251,7 +258,7 @@ These were discussed during brainstorming and explicitly deferred:
 
 | File | Changes |
 |------|---------|
-| `src/dashboard/src/pages/SkuDetail.tsx` | Column reorder, summary strip, tab rename |
+| `src/dashboard/src/pages/SkuDetail.tsx` | Column reorder, summary strip, read analysis defaults from settings |
 | `src/dashboard/src/components/CalculationBreakdown.tsx` | Complete restructure to 3-layer design |
 | `src/dashboard/src/pages/Home.tsx` | Strip to search + action cards + priority table |
 | `src/dashboard/src/pages/Settings.tsx` **(new)** | Settings page with sidebar sections |
