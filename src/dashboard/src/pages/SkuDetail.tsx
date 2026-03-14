@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, memo, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { fetchSkusPage } from '@/lib/api'
+import { fetchSkusPage, fetchBrands } from '@/lib/api'
 import type { SkuCounts, SkuMetrics } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,12 +16,12 @@ import TransactionHistory from '@/components/TransactionHistory'
 import CalculationBreakdown from '@/components/CalculationBreakdown'
 import ReorderIntentSelector from '@/components/ReorderIntentSelector'
 import { Badge } from '@/components/ui/badge'
-import SkuSecondaryLine from '@/components/SkuSecondaryLine'
+import AbcBadge from '@/components/AbcBadge'
 import VelocityToggle from '@/components/VelocityToggle'
 import TrendIndicator from '@/components/TrendIndicator'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
 import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar, Snowflake, Filter } from 'lucide-react'
-import { vel, daysDisplay } from '@/lib/formatters'
+import { vel, daysColor } from '@/lib/formatters'
 
 function formatDateForInput(d: Date): string {
   return d.toISOString().slice(0, 10)
@@ -58,6 +58,7 @@ const SkuRow = memo(function SkuRow({
   decodedName,
   analysisRange,
   velocityType,
+  supplierLeadTime,
 }: {
   s: SkuMetrics
   isExpanded: boolean
@@ -65,10 +66,20 @@ const SkuRow = memo(function SkuRow({
   decodedName: string
   analysisRange: { from: string; to: string } | null
   velocityType: 'flat' | 'wma'
+  supplierLeadTime?: number
 }) {
+  const stock = s.effective_stock ?? s.current_stock
+  const daysLeft = s.effective_days_to_stockout ?? s.days_to_stockout
+  const totalVel = velocityType === 'wma' ? (s.wma_total_velocity ?? 0) : (s.effective_velocity ?? s.total_velocity)
+  const wholesaleVel = velocityType === 'wma' ? (s.wma_wholesale_velocity ?? 0) : (s.effective_wholesale_velocity ?? s.wholesale_velocity)
+  const onlineVel = velocityType === 'wma' ? (s.wma_online_velocity ?? 0) : (s.effective_online_velocity ?? s.online_velocity)
+  const storeVel = s.effective_store_velocity ?? s.store_velocity
+  const suggestedQty = s.effective_suggested_qty ?? s.reorder_qty_suggested
+  const leadTime = supplierLeadTime ?? 90
+
   return (
     <Fragment>
-      {/* Primary row — 8 columns */}
+      {/* Primary row — 7 columns */}
       <TableRow
         className="cursor-pointer hover:bg-muted/50"
         onClick={() => onToggle(s.stock_item_name)}
@@ -79,9 +90,16 @@ const SkuRow = memo(function SkuRow({
             : <ChevronRight className="h-4 w-4" />}
         </TableCell>
         <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
+        <TableCell className="font-mono font-semibold text-sm">{s.part_no || '\u2014'}</TableCell>
         <TableCell className="max-w-[280px] truncate" title={s.stock_item_name}>
           <span className="inline-flex items-center gap-1">
             {s.stock_item_name}
+            {s.is_hazardous && (
+              <Tooltip>
+                <TooltipTrigger><span className="text-amber-500 text-xs">{'\u25A0'}</span></TooltipTrigger>
+                <TooltipContent>Hazardous material</TooltipContent>
+              </Tooltip>
+            )}
             {s.reorder_intent === 'must_stock' && (
               <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px] px-1 py-0">Must Stock</Badge>
             )}
@@ -93,7 +111,7 @@ const SkuRow = memo(function SkuRow({
                 <TooltipTrigger>
                   <Snowflake className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                 </TooltipTrigger>
-                <TooltipContent>Dead stock — no sales for {s.days_since_last_sale ?? '∞'} days</TooltipContent>
+                <TooltipContent>Dead stock — no sales for {s.days_since_last_sale ?? '\u221E'} days</TooltipContent>
               </Tooltip>
             )}
             {s.has_note && (
@@ -106,9 +124,9 @@ const SkuRow = memo(function SkuRow({
             )}
           </span>
         </TableCell>
-        <TableCell className={`text-right ${(s.effective_stock ?? s.current_stock) <= 0 ? 'text-red-600 font-medium' : ''}`}>
+        <TableCell className={`text-right ${stock <= 0 ? 'text-red-600 font-medium' : ''}`}>
           <span className="inline-flex items-center gap-1 justify-end">
-            {s.effective_stock ?? s.current_stock}
+            {stock}
             {s.has_stock_override && (
               <Tooltip>
                 <TooltipTrigger>
@@ -118,7 +136,7 @@ const SkuRow = memo(function SkuRow({
                 </TooltipTrigger>
                 <TooltipContent>
                   Stock override active (computed: {s.current_stock})
-                  {s.stock_override_stale && ' — STALE: Tally data changed'}
+                  {s.stock_override_stale && ' \u2014 STALE: Tally data changed'}
                 </TooltipContent>
               </Tooltip>
             )}
@@ -126,9 +144,7 @@ const SkuRow = memo(function SkuRow({
         </TableCell>
         <TableCell className="text-right font-medium">
           <span className="inline-flex items-center gap-1 justify-end">
-            {velocityType === 'wma'
-              ? vel(s.wma_total_velocity ?? 0)
-              : vel(s.effective_velocity ?? s.total_velocity)}
+            {vel(totalVel)}
             <TrendIndicator direction={s.trend_direction} ratio={s.trend_ratio} />
             {s.has_velocity_override && (
               <Tooltip>
@@ -139,38 +155,117 @@ const SkuRow = memo(function SkuRow({
                 </TooltipTrigger>
                 <TooltipContent>
                   Velocity override active (computed: {vel(s.total_velocity)}/mo)
-                  {s.velocity_override_stale && ' — STALE'}
+                  {s.velocity_override_stale && ' \u2014 STALE'}
                 </TooltipContent>
               </Tooltip>
             )}
           </span>
         </TableCell>
-        <TableCell className="text-right">{daysDisplay(s.effective_days_to_stockout ?? s.days_to_stockout)}</TableCell>
-        <TableCell className="text-right">{s.effective_suggested_qty ?? s.reorder_qty_suggested ?? '-'}</TableCell>
-        <TableCell onClick={e => e.stopPropagation()}>
-          <ReorderIntentSelector
-            stockItemName={s.stock_item_name}
-            currentIntent={s.reorder_intent || 'normal'}
-          />
+        <TableCell className="text-center">
+          <AbcBadge value={s.abc_class} />
         </TableCell>
       </TableRow>
 
-      {/* Secondary metadata line */}
-      <TableRow className="border-0">
-        <TableCell colSpan={8} className="pt-0 pb-2 pl-12">
-          <SkuSecondaryLine
-            abc_class={s.abc_class}
-            xyz_class={s.xyz_class}
-            part_no={s.part_no}
-            is_hazardous={s.is_hazardous}
-          />
-        </TableCell>
-      </TableRow>
-
-      {/* Expanded detail */}
+      {/* Expanded detail with summary strip */}
       {isExpanded && (
         <TableRow>
-          <TableCell colSpan={8} className="bg-muted/30 p-4">
+          <TableCell colSpan={7} className="bg-muted/30 p-4">
+            {/* Summary strip */}
+            <div className="grid grid-cols-3 gap-4 mb-4 bg-background rounded-lg border p-4">
+              {/* Left: Velocity by Channel */}
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Velocity by Channel</h4>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                      Wholesale
+                    </span>
+                    <span className="font-medium">{vel(wholesaleVel)}/mo</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
+                      Online
+                    </span>
+                    <span className="font-medium">{vel(onlineVel)}/mo</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                      Store
+                    </span>
+                    <span className="font-medium">{vel(storeVel)}/mo</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm border-t pt-1.5 mt-1.5">
+                    <span className="font-semibold">Total</span>
+                    <span className="font-semibold inline-flex items-center gap-1">
+                      {vel(totalVel)}/mo
+                      <TrendIndicator direction={s.trend_direction} ratio={s.trend_ratio} />
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Middle: Stock & Stockout */}
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Stock & Stockout</h4>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Units in Stock</span>
+                    <span className={`font-semibold ${stock <= 0 ? 'text-red-600' : ''}`}>{stock}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Days Left</span>
+                    <span className={`font-semibold ${daysColor(daysLeft)}`}>
+                      {daysLeft === null ? 'N/A' : daysLeft === 0 ? 'OUT' : `${daysLeft}d`}
+                    </span>
+                  </div>
+                  {s.estimated_stockout_date && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Stockout Date</span>
+                      <span className="text-muted-foreground">{s.estimated_stockout_date}</span>
+                    </div>
+                  )}
+                  {s.last_import_date && (
+                    <div className="flex items-center justify-between text-sm border-t pt-1.5 mt-1.5">
+                      <span>Last Import</span>
+                      <span className="text-muted-foreground">{s.last_import_date} ({s.last_import_qty ?? 0} pcs)</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: Reorder */}
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Reorder</h4>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Suggested Qty</span>
+                    <span className="font-semibold">{suggestedQty ?? '\u2014'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Lead Time</span>
+                    <span className="text-muted-foreground">{leadTime}d</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Safety Buffer</span>
+                    <span className="text-muted-foreground">{s.safety_buffer}x</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm border-t pt-1.5 mt-1.5">
+                    <span>Intent</span>
+                    <span onClick={e => e.stopPropagation()}>
+                      <ReorderIntentSelector
+                        stockItemName={s.stock_item_name}
+                        currentIntent={s.reorder_intent || 'normal'}
+                      />
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs */}
             <Tabs defaultValue="timeline">
               <TabsList>
                 <TabsTrigger value="timeline">Stock Timeline</TabsTrigger>
@@ -255,6 +350,13 @@ export default function SkuDetail() {
   const handleToggleRow = useCallback((name: string) => {
     setExpandedRow(prev => prev === name ? null : name)
   }, [])
+
+  const { data: brands } = useQuery({
+    queryKey: ['brands'],
+    queryFn: () => fetchBrands(),
+    staleTime: 5 * 60 * 1000,
+  })
+  const brandLeadTime = brands?.find(b => b.category_name === decodedName)?.supplier_lead_time ?? undefined
 
   const { data: skuPage, isLoading, isFetching } = useQuery({
     queryKey: ['skus', decodedName, statusFilter, debouncedSearch, analysisRange?.from, analysisRange?.to, page, pageSize, abcFilter, hideInactive, velocityType, xyzFilter, hazardousFilter, deadStockFilter, intentFilter],
@@ -507,13 +609,13 @@ export default function SkuDetail() {
           </div>
         )}
 
-        {/* Table — 8 columns */}
+        {/* Table — 7 columns */}
         {isLoading ? (
           <div className="border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
-                  {Array.from({ length: 8 }).map((_, i) => (
+                  {Array.from({ length: 7 }).map((_, i) => (
                     <TableHead key={i}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableHead>
                   ))}
                 </TableRow>
@@ -521,7 +623,7 @@ export default function SkuDetail() {
               <TableBody>
                 {Array.from({ length: 10 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 7 }).map((_, j) => (
                       <TableCell key={j}><div className="h-4 w-full bg-muted animate-pulse rounded" /></TableCell>
                     ))}
                   </TableRow>
@@ -536,12 +638,11 @@ export default function SkuDetail() {
                 <TableRow>
                   <TableHead className="w-8"></TableHead>
                   <TableHead className="w-[80px]">Status</TableHead>
+                  <TableHead className="w-[110px]">Part No</TableHead>
                   <TableHead>SKU Name</TableHead>
                   <TableHead className="text-right">Stock</TableHead>
                   <TableHead className="text-right">Velocity /mo</TableHead>
-                  <TableHead className="text-right">Days Left</TableHead>
-                  <TableHead className="text-right">Suggested</TableHead>
-                  <TableHead>Intent</TableHead>
+                  <TableHead className="text-center w-[60px]">ABC</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -554,11 +655,12 @@ export default function SkuDetail() {
                     decodedName={decodedName}
                     analysisRange={analysisRange}
                     velocityType={velocityType}
+                    supplierLeadTime={brandLeadTime}
                   />
                 ))}
                 {skus.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No SKUs found
                     </TableCell>
                   </TableRow>
