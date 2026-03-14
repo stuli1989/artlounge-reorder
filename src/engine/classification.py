@@ -128,11 +128,16 @@ def compute_safety_buffer(
     abc_class: str | None,
     xyz_class: str | None,
     buffer_settings: dict[str, float],
+    use_xyz: bool = True,
 ) -> float:
-    """Look up safety buffer from ABC/XYZ matrix. Fallback 1.3."""
-    if not abc_class or not xyz_class:
+    """Look up safety buffer. ABC-only or ABC×XYZ matrix. Fallback 1.3."""
+    if not abc_class:
         return 1.3
-    key = f"buffer_{abc_class.lower()}{xyz_class.lower()}"
+    if use_xyz and xyz_class:
+        key = f"buffer_{abc_class.lower()}{xyz_class.lower()}"
+        return buffer_settings.get(key, 1.3)
+    # ABC-only lookup
+    key = f"buffer_{abc_class.lower()}"
     return buffer_settings.get(key, 1.3)
 
 
@@ -147,6 +152,14 @@ def fetch_buffer_settings(db_conn) -> dict[str, float]:
             except (ValueError, TypeError):
                 pass
     return settings
+
+
+def fetch_use_xyz_global(db_conn) -> bool:
+    """Read use_xyz_buffer toggle from app_settings. Default False."""
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT value FROM app_settings WHERE key = 'use_xyz_buffer'")
+        row = cur.fetchone()
+        return row[0].lower() == 'true' if row else False
 
 
 def fetch_classification_settings(db_conn) -> dict:

@@ -35,6 +35,7 @@ from engine.classification import (
     compute_safety_buffer,
     fetch_buffer_settings,
     fetch_classification_settings,
+    fetch_use_xyz_global,
 )
 
 
@@ -93,6 +94,7 @@ def run_computation_pipeline(db_conn, incremental=False):
     slow_mover_threshold = _fetch_slow_mover_threshold(db_conn)
     class_settings = fetch_classification_settings(db_conn)
     buffer_settings = fetch_buffer_settings(db_conn)
+    use_xyz_global = fetch_use_xyz_global(db_conn)
 
     # Pre-fetch ALL transactions in one query (avoids N+1)
     all_txns = fetch_all_transactions(db_conn)
@@ -295,10 +297,14 @@ def run_computation_pipeline(db_conn, incremental=False):
 
     # ── Phase 4: Safety buffers + reorder recomputation ──
     print("  Computing safety buffers and final reorder status...")
+    stock_items_by_name = {item["tally_name"]: item for item in all_stock_items}
     for m in metrics_batch:
         abc = m.get("abc_class")
         xyz = m.get("xyz_class")
-        buf = compute_safety_buffer(abc, xyz, buffer_settings)
+        item_data = stock_items_by_name.get(m["stock_item_name"], {})
+        item_xyz_pref = item_data.get("use_xyz_buffer")  # None/True/False
+        use_xyz = item_xyz_pref if item_xyz_pref is not None else use_xyz_global
+        buf = compute_safety_buffer(abc, xyz, buffer_settings, use_xyz=use_xyz)
         m["safety_buffer"] = buf
 
         # Recompute reorder status with variable safety buffer
@@ -313,11 +319,7 @@ def run_computation_pipeline(db_conn, incremental=False):
         )
 
         # Re-apply intent override
-        intent = None
-        for item in all_stock_items:
-            if item["tally_name"] == m["stock_item_name"]:
-                intent = item.get("reorder_intent", "normal")
-                break
+        intent = item_data.get("reorder_intent", "normal")
         if intent == "must_stock" and status in ("no_data", "out_of_stock"):
             status = "critical"
             if suggested_qty is None:
@@ -379,7 +381,7 @@ def fetch_all_stock_items(db_conn) -> list[dict]:
     with db_conn.cursor() as cur:
         cur.execute("""
             SELECT tally_name, category_name, opening_balance, closing_balance,
-                   reorder_intent, is_active
+                   reorder_intent, is_active, use_xyz_buffer
             FROM stock_items
             ORDER BY category_name, tally_name
         """)
