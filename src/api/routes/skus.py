@@ -11,8 +11,9 @@ from engine.velocity import (
     calculate_velocity, find_in_stock_periods,
     resolve_date_range, fetch_batch_velocities, velocities_from_batch_row, opt_float,
 )
-from engine.reorder import calculate_days_to_stockout, determine_reorder_status, DEFAULT_LEAD_TIME
+from engine.reorder import calculate_days_to_stockout, determine_reorder_status, DEFAULT_LEAD_TIME, must_stock_fallback_qty
 from engine.effective_values import compute_effective_values, compute_effective_status
+from engine.classification import compute_safety_buffer, fetch_buffer_settings, fetch_use_xyz_global
 from config.settings import FY_START_DATE, FY_END_DATE
 
 router = APIRouter(tags=["skus"])
@@ -114,6 +115,7 @@ def list_skus(
                si.part_no,
                si.is_hazardous,
                si.reorder_intent,
+               si.use_xyz_buffer,
                ovr.stock_override_value,
                ovr.stock_override_note,
                ovr.stock_override_stale,
@@ -375,6 +377,95 @@ def update_reorder_intent(stock_item_name: str, req: ReorderIntentUpdate):
     return dict(row)
 
 
+class XyzBufferUpdate(BaseModel):
+    use_xyz_buffer: bool | None = None
+
+
+@router.patch("/skus/{stock_item_name}/xyz-buffer")
+def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate):
+    """Toggle per-item XYZ buffer preference and recompute metrics instantly."""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            # Update the stock_items toggle and fetch intent in one query
+            cur.execute(
+                "UPDATE stock_items SET use_xyz_buffer = %s, updated_at = NOW() "
+                "WHERE tally_name = %s RETURNING tally_name, reorder_intent",
+                (req.use_xyz_buffer, stock_item_name),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(404, "Stock item not found")
+            item_intent = row["reorder_intent"] or "normal"
+
+            # Recompute buffer + status for this single SKU
+            cur.execute(
+                "SELECT abc_class, xyz_class, current_stock, total_velocity, category_name, "
+                "reorder_status, reorder_qty_suggested, safety_buffer "
+                "FROM sku_metrics WHERE stock_item_name = %s",
+                (stock_item_name,),
+            )
+            sm = cur.fetchone()
+            if not sm:
+                conn.commit()
+                return {"tally_name": stock_item_name, "use_xyz_buffer": req.use_xyz_buffer}
+
+            # Determine effective use_xyz
+            use_xyz_global = fetch_use_xyz_global(conn)
+            use_xyz = req.use_xyz_buffer if req.use_xyz_buffer is not None else use_xyz_global
+            buffer_settings = fetch_buffer_settings(conn)
+            new_buffer = compute_safety_buffer(
+                sm["abc_class"], sm["xyz_class"], buffer_settings, use_xyz=use_xyz
+            )
+
+            # Recompute reorder status
+            current_stock = float(sm["current_stock"] or 0)
+            total_vel = float(sm["total_velocity"] or 0)
+
+            cur.execute(
+                "SELECT supplier_lead_time FROM brand_metrics WHERE category_name = %s",
+                (sm["category_name"],),
+            )
+            bm = cur.fetchone()
+            lead_time = bm["supplier_lead_time"] if bm and bm["supplier_lead_time"] else DEFAULT_LEAD_TIME
+
+            days_to_so = calculate_days_to_stockout(current_stock, total_vel)
+            status, suggested_qty = determine_reorder_status(
+                current_stock, days_to_so, lead_time, total_vel, safety_buffer=new_buffer
+            )
+
+            # Apply intent override
+            if item_intent == "must_stock" and status in ("no_data", "out_of_stock"):
+                status = "critical"
+                if suggested_qty is None:
+                    suggested_qty = must_stock_fallback_qty(lead_time)
+            elif item_intent == "do_not_reorder":
+                status = "no_data"
+                suggested_qty = None
+
+            stockout_date = None
+            if days_to_so is not None and days_to_so > 0:
+                stockout_date = date.today() + timedelta(days=int(days_to_so))
+
+            # Update sku_metrics
+            cur.execute(
+                "UPDATE sku_metrics SET safety_buffer = %s, reorder_status = %s, "
+                "reorder_qty_suggested = %s, days_to_stockout = %s, "
+                "estimated_stockout_date = %s, computed_at = NOW() "
+                "WHERE stock_item_name = %s",
+                (new_buffer, status, suggested_qty, days_to_so,
+                 stockout_date, stock_item_name),
+            )
+        conn.commit()
+
+    return {
+        "tally_name": stock_item_name,
+        "use_xyz_buffer": req.use_xyz_buffer,
+        "safety_buffer": new_buffer,
+        "reorder_status": status,
+        "reorder_qty_suggested": suggested_qty,
+    }
+
+
 @router.get("/brands/{category_name}/skus/{stock_item_name}/positions")
 def get_positions(
     category_name: str,
@@ -463,22 +554,31 @@ def get_breakdown(
 
     with get_db() as conn:
         with conn.cursor() as cur:
-            # 1. Closing balance from Tally (stock_items table)
+            # 1. Closing balance + XYZ pref from stock_items
             cur.execute(
-                "SELECT closing_balance FROM stock_items WHERE tally_name = %s",
+                "SELECT closing_balance, use_xyz_buffer FROM stock_items WHERE tally_name = %s",
                 (stock_item_name,),
             )
             si_row = cur.fetchone()
             closing_balance_tally = float(si_row["closing_balance"]) if si_row else None
+            item_xyz_pref = si_row["use_xyz_buffer"] if si_row else None
 
-            # 2. Computed_at and current_stock from sku_metrics
+            # 2. Computed_at, current_stock, and safety_buffer from sku_metrics
             cur.execute(
-                "SELECT current_stock, computed_at FROM sku_metrics WHERE stock_item_name = %s",
+                "SELECT current_stock, computed_at, safety_buffer FROM sku_metrics WHERE stock_item_name = %s",
                 (stock_item_name,),
             )
             sm_row = cur.fetchone()
             current_stock = float(sm_row["current_stock"]) if sm_row else 0.0
             computed_at = sm_row["computed_at"].isoformat() if sm_row and sm_row["computed_at"] else None
+            buffer_multiplier = float(sm_row["safety_buffer"]) if sm_row and sm_row["safety_buffer"] else 1.3
+
+            # 3. Global XYZ buffer setting
+            cur.execute("SELECT value FROM app_settings WHERE key = 'use_xyz_buffer'")
+            global_row = cur.fetchone()
+            global_xyz = global_row["value"].lower() == 'true' if global_row else False
+            effective_use_xyz = item_xyz_pref if item_xyz_pref is not None else global_xyz
+            buffer_mode = "abc_xyz" if effective_use_xyz else "abc_only"
 
             # 3. Daily positions in range
             cur.execute("""
@@ -710,13 +810,6 @@ def get_breakdown(
     supplier_name = supplier_row["name"] if supplier_row else None
     lead_time = supplier_row["lead_time_default"] if supplier_row else DEFAULT_LEAD_TIME
 
-    # Read per-SKU safety buffer from sku_metrics
-    with get_db() as conn2:
-        with conn2.cursor() as cur2:
-            cur2.execute("SELECT safety_buffer FROM sku_metrics WHERE stock_item_name = %s", (stock_item_name,))
-            buf_row = cur2.fetchone()
-            buffer_multiplier = float(buf_row["safety_buffer"]) if buf_row and buf_row["safety_buffer"] else 1.3
-
     status, suggested_qty = determine_reorder_status(eff_stock, days_to_so, lead_time, eff_total_vel, safety_buffer=buffer_multiplier)
     warning_buffer = max(30, int(lead_time * 0.5))
     threshold_warning = lead_time + warning_buffer
@@ -748,6 +841,8 @@ def get_breakdown(
         "supplier_name": supplier_name,
         "supplier_lead_time": lead_time,
         "buffer_multiplier": buffer_multiplier,
+        "buffer_mode": buffer_mode,
+        "use_xyz_buffer": item_xyz_pref,
         "suggested_qty": suggested_qty,
         "formula": reorder_formula,
         "status": status,
