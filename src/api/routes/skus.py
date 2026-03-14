@@ -205,6 +205,8 @@ def list_skus(
         d["stock_override_stale"] = bool(d.get("stock_override_stale"))
         d["velocity_override_stale"] = bool(d.get("total_vel_override_stale"))
         d["hold_from_po"] = bool(d.get("hold_from_po"))
+        # Derive store velocity (not a stored column — computed as remainder)
+        d["store_velocity"] = max(0, base_total - base_wholesale - base_online)
 
         # Dead stock computed fields
         last_sale_date = d.get("last_sale_date")
