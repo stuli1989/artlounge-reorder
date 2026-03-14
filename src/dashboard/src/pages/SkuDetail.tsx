@@ -11,8 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import StatusBadge from '@/components/StatusBadge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import StockTimelineChart from '@/components/StockTimelineChart'
-import TransactionHistory from '@/components/TransactionHistory'
+import StockTimeline from '@/components/StockTimeline'
 import CalculationBreakdown from '@/components/CalculationBreakdown'
 import ReorderIntentSelector from '@/components/ReorderIntentSelector'
 import { Badge } from '@/components/ui/badge'
@@ -268,15 +267,11 @@ const SkuRow = memo(function SkuRow({
             {/* Tabs */}
             <Tabs defaultValue="timeline">
               <TabsList>
-                <TabsTrigger value="timeline">Stock Timeline</TabsTrigger>
-                <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                <TabsTrigger value="timeline">Timeline & Transactions</TabsTrigger>
                 <TabsTrigger value="calculation">Calculation</TabsTrigger>
               </TabsList>
               <TabsContent value="timeline" className="pt-4">
-                <StockTimelineChart categoryName={decodedName} stockItemName={s.stock_item_name} />
-              </TabsContent>
-              <TabsContent value="transactions" className="pt-4">
-                <TransactionHistory categoryName={decodedName} stockItemName={s.stock_item_name} />
+                <StockTimeline categoryName={decodedName} stockItemName={s.stock_item_name} />
               </TabsContent>
               <TabsContent value="calculation" className="pt-4">
                 <CalculationBreakdown

@@ -11,8 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import StatusBadge from '@/components/StatusBadge'
 import ReorderIntentSelector from '@/components/ReorderIntentSelector'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import StockTimelineChart from '@/components/StockTimelineChart'
-import TransactionHistory from '@/components/TransactionHistory'
+import StockTimeline from '@/components/StockTimeline'
 import CalculationBreakdown from '@/components/CalculationBreakdown'
 import AbcBadge from '@/components/AbcBadge'
 import { ArrowLeft, Snowflake, ChevronDown, ChevronRight, Search, ClipboardList } from 'lucide-react'
@@ -112,15 +111,11 @@ export default function DeadStock() {
   const renderExpandedDetail = (stockItemName: string) => (
     <Tabs defaultValue="timeline">
       <TabsList>
-        <TabsTrigger value="timeline">Stock Timeline</TabsTrigger>
-        <TabsTrigger value="transactions">Transactions</TabsTrigger>
+        <TabsTrigger value="timeline">Timeline & Transactions</TabsTrigger>
         <TabsTrigger value="calculation">Calculation</TabsTrigger>
       </TabsList>
       <TabsContent value="timeline" className="pt-4">
-        <StockTimelineChart categoryName={decodedName} stockItemName={stockItemName} />
-      </TabsContent>
-      <TabsContent value="transactions" className="pt-4">
-        <TransactionHistory categoryName={decodedName} stockItemName={stockItemName} />
+        <StockTimeline categoryName={decodedName} stockItemName={stockItemName} />
       </TabsContent>
       <TabsContent value="calculation" className="pt-4">
         <CalculationBreakdown categoryName={decodedName} stockItemName={stockItemName} />
