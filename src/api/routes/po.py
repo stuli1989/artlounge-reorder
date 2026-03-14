@@ -16,11 +16,88 @@ from engine.velocity import resolve_date_range, fetch_batch_velocities, velociti
 router = APIRouter(tags=["po"])
 
 
+def _compute_po_items(
+    rows: list[dict],
+    lead_time: int,
+    buffer: float | None,
+    vel_by_sku: dict,
+) -> list[dict]:
+    """Shared computation: turn DB rows into PO result items.
+
+    Used by the single-brand ``po_data`` endpoint and (later) the
+    cross-brand PO endpoint.  The caller is responsible for any
+    post-computation status filtering.
+    """
+    result = []
+    for r in rows:
+        d = dict(r)
+        if d["hold_from_po"] or d.get("reorder_intent") == "do_not_reorder":
+            continue
+
+        # Base velocities: recalculated from positions or stored metrics
+        if vel_by_sku:
+            base_wholesale, base_online, _, base_total = velocities_from_batch_row(
+                vel_by_sku.get(d["stock_item_name"])
+            )
+        else:
+            base_wholesale = float(d["wholesale_velocity"] or 0)
+            base_online = float(d["online_velocity"] or 0)
+            base_total = float(d["total_velocity"] or 0)
+
+        vals = compute_effective_values(
+            float(d["current_stock"] or 0),
+            base_wholesale,
+            base_online,
+            base_total,
+            stock_ovr=opt_float(d["stock_override"]),
+            wholesale_ovr=opt_float(d["wholesale_vel_override"]),
+            online_ovr=opt_float(d["online_vel_override"]),
+            store_ovr=opt_float(d["store_vel_override"]),
+            total_ovr=opt_float(d["total_vel_override"]),
+        )
+        st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time)
+
+        sku_buffer = float(d.get("safety_buffer") or 1.3)
+        effective_buffer = buffer if buffer is not None else sku_buffer
+        if vals["eff_total"] > 0:
+            raw_need = vals["eff_total"] * lead_time * effective_buffer
+            suggested = max(0, round(raw_need - max(0, vals["eff_stock"])))
+            if suggested == 0:
+                suggested = None
+        elif d.get("reorder_intent") == "must_stock":
+            suggested = must_stock_fallback_qty(lead_time)
+        else:
+            suggested = None
+
+        item = {
+            "stock_item_name": d["stock_item_name"],
+            "part_no": d.get("part_no"),
+            "current_stock": vals["eff_stock"],
+            "total_velocity": vals["eff_total"],
+            "days_to_stockout": st["eff_days"],
+            "reorder_status": st["eff_status"],
+            "suggested_qty": suggested,
+            "lead_time": lead_time,
+            "buffer": effective_buffer,
+            "sku_buffer": sku_buffer,
+            "has_override": vals["has_stock_override"] or vals["has_velocity_override"],
+            "is_hazardous": d.get("is_hazardous") or False,
+            "reorder_intent": d.get("reorder_intent", "normal"),
+            "abc_class": d.get("abc_class"),
+            "trend_direction": d.get("trend_direction"),
+        }
+        if "category_name" in d:
+            item["category_name"] = d["category_name"]
+        result.append(item)
+
+    return result
+
+
 @router.get("/brands/{category_name}/po-data")
 def po_data(
     category_name: str,
     lead_time: int = Query(None),
-    buffer: float = Query(1.3),
+    buffer: float = Query(None),
     include_warning: bool = Query(True),
     include_ok: bool = Query(False),
     from_date: str = Query(None, description="Analysis period start (YYYY-MM-DD)"),
@@ -83,60 +160,7 @@ def po_data(
                 sku_names = [r["stock_item_name"] for r in rows]
                 vel_by_sku = fetch_batch_velocities(cur, sku_names, range_start, range_end)
 
-    result = []
-    for r in rows:
-        d = dict(r)
-        if d["hold_from_po"] or d.get("reorder_intent") == "do_not_reorder":
-            continue
-
-        # Base velocities: recalculated from positions or stored metrics
-        if vel_by_sku:
-            base_wholesale, base_online, _, base_total = velocities_from_batch_row(
-                vel_by_sku.get(d["stock_item_name"])
-            )
-        else:
-            base_wholesale = float(d["wholesale_velocity"] or 0)
-            base_online = float(d["online_velocity"] or 0)
-            base_total = float(d["total_velocity"] or 0)
-
-        vals = compute_effective_values(
-            float(d["current_stock"] or 0),
-            base_wholesale,
-            base_online,
-            base_total,
-            stock_ovr=opt_float(d["stock_override"]),
-            wholesale_ovr=opt_float(d["wholesale_vel_override"]),
-            online_ovr=opt_float(d["online_vel_override"]),
-            store_ovr=opt_float(d["store_vel_override"]),
-            total_ovr=opt_float(d["total_vel_override"]),
-        )
-        st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time)
-
-        if vals["eff_total"] > 0:
-            raw_need = vals["eff_total"] * lead_time * buffer
-            suggested = max(0, round(raw_need - max(0, vals["eff_stock"])))
-            if suggested == 0:
-                suggested = None
-        elif d.get("reorder_intent") == "must_stock":
-            suggested = must_stock_fallback_qty(lead_time)
-        else:
-            suggested = None
-        result.append({
-            "stock_item_name": d["stock_item_name"],
-            "part_no": d.get("part_no"),
-            "current_stock": vals["eff_stock"],
-            "total_velocity": vals["eff_total"],
-            "days_to_stockout": st["eff_days"],
-            "reorder_status": st["eff_status"],
-            "suggested_qty": suggested,
-            "lead_time": lead_time,
-            "buffer": buffer,
-            "has_override": vals["has_stock_override"] or vals["has_velocity_override"],
-            "is_hazardous": d.get("is_hazardous") or False,
-            "reorder_intent": d.get("reorder_intent", "normal"),
-            "abc_class": d.get("abc_class"),
-            "trend_direction": d.get("trend_direction"),
-        })
+    result = _compute_po_items(rows, lead_time, buffer, vel_by_sku)
 
     # Post-recalculation status filter when custom range is active
     if custom_range:
