@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import Joyride, { CallBackProps, STATUS, EVENTS, ACTIONS } from 'react-joyride'
+import Joyride, { type CallBackProps, STATUS, EVENTS, ACTIONS } from 'react-joyride'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { TOUR_STEPS, STEP_ROUTE_MAP } from '@/lib/tour-steps'
 

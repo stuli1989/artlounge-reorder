@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Button } from '@/components/ui/button'
 import { HelpCircle, BookOpen, Play } from 'lucide-react'
 
 interface HelpMenuProps {
@@ -14,15 +13,11 @@ export default function HelpMenu({ onReplayTour }: HelpMenuProps) {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-          aria-label="Help"
-        >
-          <HelpCircle className="h-4 w-4" />
-        </Button>
+      <PopoverTrigger
+        className="inline-flex items-center justify-center h-8 w-8 p-0 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        aria-label="Help"
+      >
+        <HelpCircle className="h-4 w-4" />
       </PopoverTrigger>
       <PopoverContent className="w-48 p-1" align="end">
         <button
