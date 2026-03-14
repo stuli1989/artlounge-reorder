@@ -105,25 +105,31 @@ export default function Help() {
     const container = contentRef.current
     if (!container) return
 
-    const handleScroll = () => {
-      const sections = ALL_SECTION_IDS.map(id => ({
-        id,
-        el: document.getElementById(id),
-      })).filter(s => s.el)
+    // Cache element refs once — the help page doesn't add/remove sections
+    const sectionEls = ALL_SECTION_IDS
+      .map(id => ({ id, el: document.getElementById(id) }))
+      .filter((s): s is { id: string; el: HTMLElement } => s.el !== null)
 
-      for (const section of [...sections].reverse()) {
-        if (section.el) {
+    let rafId: number | null = null
+    const handleScroll = () => {
+      if (rafId) return // throttle to one rAF at a time
+      rafId = requestAnimationFrame(() => {
+        rafId = null
+        for (const section of [...sectionEls].reverse()) {
           const rect = section.el.getBoundingClientRect()
           if (rect.top <= 200) {
-            setActiveSection(section.id)
+            setActiveSection(prev => prev === section.id ? prev : section.id)
             break
           }
         }
-      }
+      })
     }
 
     container.addEventListener('scroll', handleScroll)
-    return () => container.removeEventListener('scroll', handleScroll)
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      if (rafId) cancelAnimationFrame(rafId)
+    }
   }, [])
 
   const scrollToSection = (id: string) => {
@@ -149,8 +155,8 @@ export default function Help() {
       <div className="flex gap-6">
         {/* Sidebar */}
         <nav className="w-[200px] shrink-0 space-y-4 sticky top-6 self-start max-h-[calc(100vh-6rem)] overflow-y-auto">
-          {SIDEBAR_SECTIONS.map(({ id: _groupId, label, icon: Icon, items }) => (
-            <div key={label} className="space-y-0.5">
+          {SIDEBAR_SECTIONS.map(({ id, label, icon: Icon, items }) => (
+            <div key={id} className="space-y-0.5">
               <div className="flex items-center gap-2 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <Icon className="h-3.5 w-3.5 shrink-0" />
                 {label}

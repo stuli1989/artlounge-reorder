@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Joyride, { type CallBackProps, STATUS, EVENTS, ACTIONS } from 'react-joyride'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { TOUR_STEPS, STEP_ROUTE_MAP } from '@/lib/tour-steps'
@@ -51,6 +51,15 @@ export default function GuidedTour({ run, onFinish }: GuidedTourProps) {
     })
   }, [stepIndex, location.pathname, run])
 
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Clean up pending navigation timer on unmount
+  useEffect(() => {
+    return () => {
+      if (navTimerRef.current) clearTimeout(navTimerRef.current)
+    }
+  }, [])
+
   const handleCallback = useCallback((data: CallBackProps) => {
     const { action, index, status, type } = data
     if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
@@ -66,7 +75,8 @@ export default function GuidedTour({ run, onFinish }: GuidedTourProps) {
       if (nextRoute && nextRoute !== currentRoute) {
         setIsReady(false)
         navigate(nextRoute)
-        setTimeout(() => {
+        navTimerRef.current = setTimeout(() => {
+          navTimerRef.current = null
           setStepIndex(nextIndex)
         }, 300)
       } else {
