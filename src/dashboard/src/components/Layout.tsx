@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSyncStatus, fetchOverrides } from '@/lib/api'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAlert } from 'lucide-react'
+import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAlert, ClipboardList } from 'lucide-react'
 
 const freshnessColors = {
   fresh: 'bg-green-500',
@@ -32,6 +32,7 @@ export default function Layout() {
     { path: '/', label: 'Home', icon: LayoutDashboard, exact: true },
     { path: '/brands', label: 'Brands', icon: Package, exact: true },
     { path: '/critical', label: 'Critical', icon: ShieldAlert },
+    { path: '/po', label: 'Build PO', icon: ClipboardList },
     { path: '/parties', label: 'Parties', icon: Users },
     { path: '/suppliers', label: 'Suppliers', icon: Truck },
     { path: '/overrides', label: 'Overrides', icon: Pencil },
