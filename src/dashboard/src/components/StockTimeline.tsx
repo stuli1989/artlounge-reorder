@@ -117,7 +117,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
             </Button>
           )}
         </div>
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={200} style={{ userSelect: 'none' }}>
           <AreaChart
             data={chartData}
             margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
