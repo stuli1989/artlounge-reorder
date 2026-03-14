@@ -11,6 +11,7 @@ const SupplierManagement = lazy(() => import('./pages/SupplierManagement'))
 const OverrideReview = lazy(() => import('./pages/OverrideReview'))
 const DeadStock = lazy(() => import('./pages/DeadStock'))
 const CriticalSkus = lazy(() => import('./pages/CriticalSkus'))
+const Settings = lazy(() => import('./pages/Settings'))
 
 function LoadingSkeleton() {
   return (
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/suppliers" element={<SuspenseWrapper><SupplierManagement /></SuspenseWrapper>} />
           <Route path="/critical" element={<SuspenseWrapper><CriticalSkus /></SuspenseWrapper>} />
           <Route path="/overrides" element={<SuspenseWrapper><OverrideReview /></SuspenseWrapper>} />
+          <Route path="/settings" element={<SuspenseWrapper><Settings /></SuspenseWrapper>} />
         </Route>
       </Routes>
     </BrowserRouter>

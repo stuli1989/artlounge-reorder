@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, memo, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { fetchSkusPage, fetchBrands } from '@/lib/api'
+import { fetchSkusPage, fetchBrands, fetchSettings } from '@/lib/api'
 import type { SkuCounts, SkuMetrics } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -329,6 +329,23 @@ export default function SkuDetail() {
 
   // Analysis date range state
   const [rangePreset, setRangePreset] = useState('full_fy')
+
+  // Load analysis defaults from settings
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: fetchSettings,
+    staleTime: 5 * 60 * 1000,
+  })
+  const [settingsApplied, setSettingsApplied] = useState(false)
+  useEffect(() => {
+    if (settings && !settingsApplied) {
+      if (settings.default_velocity_type === 'wma') setVelocityType('wma')
+      if (settings.default_date_range && settings.default_date_range !== 'full_fy') {
+        setRangePreset(settings.default_date_range)
+      }
+      setSettingsApplied(true)
+    }
+  }, [settings, settingsApplied])
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
 

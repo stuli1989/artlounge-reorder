@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSyncStatus, fetchOverrides } from '@/lib/api'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAlert, ClipboardList } from 'lucide-react'
+import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAlert, ClipboardList, Settings } from 'lucide-react'
 
 const freshnessColors = {
   fresh: 'bg-green-500',
@@ -28,14 +28,24 @@ export default function Layout() {
 
   const staleCount = staleOverrides?.length ?? 0
 
-  const navItems = [
-    { path: '/', label: 'Home', icon: LayoutDashboard, exact: true },
-    { path: '/brands', label: 'Brands', icon: Package, exact: true },
-    { path: '/critical', label: 'Critical', icon: ShieldAlert },
-    { path: '/po', label: 'Build PO', icon: ClipboardList },
-    { path: '/parties', label: 'Parties', icon: Users },
-    { path: '/suppliers', label: 'Suppliers', icon: Truck },
-    { path: '/overrides', label: 'Overrides', icon: Pencil },
+  const navGroups = [
+    // Primary actions — daily workflow
+    [
+      { path: '/', label: 'Home', icon: LayoutDashboard, exact: true },
+      { path: '/brands', label: 'Brands', icon: Package, exact: true },
+      { path: '/critical', label: 'Critical', icon: ShieldAlert },
+      { path: '/po', label: 'Build PO', icon: ClipboardList },
+    ],
+    // Data management — setup and maintenance
+    [
+      { path: '/parties', label: 'Parties', icon: Users },
+      { path: '/suppliers', label: 'Suppliers', icon: Truck },
+      { path: '/overrides', label: 'Overrides', icon: Pencil },
+    ],
+    // Settings — global configuration
+    [
+      { path: '/settings', label: 'Settings', icon: Settings },
+    ],
   ]
 
   return (
@@ -45,26 +55,33 @@ export default function Layout() {
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <h1 className="text-lg font-semibold">Art Lounge — Stock Intelligence</h1>
-            <nav className="flex gap-1">
-              {navItems.map(({ path, label, icon: Icon, exact }) => {
-                const isActive = exact
-                  ? location.pathname === path
-                  : location.pathname.startsWith(path)
-                return (
-                  <Link
-                    key={path}
-                    to={path}
-                    className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </Link>
-                )
-              })}
+            <nav className="flex items-center gap-1">
+              {navGroups.map((group, gi) => (
+                <div key={gi} className="flex items-center gap-1">
+                  {gi > 0 && (
+                    <div className="h-5 w-px bg-slate-300 mx-1" />
+                  )}
+                  {group.map(({ path, label, icon: Icon, exact }) => {
+                    const isActive = exact
+                      ? location.pathname === path
+                      : location.pathname.startsWith(path)
+                    return (
+                      <Link
+                        key={path}
+                        to={path}
+                        className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </Link>
+                    )
+                  })}
+                </div>
+              ))}
             </nav>
           </div>
 

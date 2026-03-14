@@ -1,7 +1,7 @@
-import { useState, useMemo, Fragment } from 'react'
+import { useState, useMemo, useEffect, Fragment } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { fetchCriticalSkus } from '@/lib/api'
+import { fetchCriticalSkus, fetchSettings } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -166,6 +166,20 @@ export default function CriticalSkus() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const pageSize = 500
+
+  // Load analysis defaults from settings
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: fetchSettings,
+    staleTime: 5 * 60 * 1000,
+  })
+  const [settingsApplied, setSettingsApplied] = useState(false)
+  useEffect(() => {
+    if (settings && !settingsApplied) {
+      if (settings.default_velocity_type === 'wma') setVelocityType('wma')
+      setSettingsApplied(true)
+    }
+  }, [settings, settingsApplied])
 
   const { data, isLoading } = useQuery({
     queryKey: ['criticalSkus', statusFilter, abcFilter, velocityType, page],
