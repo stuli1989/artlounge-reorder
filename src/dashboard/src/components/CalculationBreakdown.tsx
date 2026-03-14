@@ -1,17 +1,18 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchBreakdown, createOverride, deleteOverride, updateXyzBuffer } from '@/lib/api'
-import type { BreakdownResponse, BreakdownTransactionRow, OverrideInfo } from '@/lib/types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import type { BreakdownResponse, OverrideInfo } from '@/lib/types'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CheckCircle2, XCircle, ArrowRight, Info, Pencil, AlertTriangle, X } from 'lucide-react'
+import { ArrowRight, Info, Pencil, AlertTriangle, X, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import StatusBadge from '@/components/StatusBadge'
+import type { ReorderStatus } from '@/lib/types'
 
-// Toggle to show/hide the assumptions summary strip in Stockout & Reorder
-const SHOW_ASSUMPTIONS_STRIP = true
+// ─── Constants ───────────────────────────────────────────────────────────────
 
 const confidenceColors = {
   high: 'bg-green-100 text-green-700',
@@ -26,6 +27,16 @@ const statusColors: Record<string, string> = {
   out_of_stock: 'bg-red-50 text-red-600 border-red-200',
   no_data: 'bg-gray-100 text-gray-500 border-gray-200',
 }
+
+const verdictBgColors: Record<string, string> = {
+  ok: 'bg-green-50 border-green-300',
+  warning: 'bg-amber-50 border-amber-300',
+  critical: 'bg-red-50 border-red-300',
+  out_of_stock: 'bg-red-50 border-red-300',
+  no_data: 'bg-gray-50 border-gray-300',
+}
+
+// ─── Shared helper components ────────────────────────────────────────────────
 
 function FlowBox({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
@@ -77,11 +88,7 @@ function InStockBar({ data }: { data: BreakdownResponse }) {
   )
 }
 
-function DemandIcon({ included }: { included: boolean }) {
-  return included
-    ? <CheckCircle2 className="h-4 w-4 text-green-600 inline" />
-    : <XCircle className="h-4 w-4 text-gray-400 inline" />
-}
+// ─── Override components (kept unchanged) ────────────────────────────────────
 
 function OverrideBadge({ ovr }: { ovr: OverrideInfo }) {
   if (ovr.is_stale) {
@@ -120,7 +127,6 @@ function OverrideForm({
   const queryClient = useQueryClient()
 
   const invalidateRelated = () => {
-    // Scope invalidation to this specific item/category to avoid refetching unrelated brands
     queryClient.invalidateQueries({ queryKey: ['breakdown', categoryName, stockItemName] })
     queryClient.invalidateQueries({ queryKey: ['skus', categoryName] })
     queryClient.invalidateQueries({ queryKey: ['poData', categoryName] })
@@ -258,6 +264,116 @@ function BufferModeSelector({
   )
 }
 
+// ─── New helper components ───────────────────────────────────────────────────
+
+function CollapsibleSection({
+  title,
+  subtitle,
+  defaultOpen,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  defaultOpen: boolean
+  children: React.ReactNode
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  return (
+    <div className="border rounded-lg">
+      <button
+        type="button"
+        className="flex items-center justify-between w-full px-4 py-3 text-left hover:bg-muted/30 transition-colors rounded-lg"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div>
+          <span className="text-sm font-semibold">{title}</span>
+          {subtitle && <span className="text-xs text-muted-foreground ml-2">{subtitle}</span>}
+        </div>
+        {isOpen ? (
+          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+        )}
+      </button>
+      {isOpen && <div className="px-4 pb-4 pt-0">{children}</div>}
+    </div>
+  )
+}
+
+function MethodologySection({
+  number,
+  title,
+  children,
+}: {
+  number: number
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="border border-gray-200 rounded-lg bg-gray-50/50">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200">
+        <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">
+          {number}
+        </span>
+        <span className="text-sm font-medium">{title}</span>
+      </div>
+      <div className="px-3 py-3 space-y-3">{children}</div>
+    </div>
+  )
+}
+
+function generateVerdict(data: BreakdownResponse): { text: string; status: ReorderStatus } {
+  const { velocity, stockout, reorder, effective_values } = data
+  const status = reorder.status as ReorderStatus
+
+  const qty = reorder.suggested_qty
+  const days = stockout.days_to_stockout
+  const leadTime = reorder.supplier_lead_time
+  const buffer = reorder.buffer_multiplier
+
+  // Determine dominant channel
+  const channels = [
+    { name: 'Wholesale', vel: velocity.wholesale.monthly_velocity },
+    { name: 'Online', vel: velocity.online.monthly_velocity },
+    { name: 'Store', vel: velocity.store.monthly_velocity },
+  ]
+  const dominant = channels.reduce((a, b) => (b.vel > a.vel ? b : a))
+  const dominantChannel = dominant.vel > 0 ? dominant.name : null
+  const monthlyVel = velocity.total.monthly_velocity
+
+  switch (status) {
+    case 'critical':
+      return {
+        text: `Order ${qty ?? '?'} units. ${dominantChannel ? `${dominantChannel} demand is driving this at ${monthlyVel}/mo.` : `Demand is ${monthlyVel}/mo.`} At current velocity you have ~${days ?? 0} days of stock, but with ${leadTime}-day lead time and ${buffer}x buffer, you should order now.`,
+        status,
+      }
+    case 'warning':
+      return {
+        text: `Consider ordering ${qty ?? '?'} units. You have ~${days ?? 0} days of stock — within the ${leadTime}-day lead time window.`,
+        status,
+      }
+    case 'ok':
+      return {
+        text: `No immediate action needed. You have ~${days ?? '?'} days of stock, well above the ${leadTime}-day lead time.`,
+        status,
+      }
+    case 'out_of_stock':
+      return {
+        text: `Out of stock — order ${qty ?? '?'} units immediately.${effective_values.current_stock <= 0 ? ' Current stock is zero or negative.' : ''}`,
+        status,
+      }
+    case 'no_data':
+    default:
+      return {
+        text: 'Insufficient data to make a recommendation. No velocity data available.',
+        status: 'no_data',
+      }
+  }
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
+
 export default function CalculationBreakdown({
   categoryName,
   stockItemName,
@@ -282,302 +398,141 @@ export default function CalculationBreakdown({
   if (error) return <div className="text-center py-8 text-red-500">Failed to load breakdown</div>
   if (!data) return null
 
-  const { data_source, position_reconstruction, transaction_summary, date_range, velocity, stockout, reorder, effective_values } = data
+  const { data_source, velocity, stockout, reorder, effective_values, date_range } = data
   const overrides = data_source.overrides || {}
+  const verdict = generateVerdict(data)
 
-  const stockOvr = overrides.current_stock
+  const inStockPct = velocity.in_stock_days + velocity.out_of_stock_days > 0
+    ? Math.round((velocity.in_stock_days / (velocity.in_stock_days + velocity.out_of_stock_days)) * 100)
+    : 0
 
   return (
     <div className="space-y-4">
-      {/* Section 1: Data Source */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Data Source</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <div>
-            <span className="text-muted-foreground">Current stock: </span>
-            <span className="font-medium">{data_source.closing_balance_from_tally ?? 'N/A'} units</span>
-            <span className="text-muted-foreground"> (from Tally closing balance)</span>
+
+      {/* ── Layer 1: Verdict (always visible) ─────────────────────────────── */}
+      <div className={`rounded-lg border-2 p-4 ${verdictBgColors[verdict.status] || verdictBgColors.no_data}`}>
+        <div className="flex items-start gap-3">
+          <StatusBadge status={verdict.status} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm leading-relaxed">{verdict.text}</p>
           </div>
-          {stockOvr && (
-            <div className="flex items-start gap-1.5 text-xs bg-blue-50 border border-blue-200 rounded p-2">
-              <Pencil className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-600" />
-              <span>Stock overridden to <strong>{stockOvr.value}</strong> units. Reason: {stockOvr.note}</span>
-            </div>
-          )}
+        </div>
+        <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
           {data_source.data_as_of && (
-            <div>
-              <span className="text-muted-foreground">Data as of: </span>
-              <span className="font-medium">{new Date(data_source.data_as_of).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</span>
-            </div>
+            <span>Data as of: {new Date(data_source.data_as_of).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</span>
           )}
-          {data_source.last_computed && (
-            <div>
-              <span className="text-muted-foreground">Last computed: </span>
-              <span className="font-medium">{new Date(data_source.last_computed).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-            </div>
-          )}
-          <div>
-            <span className="text-muted-foreground">Financial year: </span>
-            <span className="font-medium">{data_source.fy_period}</span>
+          <span>Analysis: {date_range.from_date} to {date_range.to_date} ({date_range.total_days_in_range}d)</span>
+        </div>
+      </div>
+
+      {/* ── Layer 2: Key Assumptions (collapsible, expanded by default) ──── */}
+      <CollapsibleSection title="Key Assumptions" subtitle="inputs driving this recommendation" defaultOpen={true}>
+        <div className="space-y-4">
+          {/* Assumptions table */}
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <tbody>
+                {/* Lead Time */}
+                <tr className="border-b">
+                  <td className="px-3 py-2 text-muted-foreground font-medium w-[140px]">Lead Time</td>
+                  <td className="px-3 py-2">
+                    {reorder.supplier_lead_time}d
+                    {reorder.supplier_name && (
+                      <span className="text-muted-foreground"> ({reorder.supplier_name})</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <Link to="/suppliers" className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1">
+                      Suppliers <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  </td>
+                </tr>
+                {/* Safety Buffer */}
+                <tr className="border-b">
+                  <td className="px-3 py-2 text-muted-foreground font-medium">Safety Buffer</td>
+                  <td className="px-3 py-2">
+                    {reorder.buffer_multiplier}x
+                    <span className="text-muted-foreground"> ({reorder.buffer_mode === 'abc_xyz' ? 'ABC×XYZ' : 'ABC only'})</span>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {/* BufferModeSelector is below the table */}
+                  </td>
+                </tr>
+                {/* Total Velocity */}
+                <tr className="border-b">
+                  <td className="px-3 py-2 text-muted-foreground font-medium">Total Velocity</td>
+                  <td className="px-3 py-2">
+                    <span className="font-semibold">{velocity.total.monthly_velocity}/mo</span>
+                    <span className="text-muted-foreground text-xs ml-1">
+                      (W: {velocity.wholesale.monthly_velocity} + O: {velocity.online.monthly_velocity} + S: {velocity.store.monthly_velocity})
+                    </span>
+                    {effective_values.velocity_source === 'override' && (
+                      <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 border-blue-200 text-xs">overridden</Badge>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {/* Override form is below the table */}
+                  </td>
+                </tr>
+                {/* Current Stock */}
+                <tr className="border-b">
+                  <td className="px-3 py-2 text-muted-foreground font-medium">Current Stock</td>
+                  <td className="px-3 py-2">
+                    <span className="font-semibold">{effective_values.current_stock} units</span>
+                    {effective_values.stock_source === 'override' && (
+                      <>
+                        <span className="text-muted-foreground text-xs ml-1">
+                          (Tally: {data_source.closing_balance_from_tally ?? 'N/A'})
+                        </span>
+                        <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 border-blue-200 text-xs">overridden</Badge>
+                      </>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {/* Override form is below the table */}
+                  </td>
+                </tr>
+                {/* In-Stock Days */}
+                <tr>
+                  <td className="px-3 py-2 text-muted-foreground font-medium">In-Stock Days</td>
+                  <td className="px-3 py-2">
+                    <span className={`font-medium ${inStockPct >= 70 ? 'text-green-600' : inStockPct >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {velocity.in_stock_days}
+                    </span>
+                    <span className="text-muted-foreground"> of {velocity.in_stock_days + velocity.out_of_stock_days} ({inStockPct}%)</span>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {inStockPct >= 70 ? '— good data coverage' : inStockPct >= 40 ? '— moderate coverage' : '— limited coverage'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2"></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <OverrideForm
-            fieldName="current_stock"
-            label="Stock"
-            currentOverride={stockOvr}
+
+          {/* Buffer mode selector */}
+          <BufferModeSelector
             stockItemName={stockItemName}
             categoryName={categoryName}
+            currentValue={reorder.use_xyz_buffer}
+            bufferMode={reorder.buffer_mode}
           />
-        </CardContent>
-      </Card>
 
-      {/* Section 2: Position Reconstruction */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Stock Position Reconstruction</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <FlowBox label="Implied Opening" value={String(position_reconstruction.implied_opening)} className="bg-blue-50 border-blue-200" />
-            <FlowArrow />
-            <FlowBox label="+ Inward" value={String(position_reconstruction.total_inward)} className="bg-green-50 border-green-200" />
-            <FlowArrow />
-            <FlowBox label="- Outward" value={String(position_reconstruction.total_outward)} className="bg-red-50 border-red-200" />
-            <FlowArrow />
-            <FlowBox label="= Closing" value={String(position_reconstruction.closing_balance ?? 'N/A')} className="bg-purple-50 border-purple-200" />
-          </div>
-          <div className="font-mono text-xs text-muted-foreground bg-muted/50 rounded p-2">
-            {position_reconstruction.formula}
-          </div>
-          <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-            <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            Positions are reconstructed backwards from Tally's closing balance (authoritative source)
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Section 3: Transaction Breakdown */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Transaction Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {transaction_summary.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-4 text-center">No transactions in this period</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Channel</TableHead>
-                  <TableHead>Direction</TableHead>
-                  <TableHead className="text-right">Transactions</TableHead>
-                  <TableHead className="text-right">Total Qty</TableHead>
-                  <TableHead>Demand?</TableHead>
-                  <TableHead>Why</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transaction_summary.map((t: BreakdownTransactionRow) => (
-                  <TableRow key={`${t.channel}-${t.direction}`}>
-                    <TableCell className="capitalize font-medium">{t.channel}</TableCell>
-                    <TableCell className="capitalize text-muted-foreground">{t.direction}</TableCell>
-                    <TableCell className="text-right">{t.count}</TableCell>
-                    <TableCell className="text-right font-medium">{t.total_qty}</TableCell>
-                    <TableCell><DemandIcon included={t.included_in_demand} /></TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[200px]">{t.explanation}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Section 4: Velocity Calculation */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            Velocity Calculation
-            <Badge variant="outline" className={confidenceColors[velocity.confidence]}>
-              {velocity.confidence} confidence
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <InStockBar data={data} />
-
-          <div className="flex flex-wrap gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Active: </span>
-              <span className="font-medium text-green-600">{velocity.in_stock_days} days ({velocity.in_stock_pct}%)</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Inactive: </span>
-              <span className="font-medium text-red-600">{velocity.out_of_stock_days} days</span>
-            </div>
-          </div>
-
-          {velocity.out_of_stock_days > 0 && (
-            <div className="flex items-start gap-1.5 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded p-2">
-              <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
-              {velocity.out_of_stock_exclusion_reason}
-            </div>
-          )}
-
-          <div className="text-sm font-medium">Velocity by channel (active days only)</div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Channel</TableHead>
-                <TableHead className="text-right">Units Sold</TableHead>
-                <TableHead className="text-right">/ Active Days</TableHead>
-                <TableHead className="text-right">= Daily Rate</TableHead>
-                <TableHead className="text-right">x30 = Monthly</TableHead>
-                <TableHead className="w-8"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(['wholesale', 'online', 'store'] as const).map(ch => {
-                const c = velocity[ch]
-                const fieldName = `${ch}_velocity` as const
-                const ovr = overrides[fieldName]
-                return (
-                  <TableRow key={ch}>
-                    <TableCell className="capitalize">
-                      {ch}
-                      {ovr && <OverrideBadge ovr={ovr} />}
-                    </TableCell>
-                    <TableCell className="text-right">{c.total_units}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">/ {velocity.in_stock_days}</TableCell>
-                    <TableCell className="text-right">{c.daily_velocity}</TableCell>
-                    <TableCell className="text-right font-semibold">{c.monthly_velocity}</TableCell>
-                    <TableCell>
-                      <OverrideForm
-                        fieldName={fieldName}
-                        label={`${ch} velocity`}
-                        currentOverride={ovr}
-                        stockItemName={stockItemName}
-                        categoryName={categoryName}
-                      />
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-              <TableRow className="border-t-2 font-semibold">
-                <TableCell>
-                  Total
-                  {overrides.total_velocity && <OverrideBadge ovr={overrides.total_velocity} />}
-                </TableCell>
-                <TableCell className="text-right">{velocity.total.total_units}</TableCell>
-                <TableCell className="text-right text-muted-foreground">/ {velocity.in_stock_days}</TableCell>
-                <TableCell className="text-right">{velocity.total.daily_velocity}</TableCell>
-                <TableCell className="text-right">{velocity.total.monthly_velocity}</TableCell>
-                <TableCell>
-                  <OverrideForm
-                    fieldName="total_velocity"
-                    label="total velocity"
-                    currentOverride={overrides.total_velocity}
-                    stockItemName={stockItemName}
-                    categoryName={categoryName}
-                  />
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-
-          <div className="font-mono text-xs text-muted-foreground bg-muted/50 rounded p-2">
-            {velocity.formula}
-          </div>
-          <div className="text-xs text-muted-foreground">{velocity.confidence_reason}</div>
-        </CardContent>
-      </Card>
-
-      {/* Section 5: Stockout & Reorder (uses effective values) */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Stockout & Reorder</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Assumptions strip */}
-          {SHOW_ASSUMPTIONS_STRIP && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground bg-muted/30 rounded px-3 py-2 border">
-              <span>Lead time: <strong className="text-foreground">{reorder.supplier_lead_time}d</strong></span>
-              <span>Buffer: <strong className="text-foreground">{reorder.buffer_multiplier}x</strong></span>
-              <span>Analysis window: <strong className="text-foreground">{date_range.from_date} — {date_range.to_date} ({date_range.total_days_in_range}d)</strong></span>
-              {data_source.data_as_of && (
-                <span>Data as of: <strong className="text-foreground">{new Date(data_source.data_as_of).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</strong></span>
-              )}
-            </div>
-          )}
-
-          {/* Override callout */}
-          {(effective_values.stock_source === 'override' || effective_values.velocity_source === 'override') && (
-            <div className="flex items-start gap-1.5 text-xs bg-blue-50 border border-blue-200 rounded p-2">
-              <Pencil className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-600" />
-              <span>
-                {effective_values.stock_source === 'override' &&
-                  `Using overridden stock (${effective_values.current_stock}) instead of computed (${data_source.closing_balance_from_tally}). `}
-                {effective_values.velocity_source === 'override' &&
-                  `Using overridden velocity (${effective_values.total_velocity}/day) instead of computed (${velocity.total.daily_velocity}/day).`}
-              </span>
-            </div>
-          )}
-
-          {/* Stockout projection */}
+          {/* Override forms for velocity and stock */}
           <div className="space-y-2">
-            <div className="text-sm font-medium">Stockout projection</div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <FlowBox
-                label={effective_values.stock_source === 'override' ? 'Stock (override)' : 'Stock'}
-                value={`${stockout.current_stock}`}
-                className={effective_values.stock_source === 'override' ? 'bg-blue-100 border-blue-300' : 'bg-blue-50 border-blue-200'}
-              />
-              <FlowArrow />
-              <FlowBox
-                label={effective_values.velocity_source === 'override' ? '/ Burn rate (override)' : '/ Burn rate'}
-                value={`${stockout.daily_burn_rate}/day`}
-                className={effective_values.velocity_source === 'override' ? 'bg-blue-100 border-blue-300' : 'bg-orange-50 border-orange-200'}
-              />
-              <FlowArrow />
-              <FlowBox
-                label="= Days left"
-                value={stockout.days_to_stockout !== null ? `${stockout.days_to_stockout}` : 'N/A'}
-                className="bg-purple-50 border-purple-200"
-              />
-            </div>
-            {stockout.estimated_stockout_date && (
-              <div className="text-sm text-muted-foreground">
-                Estimated stockout: <span className="font-medium">{new Date(stockout.estimated_stockout_date).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</span>
-              </div>
-            )}
-            <div className="font-mono text-xs text-muted-foreground bg-muted/50 rounded p-2">
-              {stockout.formula}
-            </div>
-          </div>
-
-          {/* Reorder calculation */}
-          <div className="space-y-2 pt-2 border-t">
-            <div className="text-sm font-medium">Reorder calculation</div>
-            <div className="font-mono text-xs text-muted-foreground bg-muted/50 rounded p-2">
-              {reorder.formula}
-            </div>
-            {reorder.supplier_name && (
-              <div className="text-sm text-muted-foreground">
-                Supplier: <span className="font-medium">{reorder.supplier_name}</span>
-                {' '}({reorder.supplier_lead_time} day lead time)
-              </div>
-            )}
-            {reorder.suggested_qty !== null && (
-              <div className="text-sm">
-                Suggested order: <span className="font-semibold">{reorder.suggested_qty} units</span>
-              </div>
-            )}
-            <BufferModeSelector
+            <OverrideForm
+              fieldName="total_velocity"
+              label="total velocity"
+              currentOverride={overrides.total_velocity}
               stockItemName={stockItemName}
               categoryName={categoryName}
-              currentValue={reorder.use_xyz_buffer}
-              bufferMode={reorder.buffer_mode}
+            />
+            <OverrideForm
+              fieldName="current_stock"
+              label="Stock"
+              currentOverride={overrides.current_stock}
+              stockItemName={stockItemName}
+              categoryName={categoryName}
             />
           </div>
 
@@ -591,15 +546,174 @@ export default function CalculationBreakdown({
               categoryName={categoryName}
             />
           </div>
+        </div>
+      </CollapsibleSection>
 
-          {/* Status */}
-          <div className={`rounded-lg border p-3 ${statusColors[reorder.status] || statusColors.no_data}`}>
-            <div className="font-medium capitalize">{reorder.status.replace('_', ' ')}</div>
-            <div className="text-sm mt-1">{reorder.status_reason}</div>
-            <div className="text-xs mt-1 opacity-75">Thresholds: {reorder.status_thresholds}</div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* ── Layer 3: Methodology & Formulas (collapsible, collapsed) ─────── */}
+      <CollapsibleSection title="Methodology & Formulas" subtitle="how we arrived at this recommendation" defaultOpen={false}>
+        <div className="space-y-3">
+
+          {/* 1. Velocity */}
+          <MethodologySection number={1} title="Velocity">
+            <div className="text-xs text-muted-foreground mb-2">
+              Units sold ÷ in-stock days × 30 = monthly velocity
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Channel</TableHead>
+                  <TableHead className="text-right">Units Sold</TableHead>
+                  <TableHead className="text-right">/ Active Days</TableHead>
+                  <TableHead className="text-right">= Daily Rate</TableHead>
+                  <TableHead className="text-right">×30 = Monthly</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(['wholesale', 'online', 'store'] as const).map(ch => {
+                  const c = velocity[ch]
+                  const fieldName = `${ch}_velocity` as const
+                  const ovr = overrides[fieldName]
+                  return (
+                    <TableRow key={ch}>
+                      <TableCell className="capitalize">
+                        {ch}
+                        {ovr && <span className="ml-1"><OverrideBadge ovr={ovr} /></span>}
+                      </TableCell>
+                      <TableCell className="text-right">{c.total_units}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">/ {velocity.in_stock_days}</TableCell>
+                      <TableCell className="text-right">{c.daily_velocity}</TableCell>
+                      <TableCell className="text-right font-semibold">{c.monthly_velocity}</TableCell>
+                    </TableRow>
+                  )
+                })}
+                <TableRow className="border-t-2 font-semibold">
+                  <TableCell>Total</TableCell>
+                  <TableCell className="text-right">{velocity.total.total_units}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">/ {velocity.in_stock_days}</TableCell>
+                  <TableCell className="text-right">{velocity.total.daily_velocity}</TableCell>
+                  <TableCell className="text-right">{velocity.total.monthly_velocity}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+
+            <div className="flex items-center gap-2 mt-2">
+              <Badge variant="outline" className={confidenceColors[velocity.confidence]}>
+                {velocity.confidence} confidence
+              </Badge>
+              <span className="text-xs text-muted-foreground">{velocity.confidence_reason}</span>
+            </div>
+
+            <div className="font-mono text-xs text-muted-foreground bg-white/60 rounded p-2 mt-2">
+              {velocity.formula}
+            </div>
+
+            {/* Per-channel override forms */}
+            <div className="space-y-1 mt-2">
+              {(['wholesale', 'online', 'store'] as const).map(ch => {
+                const fieldName = `${ch}_velocity` as const
+                const ovr = overrides[fieldName]
+                return (
+                  <OverrideForm
+                    key={ch}
+                    fieldName={fieldName}
+                    label={`${ch} velocity`}
+                    currentOverride={ovr}
+                    stockItemName={stockItemName}
+                    categoryName={categoryName}
+                  />
+                )
+              })}
+            </div>
+          </MethodologySection>
+
+          {/* 2. In-Stock Days */}
+          <MethodologySection number={2} title="In-Stock Days">
+            <InStockBar data={data} />
+            <div className="flex flex-wrap gap-4 text-sm mt-2">
+              <div>
+                <span className="text-muted-foreground">Active: </span>
+                <span className="font-medium text-green-600">{velocity.in_stock_days} days ({velocity.in_stock_pct}%)</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Inactive: </span>
+                <span className="font-medium text-red-600">{velocity.out_of_stock_days} days</span>
+              </div>
+            </div>
+            {velocity.out_of_stock_days > 0 && (
+              <div className="flex items-start gap-1.5 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+                <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
+                {velocity.out_of_stock_exclusion_reason}
+              </div>
+            )}
+          </MethodologySection>
+
+          {/* 3. Stockout Projection */}
+          <MethodologySection number={3} title="Stockout Projection">
+            <div className="flex items-center gap-2 flex-wrap">
+              <FlowBox
+                label={effective_values.stock_source === 'override' ? 'Stock (override)' : 'Stock'}
+                value={`${stockout.current_stock}`}
+                className={effective_values.stock_source === 'override' ? 'bg-blue-100 border-blue-300' : 'bg-blue-50 border-blue-200'}
+              />
+              <FlowArrow />
+              <FlowBox
+                label={effective_values.velocity_source === 'override' ? '÷ Burn rate (override)' : '÷ Burn rate'}
+                value={`${stockout.daily_burn_rate}/day`}
+                className={effective_values.velocity_source === 'override' ? 'bg-blue-100 border-blue-300' : 'bg-orange-50 border-orange-200'}
+              />
+              <FlowArrow />
+              <FlowBox
+                label="= Days left"
+                value={stockout.days_to_stockout !== null ? `${stockout.days_to_stockout}` : 'N/A'}
+                className="bg-purple-50 border-purple-200"
+              />
+            </div>
+            {stockout.estimated_stockout_date && (
+              <div className="text-sm text-muted-foreground mt-2">
+                Estimated stockout: <span className="font-medium">{new Date(stockout.estimated_stockout_date).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</span>
+              </div>
+            )}
+            <div className="font-mono text-xs text-muted-foreground bg-white/60 rounded p-2 mt-2">
+              {stockout.formula}
+            </div>
+          </MethodologySection>
+
+          {/* 4. Reorder Quantity */}
+          <MethodologySection number={4} title="Reorder Quantity">
+            <div className="font-mono text-xs text-muted-foreground bg-white/60 rounded p-2">
+              {reorder.formula}
+            </div>
+            {reorder.supplier_name && (
+              <div className="text-sm text-muted-foreground mt-2">
+                Supplier: <span className="font-medium">{reorder.supplier_name}</span>
+                {' '}({reorder.supplier_lead_time} day lead time)
+              </div>
+            )}
+            {reorder.suggested_qty !== null && (
+              <div className="text-sm mt-1">
+                Suggested order: <span className="font-semibold">{reorder.suggested_qty} units</span>
+              </div>
+            )}
+          </MethodologySection>
+
+          {/* 5. Status Determination */}
+          <MethodologySection number={5} title="Status Determination">
+            <div className="text-xs text-muted-foreground mb-2">
+              Thresholds: {reorder.status_thresholds}
+            </div>
+            <div className={`rounded-lg border p-3 ${statusColors[reorder.status] || statusColors.no_data}`}>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">This SKU:</span>
+                <StatusBadge status={reorder.status as ReorderStatus} />
+              </div>
+              <div className="text-sm mt-1">{reorder.status_reason}</div>
+            </div>
+          </MethodologySection>
+
+        </div>
+      </CollapsibleSection>
+
     </div>
   )
 }
