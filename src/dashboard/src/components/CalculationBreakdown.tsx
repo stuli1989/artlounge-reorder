@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ArrowRight, Info, Pencil, AlertTriangle, X, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import StatusBadge from '@/components/StatusBadge'
+import HelpTip from '@/components/HelpTip'
 import type { ReorderStatus } from '@/lib/types'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -263,7 +264,7 @@ function BufferModeSelector({
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">Buffer mode:</span>
+      <span className="text-muted-foreground">Buffer mode: <HelpTip tip="Safety stock multiplier. Global uses ABC-class defaults. Per-SKU lets you set a custom buffer." helpAnchor="lead-time-buffer" /></span>
       <Select
         value={selectValue}
         onValueChange={(v) => {
@@ -295,7 +296,7 @@ function CollapsibleSection({
   children,
 }: {
   title: string
-  subtitle?: string
+  subtitle?: React.ReactNode
   defaultOpen: boolean
   children: React.ReactNode
 }) {
@@ -541,7 +542,7 @@ export default function CalculationBreakdown({
           />
 
           {/* Override forms for velocity and stock */}
-          <div className="space-y-2">
+          <div className="space-y-2" data-tour="override-buttons">
             <OverrideForm
               fieldName="total_velocity"
               label="total velocity"
@@ -572,7 +573,7 @@ export default function CalculationBreakdown({
       </CollapsibleSection>
 
       {/* ── Layer 3: Methodology & Formulas (collapsible, collapsed) ─────── */}
-      <CollapsibleSection title="Methodology & Formulas" subtitle="how we arrived at this recommendation" defaultOpen={false}>
+      <CollapsibleSection title="Methodology & Formulas" subtitle={<>how we arrived at this recommendation <HelpTip tip="Expand to see exactly how each number was calculated, with formulas and source data." helpAnchor="velocity" /></>} defaultOpen={false}>
         <div className="space-y-3">
 
           {/* 1. Velocity */}

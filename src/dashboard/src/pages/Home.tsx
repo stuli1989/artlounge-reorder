@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Search, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import HelpTip from '@/components/HelpTip'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -58,7 +59,7 @@ export default function Home() {
     <div className="space-y-8">
       {/* Section 1: Brand Search */}
       <section>
-        <div ref={searchRef} className="relative">
+        <div ref={searchRef} className="relative" data-tour="brand-search">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Jump to brand... (type to search)"
@@ -99,7 +100,7 @@ export default function Home() {
 
       {/* Section 2: Action Cards */}
       <section>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-4" data-tour="summary-cards">
           {/* Critical SKUs */}
           <Card
             className="cursor-pointer hover:shadow-md transition-shadow bg-red-50 border-red-200"
@@ -107,7 +108,7 @@ export default function Home() {
           >
             <CardContent className="pt-6">
               <div className="text-4xl font-bold text-red-600">{totalCritical}</div>
-              <div className="text-sm font-medium mt-1">Critical SKUs</div>
+              <div className="text-sm font-medium mt-1">Critical SKUs <HelpTip tip="SKUs with less than lead time + buffer days of stock at current sell-through rate." helpAnchor="stockout-projection" /></div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 across {s.brands_with_critical} brands
               </div>
@@ -142,7 +143,7 @@ export default function Home() {
       </section>
 
       {/* Section 3: Priority Brands Table */}
-      <section>
+      <section data-tour="priority-table">
         <h3 className="text-sm font-medium text-muted-foreground mb-3">Priority Brands</h3>
         <Card>
           <div className="border rounded-lg">

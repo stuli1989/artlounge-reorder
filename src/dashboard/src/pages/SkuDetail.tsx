@@ -21,6 +21,7 @@ import TrendIndicator from '@/components/TrendIndicator'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
 import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar, Snowflake, Filter } from 'lucide-react'
 import { vel, daysColor } from '@/lib/formatters'
+import HelpTip from '@/components/HelpTip'
 
 function formatDateForInput(d: Date): string {
   return d.toISOString().slice(0, 10)
@@ -268,10 +269,12 @@ const SkuRow = memo(function SkuRow({
             <Tabs defaultValue="timeline">
               <TabsList>
                 <TabsTrigger value="timeline">Timeline & Transactions</TabsTrigger>
-                <TabsTrigger value="calculation">Calculation</TabsTrigger>
+                <TabsTrigger value="calculation" data-tour="calculation-tab">Calculation</TabsTrigger>
               </TabsList>
               <TabsContent value="timeline" className="pt-4">
-                <StockTimeline categoryName={decodedName} stockItemName={s.stock_item_name} />
+                <div data-tour="stock-timeline">
+                  <StockTimeline categoryName={decodedName} stockItemName={s.stock_item_name} />
+                </div>
               </TabsContent>
               <TabsContent value="calculation" className="pt-4">
                 <CalculationBreakdown
@@ -644,20 +647,20 @@ export default function SkuDetail() {
             </Table>
           </div>
         ) : (
-          <div className="border rounded-lg">
+          <div className="border rounded-lg" data-tour="sku-table">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow data-tour="sku-columns">
                   <TableHead className="w-8"></TableHead>
-                  <TableHead className="w-[80px]">Status</TableHead>
+                  <TableHead className="w-[80px]">Status <HelpTip tip="Reorder urgency: Critical (order now), Warning (order soon), OK (sufficient stock), Out of Stock (zero inventory)." helpAnchor="stockout-projection" /></TableHead>
                   <TableHead className="w-[110px]">Part No</TableHead>
                   <TableHead>SKU Name</TableHead>
                   <TableHead className="text-right">Stock</TableHead>
-                  <TableHead className="text-right">Velocity /mo</TableHead>
-                  <TableHead className="text-center w-[60px]">ABC</TableHead>
+                  <TableHead className="text-right">Velocity /mo <HelpTip tip="Units sold per day, calculated from in-stock days only. Split by channel because wholesale, online, and store are parallel demand tracks." helpAnchor="velocity" /></TableHead>
+                  <TableHead className="text-center w-[60px]">ABC <HelpTip tip="Revenue classification: A = top 80%, B = next 15%, C = bottom 5%. Drives buffer size and reorder priority." helpAnchor="abc-classification" /></TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody data-tour="sku-expand-hint">
                 {skus.map((s: SkuMetrics) => (
                   <SkuRow
                     key={s.stock_item_name}

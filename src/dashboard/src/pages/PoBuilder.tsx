@@ -23,6 +23,7 @@ import { ArrowLeft, Download, Calendar, Flame, AlertTriangle, ClipboardList } fr
 import type { ReorderStatus, ReorderIntent, AbcClass, TrendDirection, SkuMatchResult, SkuMatchSummary, PoDataItem } from '@/lib/types'
 import SkuInputDialog from '@/components/SkuInputDialog'
 import SkuMatchReview from '@/components/SkuMatchReview'
+import HelpTip from '@/components/HelpTip'
 
 interface PoRow {
   stock_item_name: string
@@ -237,7 +238,7 @@ export default function PoBuilder() {
       )}
 
       {/* Settings */}
-      <Card>
+      <Card data-tour="po-config">
         <CardHeader>
           <CardTitle className="text-sm">Order Settings</CardTitle>
         </CardHeader>
@@ -324,7 +325,7 @@ export default function PoBuilder() {
               <Button variant="outline" onClick={() => setShowSkuInput(true)}>
                 <ClipboardList className="h-4 w-4 mr-1" /> Import SKU List
               </Button>
-              <Button onClick={handleExport} disabled={totalItems === 0}>
+              <Button onClick={handleExport} disabled={totalItems === 0} data-tour="po-export">
                 <Download className="h-4 w-4 mr-1" /> Export Excel
               </Button>
             </div>
@@ -388,7 +389,7 @@ export default function PoBuilder() {
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Loading PO data...</div>
       ) : (
-        <div className="border rounded-lg">
+        <div className="border rounded-lg" data-tour="po-table">
           <Table>
             <TableHeader>
               <TableRow>
@@ -398,7 +399,7 @@ export default function PoBuilder() {
                 <TableHead className="text-right">Stock</TableHead>
                 <TableHead className="text-right">Velocity /mo</TableHead>
                 <TableHead className="text-right">Days Left</TableHead>
-                <TableHead className="text-right">Suggested</TableHead>
+                <TableHead className="text-right">Suggested <HelpTip tip="Recommended order: enough to cover lead time + buffer at current velocity, minus current stock." helpAnchor="reorder-quantity" /></TableHead>
                 <TableHead className="text-right w-[100px]">Order Qty</TableHead>
                 <TableHead className="w-[150px]">Notes</TableHead>
               </TableRow>

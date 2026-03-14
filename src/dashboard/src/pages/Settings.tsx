@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Settings as SettingsIcon, Shield, Clock, BarChart3, Snowflake, Tags, ArrowRight, Check, Loader2, Info } from 'lucide-react'
+import HelpTip from '@/components/HelpTip'
 
 const SIDEBAR_SECTIONS = [
   { id: 'safety-buffers', label: 'Safety Buffers', icon: Shield },
@@ -202,7 +203,7 @@ export default function Settings() {
                 {/* XYZ Toggle */}
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div className="space-y-1">
-                    <Label className="text-sm font-medium">Use XYZ-adjusted buffers</Label>
+                    <Label className="text-sm font-medium">Use XYZ-adjusted buffers <HelpTip tip="Demand variability scoring. Currently 99.6% of SKUs are Z-class (sporadic), so this adds little discrimination for art supplies." helpAnchor="abc-classification" /></Label>
                     <p className="text-xs text-muted-foreground">
                       When enabled, buffers are adjusted by demand variability (XYZ class).
                       {useXyzBuffer ? ' Currently: ABC+XYZ mode.' : ' Currently: ABC-only mode.'}

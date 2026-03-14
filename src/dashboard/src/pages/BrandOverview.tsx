@@ -13,6 +13,7 @@ import AbcBadge from '@/components/AbcBadge'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
 import { Search, ArrowUpDown, LayoutGrid, TableProperties } from 'lucide-react'
 import { daysColor } from '@/lib/formatters'
+import HelpTip from '@/components/HelpTip'
 
 export default function BrandOverview() {
   const navigate = useNavigate()
@@ -77,7 +78,7 @@ export default function BrandOverview() {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-6 gap-4" data-tour="brand-cards">
         {summaryCards.map(c => (
           <Card key={c.label}>
             <CardHeader className="pb-2">
@@ -91,7 +92,7 @@ export default function BrandOverview() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4" data-tour="brand-filters">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -154,19 +155,19 @@ export default function BrandOverview() {
         </div>
       ) : viewMode === 'compact' ? (
         /* Compact Table View — 6 columns */
-        <div className="border rounded-lg">
+        <div className="border rounded-lg" data-tour="brand-table">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Brand</TableHead>
                 <TableHead className="cursor-pointer" onClick={() => toggleSort('critical_skus')}>
-                  <span className="flex items-center gap-1">Health <ArrowUpDown className="h-3 w-3" /></span>
+                  <span className="flex items-center gap-1">Health <HelpTip tip="Combined health indicator: count of critical, warning, and ok SKUs for this brand." helpAnchor="stockout-projection" /> <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
                 <TableHead className="cursor-pointer" onClick={() => toggleSort('a_class_skus')}>
                   <span className="flex items-center gap-1">ABC Split <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
                 <TableHead className="cursor-pointer" onClick={() => toggleSort('dead_stock_skus')}>
-                  <span className="flex items-center gap-1">Dead / Slow <ArrowUpDown className="h-3 w-3" /></span>
+                  <span className="flex items-center gap-1">Dead / Slow <HelpTip tip="Dead stock (zero sales beyond threshold) and slow movers (very low velocity)." helpAnchor="page-dead-stock" /> <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
                 <TableHead className="cursor-pointer" onClick={() => toggleSort('avg_days_to_stockout')}>
                   <span className="flex items-center gap-1">Avg Days <ArrowUpDown className="h-3 w-3" /></span>
