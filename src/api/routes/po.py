@@ -1,7 +1,7 @@
 """Purchase Order data and Excel export endpoints."""
 import io
 from datetime import date
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from openpyxl import Workbook
@@ -186,6 +186,170 @@ class PoExportRequest(BaseModel):
     lead_time: int = 180
     buffer: float = 1.3
     items: list[PoItem]
+
+
+class SkuMatchRequest(BaseModel):
+    sku_names: list[str]
+    lead_time: int | None = None
+    buffer: float | None = None
+    from_date: str | None = None
+    to_date: str | None = None
+
+
+class MatchedSku(BaseModel):
+    input_name: str
+    matched_name: str | None = None
+    match_type: str  # "exact", "fuzzy", "unmatched"
+    similarity: float | None = None
+
+
+def _match_sku_names(cur, input_names: list[str]) -> list[MatchedSku]:
+    """Match input SKU names against stock_items: exact -> ilike -> trigram (batched)."""
+    if not input_names:
+        return []
+
+    # Pre-fetch all tally_names for exact/ilike matching
+    cur.execute("SELECT tally_name FROM stock_items")
+    all_names = {row["tally_name"] for row in cur.fetchall()}
+    all_names_lower = {n.lower(): n for n in all_names}
+
+    results: list[MatchedSku] = []
+    unmatched_inputs: list[str] = []
+
+    for raw in input_names:
+        name = raw.strip()
+        if not name:
+            continue
+        # 1. Exact match
+        if name in all_names:
+            results.append(MatchedSku(
+                input_name=name, matched_name=name,
+                match_type="exact", similarity=1.0,
+            ))
+            continue
+        # 2. Case-insensitive match
+        lower = name.lower()
+        if lower in all_names_lower:
+            results.append(MatchedSku(
+                input_name=name, matched_name=all_names_lower[lower],
+                match_type="exact", similarity=1.0,
+            ))
+            continue
+        unmatched_inputs.append(name)
+
+    # 3. Batched trigram fuzzy match for remaining
+    if unmatched_inputs:
+        cur.execute("""
+            SELECT DISTINCT ON (input.name)
+                   input.name AS input_name,
+                   si.tally_name,
+                   similarity(si.tally_name, input.name) AS sim
+            FROM unnest(%s::text[]) AS input(name)
+            LEFT JOIN stock_items si
+              ON similarity(si.tally_name, input.name) >= 0.25
+            ORDER BY input.name, sim DESC NULLS LAST
+        """, (unmatched_inputs,))
+
+        for row in cur.fetchall():
+            if row["tally_name"]:
+                results.append(MatchedSku(
+                    input_name=row["input_name"],
+                    matched_name=row["tally_name"],
+                    match_type="fuzzy",
+                    similarity=round(float(row["sim"]), 3),
+                ))
+            else:
+                results.append(MatchedSku(
+                    input_name=row["input_name"],
+                    matched_name=None,
+                    match_type="unmatched",
+                    similarity=None,
+                ))
+
+    return results
+
+
+@router.post("/po-data/match")
+def match_and_build_po(req: SkuMatchRequest):
+    """Match SKU names and return PO data for matched items."""
+    if len(req.sku_names) > 500:
+        raise HTTPException(400, f"Too many SKU names ({len(req.sku_names)}). Maximum is 500.")
+
+    if not req.sku_names:
+        return {"matches": [], "po_data": [], "summary": {
+            "total_input": 0, "exact": 0, "fuzzy": 0, "unmatched": 0,
+        }}
+
+    custom_range = req.from_date is not None or req.to_date is not None
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            matches = _match_sku_names(cur, req.sku_names)
+            matched_names = [m.matched_name for m in matches if m.matched_name]
+
+            if not matched_names:
+                summary = {
+                    "total_input": len(matches),
+                    "exact": 0, "fuzzy": 0,
+                    "unmatched": len(matches),
+                }
+                return {"matches": [m.model_dump() for m in matches], "po_data": [], "summary": summary}
+
+            lead_time = req.lead_time
+            if lead_time is None:
+                cur.execute("""
+                    SELECT bm.supplier_lead_time
+                    FROM stock_items si
+                    JOIN brand_metrics bm ON bm.category_name = si.category_name
+                    WHERE si.tally_name = %s
+                """, (matched_names[0],))
+                row = cur.fetchone()
+                lead_time = row["supplier_lead_time"] if row and row["supplier_lead_time"] else 180
+
+            placeholders = ",".join(["%s"] * len(matched_names))
+            cur.execute(f"""
+                SELECT sm.stock_item_name, sm.current_stock, sm.total_velocity,
+                       sm.wholesale_velocity, sm.online_velocity,
+                       sm.days_to_stockout, sm.reorder_status,
+                       sm.abc_class, sm.trend_direction, sm.safety_buffer,
+                       si.part_no, si.is_hazardous, si.reorder_intent,
+                       si.category_name,
+                       ovr.stock_override_value AS stock_override,
+                       ovr.total_vel_override_value AS total_vel_override,
+                       ovr.wholesale_vel_override_value AS wholesale_vel_override,
+                       ovr.online_vel_override_value AS online_vel_override,
+                       ovr.store_vel_override_value AS store_vel_override,
+                       COALESCE(ovr.stock_hold_from_po, ovr.total_vel_hold,
+                                ovr.wholesale_vel_hold, ovr.online_vel_hold,
+                                ovr.store_vel_hold, FALSE) AS hold_from_po
+                FROM sku_metrics sm
+                LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name
+                LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.stock_item_name = sm.stock_item_name
+                WHERE sm.stock_item_name IN ({placeholders})
+                ORDER BY sm.days_to_stockout ASC NULLS LAST
+            """, matched_names)
+            rows = cur.fetchall()
+
+            vel_by_sku = {}
+            if custom_range:
+                range_start, range_end = resolve_date_range(req.from_date, req.to_date)
+                sku_names_list = [r["stock_item_name"] for r in rows]
+                vel_by_sku = fetch_batch_velocities(cur, sku_names_list, range_start, range_end)
+
+    po_result = _compute_po_items(rows, lead_time, req.buffer, vel_by_sku)
+
+    summary = {
+        "total_input": len(matches),
+        "exact": sum(1 for m in matches if m.match_type == "exact"),
+        "fuzzy": sum(1 for m in matches if m.match_type == "fuzzy"),
+        "unmatched": sum(1 for m in matches if m.match_type == "unmatched"),
+    }
+
+    return {
+        "matches": [m.model_dump() for m in matches],
+        "po_data": po_result,
+        "summary": summary,
+    }
 
 
 @router.post("/export/po")
