@@ -47,6 +47,7 @@ export interface SkuMetrics {
   current_stock: number
   wholesale_velocity: number
   online_velocity: number
+  store_velocity: number
   total_velocity: number
   total_in_stock_days: number
   velocity_start_date: string | null
