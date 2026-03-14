@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Separator } from '@/components/ui/separator'
 import { Rocket, Lightbulb, Layout, CalendarCheck, BookOpen, ArrowRight } from 'lucide-react'
@@ -83,7 +83,6 @@ const ALL_SECTION_IDS = SIDEBAR_SECTIONS.flatMap(g => g.items.map(i => i.id))
 
 export default function Help() {
   const [activeSection, setActiveSection] = useState(ALL_SECTION_IDS[0])
-  const contentRef = useRef<HTMLDivElement>(null)
 
   /* scroll-to-hash on mount */
   useEffect(() => {
@@ -100,11 +99,8 @@ export default function Help() {
     }
   }, [])
 
-  /* scroll-spy */
+  /* scroll-spy — listen on window since the page itself scrolls, not the content div */
   useEffect(() => {
-    const container = contentRef.current
-    if (!container) return
-
     // Cache element refs once — the help page doesn't add/remove sections
     const sectionEls = ALL_SECTION_IDS
       .map(id => ({ id, el: document.getElementById(id) }))
@@ -112,7 +108,7 @@ export default function Help() {
 
     let rafId: number | null = null
     const handleScroll = () => {
-      if (rafId) return // throttle to one rAF at a time
+      if (rafId) return
       rafId = requestAnimationFrame(() => {
         rafId = null
         for (const section of [...sectionEls].reverse()) {
@@ -125,9 +121,9 @@ export default function Help() {
       })
     }
 
-    container.addEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true })
     return () => {
-      container.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('scroll', handleScroll)
       if (rafId) cancelAnimationFrame(rafId)
     }
   }, [])
@@ -179,7 +175,7 @@ export default function Help() {
         </nav>
 
         {/* Content Area */}
-        <div ref={contentRef} className="flex-1 space-y-10 min-w-0">
+        <div className="flex-1 space-y-10 min-w-0">
 
           {/* ============================================================
               GETTING STARTED

@@ -11,10 +11,10 @@ export default function HelpTip({ tip, helpAnchor }: HelpTipProps) {
   return (
     <Popover>
       <PopoverTrigger
-        className="inline-flex items-center justify-center h-4 w-4 rounded-full text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+        className="inline-flex items-center justify-center h-5 w-5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
         aria-label="More info"
       >
-        <Info className="h-3.5 w-3.5" />
+        <Info className="h-4 w-4" />
       </PopoverTrigger>
       <PopoverContent className="w-72 text-sm" side="top" align="start">
         <p className="text-muted-foreground leading-relaxed">{tip}</p>
