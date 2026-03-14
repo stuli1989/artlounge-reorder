@@ -16,6 +16,29 @@ from engine.velocity import resolve_date_range, fetch_batch_velocities, velociti
 router = APIRouter(tags=["po"])
 
 
+_PO_SELECT_COLS = """\
+    sm.stock_item_name, sm.current_stock, sm.total_velocity,
+    sm.wholesale_velocity, sm.online_velocity,
+    sm.days_to_stockout, sm.reorder_status,
+    sm.abc_class, sm.trend_direction, sm.safety_buffer,
+    si.part_no, si.is_hazardous, si.reorder_intent,
+    ovr.stock_override_value AS stock_override,
+    ovr.total_vel_override_value AS total_vel_override,
+    ovr.wholesale_vel_override_value AS wholesale_vel_override,
+    ovr.online_vel_override_value AS online_vel_override,
+    ovr.store_vel_override_value AS store_vel_override,
+    COALESCE(ovr.stock_hold_from_po, ovr.total_vel_hold,
+             ovr.wholesale_vel_hold, ovr.online_vel_hold,
+             ovr.store_vel_hold, FALSE) AS hold_from_po"""
+
+_PO_FROM_JOINS = f"""\
+    FROM sku_metrics sm
+    LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name
+    LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.stock_item_name = sm.stock_item_name"""
+
+_PO_ORDER = "ORDER BY sm.days_to_stockout ASC NULLS LAST"
+
+
 def _compute_po_items(
     rows: list[dict],
     lead_time: int,
@@ -130,26 +153,10 @@ def po_data(
                 query_params.append(statuses)
 
             cur.execute(f"""
-                SELECT sm.stock_item_name, sm.current_stock, sm.total_velocity,
-                       sm.wholesale_velocity, sm.online_velocity,
-                       sm.days_to_stockout, sm.reorder_status,
-                       sm.abc_class, sm.trend_direction, sm.safety_buffer,
-                       si.part_no,
-                       si.is_hazardous,
-                       si.reorder_intent,
-                       ovr.stock_override_value AS stock_override,
-                       ovr.total_vel_override_value AS total_vel_override,
-                       ovr.wholesale_vel_override_value AS wholesale_vel_override,
-                       ovr.online_vel_override_value AS online_vel_override,
-                       ovr.store_vel_override_value AS store_vel_override,
-                       COALESCE(ovr.stock_hold_from_po, ovr.total_vel_hold,
-                                ovr.wholesale_vel_hold, ovr.online_vel_hold,
-                                ovr.store_vel_hold, FALSE) AS hold_from_po
-                FROM sku_metrics sm
-                LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name
-                LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.stock_item_name = sm.stock_item_name
+                SELECT {_PO_SELECT_COLS}
+                {_PO_FROM_JOINS}
                 WHERE sm.category_name = %s {status_clause}
-                ORDER BY sm.days_to_stockout ASC NULLS LAST
+                {_PO_ORDER}
             """, query_params)
             rows = cur.fetchall()
 
@@ -308,25 +315,11 @@ def match_and_build_po(req: SkuMatchRequest):
 
             placeholders = ",".join(["%s"] * len(matched_names))
             cur.execute(f"""
-                SELECT sm.stock_item_name, sm.current_stock, sm.total_velocity,
-                       sm.wholesale_velocity, sm.online_velocity,
-                       sm.days_to_stockout, sm.reorder_status,
-                       sm.abc_class, sm.trend_direction, sm.safety_buffer,
-                       si.part_no, si.is_hazardous, si.reorder_intent,
-                       si.category_name,
-                       ovr.stock_override_value AS stock_override,
-                       ovr.total_vel_override_value AS total_vel_override,
-                       ovr.wholesale_vel_override_value AS wholesale_vel_override,
-                       ovr.online_vel_override_value AS online_vel_override,
-                       ovr.store_vel_override_value AS store_vel_override,
-                       COALESCE(ovr.stock_hold_from_po, ovr.total_vel_hold,
-                                ovr.wholesale_vel_hold, ovr.online_vel_hold,
-                                ovr.store_vel_hold, FALSE) AS hold_from_po
-                FROM sku_metrics sm
-                LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name
-                LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.stock_item_name = sm.stock_item_name
+                SELECT {_PO_SELECT_COLS},
+                       si.category_name
+                {_PO_FROM_JOINS}
                 WHERE sm.stock_item_name IN ({placeholders})
-                ORDER BY sm.days_to_stockout ASC NULLS LAST
+                {_PO_ORDER}
             """, matched_names)
             rows = cur.fetchall()
 

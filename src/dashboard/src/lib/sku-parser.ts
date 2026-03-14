@@ -1,5 +1,18 @@
 import { read, utils } from 'xlsx'
 
+const SKU_COLUMN_PATTERNS = [
+  /^sku$/i,
+  /^sku.?name$/i,
+  /^stock.?item/i,
+  /^item.?name$/i,
+  /^product.?name$/i,
+  /^name$/i,
+  /^description$/i,
+  /^tally.?name$/i,
+  /^part.?no/i,
+  /^item$/i,
+]
+
 /**
  * Parse pasted text into SKU names.
  *
@@ -50,24 +63,12 @@ export async function parseFile(file: File): Promise<string[]> {
 
   // Find the SKU column by header name
   const headerRow = rows[0]
-  const skuColumnPatterns = [
-    /^sku$/i,
-    /^sku.?name$/i,
-    /^stock.?item/i,
-    /^item.?name$/i,
-    /^product.?name$/i,
-    /^name$/i,
-    /^description$/i,
-    /^tally.?name$/i,
-    /^part.?no/i,
-    /^item$/i,
-  ]
 
   let skuColIndex = -1
   if (headerRow) {
     for (let col = 0; col < headerRow.length; col++) {
       const header = String(headerRow[col] ?? '').trim()
-      if (skuColumnPatterns.some(p => p.test(header))) {
+      if (SKU_COLUMN_PATTERNS.some(p => p.test(header))) {
         skuColIndex = col
         break
       }
@@ -79,7 +80,7 @@ export async function parseFile(file: File): Promise<string[]> {
 
   // Skip first row if we identified it as a header
   const firstCell = String(rows[0]?.[colIdx] ?? '').trim().toLowerCase()
-  const looksLikeHeader = skuColIndex >= 0 || skuColumnPatterns.some(p => p.test(firstCell))
+  const looksLikeHeader = skuColIndex >= 0 || SKU_COLUMN_PATTERNS.some(p => p.test(firstCell))
   const startRow = looksLikeHeader ? 1 : 0
 
   for (let i = startRow; i < rows.length; i++) {
