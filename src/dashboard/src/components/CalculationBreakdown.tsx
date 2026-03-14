@@ -7,6 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ArrowRight, Info, Pencil, AlertTriangle, X, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import StatusBadge from '@/components/StatusBadge'
@@ -149,15 +152,18 @@ function OverrideForm({
     },
   })
 
-  if (!open) {
-    return (
+  const handleOpen = () => {
+    setValue(currentOverride?.value?.toString() || '')
+    setReason('')
+    setHoldFromPo(currentOverride?.hold_from_po || false)
+    setOpen(true)
+  }
+
+  return (
+    <>
       <div className="flex items-center gap-2">
         {currentOverride && <OverrideBadge ovr={currentOverride} />}
-        <Button variant="outline" size="sm" onClick={() => {
-          setValue(currentOverride?.value?.toString() || '')
-          setReason('')
-          setOpen(true)
-        }}>
+        <Button variant="outline" size="sm" onClick={handleOpen}>
           <Pencil className="h-3 w-3 mr-1" />
           {currentOverride ? 'Edit' : `Adjust ${label}`}
         </Button>
@@ -167,52 +173,68 @@ function OverrideForm({
           </Button>
         )}
       </div>
-    )
-  }
 
-  return (
-    <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
-      <div className="text-sm font-medium">Override {label}</div>
-      {fieldName !== 'note' && (
-        <Input
-          type="number"
-          step="any"
-          placeholder="Value"
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          className="w-40"
-        />
-      )}
-      <textarea
-        placeholder="Reason (required)"
-        value={reason}
-        onChange={e => setReason(e.target.value)}
-        className="w-full border rounded p-2 text-sm min-h-[60px] resize-y"
-      />
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={holdFromPo} onChange={e => setHoldFromPo(e.target.checked)} />
-        Hold from PO suggestions
-      </label>
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          disabled={(!value && fieldName !== 'note') || !reason || createMut.isPending}
-          onClick={() => createMut.mutate({
-            stock_item_name: stockItemName,
-            field_name: fieldName,
-            override_value: fieldName !== 'note' ? parseFloat(value) : undefined,
-            note: reason,
-            hold_from_po: holdFromPo,
-          })}
-        >
-          {createMut.isPending ? 'Saving...' : 'Save'}
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-      </div>
-      {createMut.isError && (
-        <div className="text-sm text-red-600">Failed to save override</div>
-      )}
-    </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Override {label}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {fieldName !== 'note' && (
+              <div className="space-y-2">
+                <Label htmlFor="override-value">Value</Label>
+                <Input
+                  id="override-value"
+                  type="number"
+                  step="any"
+                  placeholder="Enter value"
+                  value={value}
+                  onChange={e => setValue(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="override-reason">Reason</Label>
+              <textarea
+                id="override-reason"
+                placeholder="Why are you making this change?"
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[80px] resize-y"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="hold-po"
+                checked={holdFromPo}
+                onCheckedChange={(checked) => setHoldFromPo(checked === true)}
+              />
+              <Label htmlFor="hold-po" className="text-sm font-normal cursor-pointer">
+                Hold from PO suggestions
+              </Label>
+            </div>
+            {createMut.isError && (
+              <div className="text-sm text-red-600">Failed to save override</div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button
+              disabled={(!value && fieldName !== 'note') || !reason || createMut.isPending}
+              onClick={() => createMut.mutate({
+                stock_item_name: stockItemName,
+                field_name: fieldName,
+                override_value: fieldName !== 'note' ? parseFloat(value) : undefined,
+                note: reason,
+                hold_from_po: holdFromPo,
+              })}
+            >
+              {createMut.isPending ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
