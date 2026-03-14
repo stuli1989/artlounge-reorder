@@ -2,7 +2,7 @@ import axios from 'axios'
 import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse } from './types'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
 })
 
 export const fetchBrands = (search?: string): Promise<BrandMetrics[]> =>

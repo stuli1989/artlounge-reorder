@@ -1,0 +1,19 @@
+src/venv/
+src/dashboard/node_modules/
+src/dashboard/dist/
+src/data/sample_responses/
+__pycache__/
+*.pyc
+.git/
+.claude/
+docs/
+Tasks/
+Project Files/
+*.md
+.env
+data/
+reorder-playground/
+reorder-logic-playground.html
+*.bat
+*.vbs
+*.ico
