@@ -1,8 +1,8 @@
-import { useState, useMemo, Fragment } from 'react'
+import { useState, useMemo, Fragment, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { fetchPoData, exportPo } from '@/lib/api'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { fetchPoData, exportPo, matchSkusForPo } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -19,8 +19,10 @@ import SkuSecondaryLine from '@/components/SkuSecondaryLine'
 import TrendIndicator from '@/components/TrendIndicator'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { ArrowLeft, Download, Calendar, Flame, AlertTriangle } from 'lucide-react'
-import type { ReorderStatus, ReorderIntent, AbcClass, TrendDirection } from '@/lib/types'
+import { ArrowLeft, Download, Calendar, Flame, AlertTriangle, ClipboardList } from 'lucide-react'
+import type { ReorderStatus, ReorderIntent, AbcClass, TrendDirection, SkuMatchResult, SkuMatchSummary, PoDataItem } from '@/lib/types'
+import SkuInputDialog from '@/components/SkuInputDialog'
+import SkuMatchReview from '@/components/SkuMatchReview'
 
 interface PoRow {
   stock_item_name: string
@@ -34,6 +36,7 @@ interface PoRow {
   reorder_intent: ReorderIntent
   abc_class: AbcClass | null
   trend_direction: TrendDirection | null
+  sku_buffer: number
   included: boolean
   order_qty: number
   notes: string
@@ -56,21 +59,78 @@ export default function PoBuilder() {
 
   const [leadTimeType, setLeadTimeType] = useState('default')
   const [customLeadTime, setCustomLeadTime] = useState(180)
-  const [buffer, setBuffer] = useState(1.3)
+  const [bufferOverride, setBufferOverride] = useState(false)
+  const [bufferValue, setBufferValue] = useState(1.3)
   const [includeWarning, setIncludeWarning] = useState(true)
   const [includeOk, setIncludeOk] = useState(false)
+
+  // Subset PO state
+  const [showSkuInput, setShowSkuInput] = useState(false)
+  const [subsetMode, setSubsetMode] = useState(false)
+  const [subsetRawData, setSubsetRawData] = useState<PoDataItem[] | null>(null)
+  const [matchResults, setMatchResults] = useState<{ matches: SkuMatchResult[]; summary: SkuMatchSummary } | null>(null)
+  const [showMatchReview, setShowMatchReview] = useState(false)
+
+  // Auto-open dialog when accessing /po directly (no brand)
+  useEffect(() => {
+    if (!decodedName && !subsetMode) setShowSkuInput(true)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const matchMutation = useMutation({
+    mutationFn: matchSkusForPo,
+    onSuccess: (data) => {
+      setMatchResults({ matches: data.matches, summary: data.summary })
+      if (data.summary.fuzzy === 0 && data.summary.unmatched === 0) {
+        // All exact — skip review, go straight to PO table
+        setSubsetMode(true)
+        setSubsetRawData(data.po_data)
+        setShowSkuInput(false)
+      } else {
+        setShowMatchReview(true)
+        setShowSkuInput(false)
+      }
+    },
+  })
+
+  const handleSkuSubmit = (skuNames: string[]) => {
+    matchMutation.mutate({
+      sku_names: skuNames.slice(0, 500),
+      lead_time: leadTime,
+      buffer: bufferOverride ? bufferValue : undefined,
+      from_date: fromDate ?? undefined,
+      to_date: toDate ?? undefined,
+    })
+  }
+
+  const activateSubsetFromReview = (acceptedNames: string[]) => {
+    const accepted = new Set(acceptedNames)
+    const filtered = (matchMutation.data?.po_data ?? []).filter(
+      item => accepted.has(item.stock_item_name)
+    )
+    setSubsetMode(true)
+    setSubsetRawData(filtered)
+    setShowMatchReview(false)
+  }
+
+  const clearSubsetMode = () => {
+    setSubsetMode(false)
+    setSubsetRawData(null)
+    setMatchResults(null)
+    setShowMatchReview(false)
+    setOverrides({})
+  }
 
   const leadTime = leadTimeType === 'sea' ? 180 : leadTimeType === 'air' ? 30 : customLeadTime
 
   const { data: poData, isLoading } = useQuery({
-    queryKey: ['poData', decodedName, leadTime, buffer, includeWarning, includeOk, fromDate, toDate],
+    queryKey: ['poData', decodedName, leadTime, bufferOverride, bufferValue, includeWarning, includeOk, fromDate, toDate],
     queryFn: () => {
       const params: Record<string, string | number | boolean> = {
         lead_time: leadTime,
-        buffer,
         include_warning: includeWarning,
         include_ok: includeOk,
       }
+      if (bufferOverride) params.buffer = bufferValue
       if (fromDate) params.from_date = fromDate
       if (toDate) params.to_date = toDate
       return fetchPoData(decodedName, params)
@@ -80,18 +140,19 @@ export default function PoBuilder() {
 
   const [overrides, setOverrides] = useState<Record<string, RowOverride>>({})
 
-  const rows: PoRow[] = useMemo(() =>
-    (poData || []).map(item => {
+  const rows: PoRow[] = useMemo(() => {
+    const source = subsetMode && subsetRawData ? subsetRawData : (poData || [])
+    return source.map(item => {
       const o = overrides[item.stock_item_name] || {}
       return {
         ...item,
+        sku_buffer: item.sku_buffer ?? 1.3,
         included: o.included ?? true,
         order_qty: o.order_qty ?? (item.suggested_qty || 0),
         notes: o.notes ?? '',
       }
-    }),
-    [poData, overrides]
-  )
+    })
+  }, [poData, overrides, subsetMode, subsetRawData])
 
   const toggleRow = (name: string) => {
     setOverrides(prev => {
@@ -123,10 +184,10 @@ export default function PoBuilder() {
 
   const handleExport = async () => {
     const payload = {
-      category_name: decodedName,
+      category_name: subsetMode ? 'CUSTOM' : decodedName,
       supplier_name: '',
       lead_time: leadTime,
-      buffer,
+      buffer: bufferOverride ? bufferValue : (includedRows.length > 0 ? includedRows.reduce((s, r) => s + r.sku_buffer, 0) / includedRows.length : 1.3),
       items: includedRows.map(r => ({
         stock_item_name: r.stock_item_name,
         part_no: r.part_no || '',
@@ -158,7 +219,9 @@ export default function PoBuilder() {
         <Button variant="ghost" size="sm" onClick={() => navigate(`/brands/${categoryName}/skus`)}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to SKUs
         </Button>
-        <h2 className="text-xl font-semibold">Purchase Order — {decodedName}</h2>
+        <h2 className="text-xl font-semibold">
+          Purchase Order{subsetMode ? ' — Custom List' : decodedName ? ` — ${decodedName}` : ''}
+        </h2>
         <div className="ml-auto">
           <ClassificationExplainer />
         </div>
@@ -203,19 +266,47 @@ export default function PoBuilder() {
             </div>
 
             <div className="space-y-2">
-              <Label>Safety Buffer: {buffer.toFixed(1)}x</Label>
-              <Slider
-                value={[buffer]}
-                onValueChange={v => setBuffer(Array.isArray(v) ? v[0] : v)}
-                min={1.0}
-                max={2.0}
-                step={0.1}
-                className="mt-2"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Defaults to ABC/XYZ-optimized values (A+Z = 1.8x, C+X = 1.1x).
-                This slider overrides all items globally.
-              </p>
+              {bufferOverride ? (
+                <>
+                  <Label>Safety Buffer Override: {bufferValue.toFixed(1)}x</Label>
+                  <Slider
+                    value={[bufferValue]}
+                    onValueChange={v => setBufferValue(Array.isArray(v) ? v[0] : v)}
+                    min={1.0}
+                    max={2.0}
+                    step={0.1}
+                    className="mt-2"
+                  />
+                  <button
+                    className="text-xs text-blue-600 hover:underline"
+                    onClick={() => setBufferOverride(false)}
+                  >
+                    Reset to per-SKU buffers
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Label className="text-muted-foreground">Safety Buffer: per-SKU</Label>
+                  <Slider
+                    value={[1.3]}
+                    min={1.0}
+                    max={2.0}
+                    step={0.1}
+                    className="mt-2 opacity-40"
+                    disabled
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Each SKU has a computed buffer based on its ABC classification.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBufferOverride(true)}
+                  >
+                    Override all
+                  </Button>
+                </>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -229,7 +320,10 @@ export default function PoBuilder() {
               </div>
             </div>
 
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
+              <Button variant="outline" onClick={() => setShowSkuInput(true)}>
+                <ClipboardList className="h-4 w-4 mr-1" /> Import SKU List
+              </Button>
               <Button onClick={handleExport} disabled={totalItems === 0}>
                 <Download className="h-4 w-4 mr-1" /> Export Excel
               </Button>
@@ -256,6 +350,38 @@ export default function PoBuilder() {
             </Button>
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* Subset mode banner */}
+      {subsetMode && (
+        <div className="text-sm bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 flex items-center justify-between">
+          <span className="text-blue-800">
+            <strong>Subset mode:</strong> Showing {rows.length} imported SKU{rows.length !== 1 ? 's' : ''} (may span multiple brands)
+          </span>
+          <Button variant="ghost" size="sm" className="text-blue-700 hover:text-blue-900" onClick={clearSubsetMode}>
+            Clear & return to full brand
+          </Button>
+        </div>
+      )}
+
+      {/* Match review (shown after fuzzy/unmatched results) */}
+      {showMatchReview && matchResults && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Review SKU Matches</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SkuMatchReview
+              matches={matchResults.matches}
+              summary={matchResults.summary}
+              onConfirm={activateSubsetFromReview}
+              onBack={() => {
+                setShowMatchReview(false)
+                setShowSkuInput(true)
+              }}
+            />
+          </CardContent>
+        </Card>
       )}
 
       {/* Table — two-line rows */}
@@ -329,12 +455,19 @@ export default function PoBuilder() {
                   {/* Secondary metadata line */}
                   <TableRow className="border-0">
                     <TableCell colSpan={9} className="pt-0 pb-2 pl-12">
-                      <SkuSecondaryLine
-                        abc_class={r.abc_class}
-                        xyz_class={null}
-                        part_no={r.part_no}
-                        is_hazardous={r.is_hazardous}
-                      />
+                      <span className="inline-flex items-center gap-3">
+                        <SkuSecondaryLine
+                          abc_class={r.abc_class}
+                          xyz_class={null}
+                          part_no={r.part_no}
+                          is_hazardous={r.is_hazardous}
+                        />
+                        {!bufferOverride && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            Buffer: {r.sku_buffer.toFixed(1)}x
+                          </Badge>
+                        )}
+                      </span>
                     </TableCell>
                   </TableRow>
                 </Fragment>
@@ -357,6 +490,12 @@ export default function PoBuilder() {
         <span className="text-sm font-medium">Total Order Quantity: {totalQty.toLocaleString()}</span>
       </div>
     </div>
+      <SkuInputDialog
+        open={showSkuInput}
+        onOpenChange={setShowSkuInput}
+        onSubmit={handleSkuSubmit}
+        isLoading={matchMutation.isPending}
+      />
     </TooltipProvider>
   )
 }
