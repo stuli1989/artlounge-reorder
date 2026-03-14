@@ -91,6 +91,7 @@ export interface SkuMetrics {
   trend_direction: TrendDirection
   trend_ratio: number | null
   safety_buffer: number
+  use_xyz_buffer: boolean | null
 }
 
 export interface SkuCounts {
@@ -291,6 +292,8 @@ export interface BreakdownResponse {
     supplier_name: string | null
     supplier_lead_time: number
     buffer_multiplier: number
+    buffer_mode: 'abc_only' | 'abc_xyz'
+    use_xyz_buffer: boolean | null
     suggested_qty: number | null
     formula: string
     status: string
@@ -353,7 +356,29 @@ export interface PoDataItem {
   suggested_qty: number | null
   lead_time: number
   buffer: number
+  sku_buffer?: number
   reorder_intent: ReorderIntent
   abc_class: AbcClass | null
   trend_direction: TrendDirection | null
+  category_name?: string
+}
+
+export interface SkuMatchResult {
+  input_name: string
+  matched_name: string | null
+  match_type: 'exact' | 'fuzzy' | 'unmatched'
+  similarity: number | null
+}
+
+export interface SkuMatchSummary {
+  total_input: number
+  exact: number
+  fuzzy: number
+  unmatched: number
+}
+
+export interface SkuMatchResponse {
+  matches: SkuMatchResult[]
+  po_data: PoDataItem[]
+  summary: SkuMatchSummary
 }

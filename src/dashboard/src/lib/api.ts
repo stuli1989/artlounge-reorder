@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent } from './types'
+import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse } from './types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
@@ -125,6 +125,10 @@ export const toggleHazardous = (stockItemName: string, isHazardous: boolean) =>
 export const updateReorderIntent = (stockItemName: string, reorderIntent: ReorderIntent) =>
   api.patch(`/api/skus/${encodeURIComponent(stockItemName)}/reorder-intent`, { reorder_intent: reorderIntent }).then(r => r.data)
 
+// XYZ Buffer Toggle
+export const updateXyzBuffer = (stockItemName: string, useXyzBuffer: boolean | null) =>
+  api.patch(`/api/skus/${encodeURIComponent(stockItemName)}/xyz-buffer`, { use_xyz_buffer: useXyzBuffer }).then(r => r.data)
+
 // Overrides
 export const fetchOverrides = (params?: Record<string, string | boolean>): Promise<Override[]> =>
   api.get('/api/overrides', { params }).then(r => r.data)
@@ -144,5 +148,14 @@ export const fetchSettings = (): Promise<Record<string, string>> =>
 
 export const updateSetting = (key: string, value: string) =>
   api.put(`/api/settings/${key}`, { value }).then(r => r.data)
+
+export const matchSkusForPo = (data: {
+  sku_names: string[]
+  lead_time?: number
+  buffer?: number
+  from_date?: string
+  to_date?: string
+}): Promise<SkuMatchResponse> =>
+  api.post('/api/po-data/match', data).then(r => r.data)
 
 export default api
