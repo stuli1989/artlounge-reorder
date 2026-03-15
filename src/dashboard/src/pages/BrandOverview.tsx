@@ -17,7 +17,6 @@ import HelpTip from '@/components/HelpTip'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { FilterButton, FilterChips, FilterDrawer } from '@/components/mobile/FilterDrawer'
 import type { FilterChip } from '@/components/mobile/FilterDrawer'
-import { MobileSortSheet } from '@/components/mobile/MobileSortSheet'
 import type { SortOption } from '@/components/mobile/MobileSortSheet'
 
 const BRAND_SORT_OPTIONS: SortOption[] = [
@@ -38,7 +37,6 @@ export default function BrandOverview() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact')
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false)
-  const [sortSheetOpen, setSortSheetOpen] = useState(false)
 
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleBrandHover = useCallback((categoryName: string) => {
@@ -213,16 +211,6 @@ export default function BrandOverview() {
           </div>
         </FilterDrawer>
 
-        {/* Sort Sheet (for header sort button if needed) */}
-        <MobileSortSheet
-          open={sortSheetOpen}
-          onOpenChange={setSortSheetOpen}
-          options={BRAND_SORT_OPTIONS}
-          value={sortCol}
-          direction={sortDir}
-          onSort={(val) => { setSortCol(val); setSortDir('desc') }}
-          onToggleDirection={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
-        />
       </div>
     )
   }

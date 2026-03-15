@@ -51,6 +51,8 @@ export default function Layout() {
       <MobileLayout
         tourRunning={tourRunning}
         setTourRunning={setTourRunning}
+        sync={sync}
+        staleOverrides={staleOverrides}
       />
     )
   }

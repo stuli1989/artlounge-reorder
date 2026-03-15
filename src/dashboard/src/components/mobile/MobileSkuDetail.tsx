@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useRef, useState } from 'react'
 import type { SkuMetrics } from '@/lib/types'
 import { ArrowLeft } from 'lucide-react'
 import StatusBadge from '@/components/StatusBadge'
@@ -25,17 +25,17 @@ export default function MobileSkuDetail({
 }: MobileSkuDetailProps) {
   const [showCalculation, setShowCalculation] = useState(false)
 
-  // Push history state so back button works
+  // Stable ref for onBack to avoid re-running effect on every render
+  const onBackRef = useRef(onBack)
+  onBackRef.current = onBack
+
+  // Push history state so back button works — runs once on mount
   useEffect(() => {
     window.history.pushState({ mobileSkuDetail: true }, '')
-    const handlePopState = () => {
-      onBack()
-    }
+    const handlePopState = () => onBackRef.current()
     window.addEventListener('popstate', handlePopState)
-    return () => {
-      window.removeEventListener('popstate', handlePopState)
-    }
-  }, [onBack])
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   const handleBack = useCallback(() => {
     window.history.back()
@@ -151,7 +151,6 @@ export default function MobileSkuDetail({
           <StockTimeline
             categoryName={categoryName}
             stockItemName={sku.stock_item_name}
-            disableDragSelect
           />
         </div>
 

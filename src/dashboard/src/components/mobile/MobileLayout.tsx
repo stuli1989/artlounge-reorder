@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { fetchSyncStatus, fetchOverrides } from '@/lib/api'
+import type { SyncStatus, Override } from '@/lib/types'
 import {
   LayoutDashboard,
   Package,
@@ -22,7 +21,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import GuidedTour from '@/components/GuidedTour'
+import GuidedTour, { resetTour } from '@/components/GuidedTour'
 import HelpMenu from '@/components/HelpMenu'
 import { cn } from '@/lib/utils'
 
@@ -82,33 +81,21 @@ const DRAWER_GROUPS = [
 interface MobileLayoutProps {
   tourRunning: boolean
   setTourRunning: (running: boolean) => void
+  sync?: SyncStatus
+  staleOverrides?: Override[]
 }
 
-export default function MobileLayout({ tourRunning, setTourRunning }: MobileLayoutProps) {
+export default function MobileLayout({ tourRunning, setTourRunning, sync, staleOverrides }: MobileLayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [warningDismissed, setWarningDismissed] = useState(false)
 
   const handleReplayTour = () => {
-    // Imported via HelpMenu's onReplayTour callback
+    resetTour()
     navigate('/')
     setTimeout(() => setTourRunning(true), 300)
   }
-
-  const { data: sync } = useQuery({
-    queryKey: ['syncStatus'],
-    queryFn: fetchSyncStatus,
-    refetchInterval: 60000,
-    refetchIntervalInBackground: false,
-  })
-
-  const { data: staleOverrides } = useQuery({
-    queryKey: ['overrides', 'stale'],
-    queryFn: () => fetchOverrides({ is_stale: true }),
-    refetchInterval: 60000,
-    refetchIntervalInBackground: false,
-  })
 
   const staleCount = staleOverrides?.length ?? 0
   const unclassifiedCount = sync?.unclassified_parties_count ?? 0

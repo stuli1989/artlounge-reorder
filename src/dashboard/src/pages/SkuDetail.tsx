@@ -427,14 +427,17 @@ export default function SkuDetail() {
   })
 
   const skusRaw = skuPage?.items || []
-  // Client-side sorting for mobile
-  const skus = isMobile && mobileSortCol !== 'reorder_status' ? [...skusRaw].sort((a, b) => {
-    const key = mobileSortCol as keyof typeof a
-    const av = a[key] ?? 0
-    const bv = b[key] ?? 0
-    const cmp = typeof av === 'string' ? av.localeCompare(bv as string) : (av as number) - (bv as number)
-    return mobileSortDir === 'asc' ? cmp : -cmp
-  }) : skusRaw
+  // Client-side sorting for mobile — memoized to avoid re-sorting on every render
+  const skus = useMemo(() => {
+    if (!isMobile || mobileSortCol === 'reorder_status') return skusRaw
+    return [...skusRaw].sort((a, b) => {
+      const key = mobileSortCol as keyof typeof a
+      const av = a[key] ?? 0
+      const bv = b[key] ?? 0
+      const cmp = typeof av === 'string' ? av.localeCompare(bv as string) : (av as number) - (bv as number)
+      return mobileSortDir === 'asc' ? cmp : -cmp
+    })
+  }, [skusRaw, isMobile, mobileSortCol, mobileSortDir])
   const totalSkus = skuPage?.total ?? 0
   const counts = skuPage?.counts ?? DEFAULT_COUNTS
   const pageStart = totalSkus === 0 ? 0 : page * pageSize + 1

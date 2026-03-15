@@ -12,7 +12,6 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 interface Props {
   categoryName: string
   stockItemName: string
-  disableDragSelect?: boolean
 }
 
 const channelColors: Record<string, string> = {
@@ -30,7 +29,7 @@ const fmtDate = (v: string) =>
 const fmtDateFull = (v: string) =>
   new Date(v).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
 
-export default memo(function StockTimeline({ categoryName, stockItemName, disableDragSelect = false }: Props) {
+export default memo(function StockTimeline({ categoryName, stockItemName }: Props) {
   const isMobile = useIsMobile()
   const [selStart, setSelStart] = useState<string | null>(null)
   const [selEnd, setSelEnd] = useState<string | null>(null)
@@ -51,7 +50,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName, disabl
   const chartData = useMemo(() => {
     if (!positions?.length) return []
     let filtered = positions
-    if (disableDragSelect && datePreset !== 'all') {
+    if (isMobile && datePreset !== 'all') {
       const now = new Date()
       const daysMap = { '7d': 7, '30d': 30, '90d': 90 } as const
       const days = daysMap[datePreset as keyof typeof daysMap]
@@ -66,7 +65,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName, disabl
       ...p,
       date: p.position_date,
     }))
-  }, [positions, disableDragSelect, datePreset])
+  }, [positions, isMobile, datePreset])
 
   // Filter transactions by selected date range
   const filteredTxns = useMemo(() => {
@@ -121,7 +120,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName, disabl
     <div className="space-y-4">
       {/* Chart */}
       <div>
-        {!disableDragSelect && (
+        {!isMobile && (
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs text-muted-foreground">
               {hasSelection
@@ -135,11 +134,11 @@ export default memo(function StockTimeline({ categoryName, stockItemName, disabl
             )}
           </div>
         )}
-        <ResponsiveContainer width="100%" height={disableDragSelect ? 180 : 200} style={{ userSelect: 'none' }}>
+        <ResponsiveContainer width="100%" height={isMobile ? 180 : 200} style={{ userSelect: 'none' }}>
           <AreaChart
             data={chartData}
             margin={{ top: 5, right: 10, bottom: 5, left: 0 }}
-            {...(!disableDragSelect ? {
+            {...(!isMobile ? {
               onMouseDown: handleMouseDown as any,
               onMouseMove: handleMouseMove as any,
               onMouseUp: handleMouseUp,
@@ -167,7 +166,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName, disabl
               }}
             />
             <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="3 3" />
-            {!disableDragSelect && hasSelection && (
+            {!isMobile && hasSelection && (
               <ReferenceArea
                 x1={selFrom!}
                 x2={selTo!}
@@ -177,7 +176,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName, disabl
                 strokeOpacity={0.3}
               />
             )}
-            {!disableDragSelect && dragging && selEnd && (
+            {!isMobile && dragging && selEnd && (
               <ReferenceArea
                 x1={dragging}
                 x2={selEnd}
@@ -195,7 +194,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName, disabl
           </AreaChart>
         </ResponsiveContainer>
         {/* Date preset buttons for mobile */}
-        {disableDragSelect && (
+        {isMobile && (
           <div className="flex gap-2 mt-2">
             {(['7d', '30d', '90d', 'all'] as const).map(preset => (
               <button
