@@ -199,6 +199,7 @@ export default function Help() {
     { term: 'ABC Classification', definition: 'Revenue grouping: A = top 80%, B = next 15%, C = bottom 5%.', anchor: 'abc-classification' },
     { term: 'Buffer', definition: 'Extra stock days beyond lead time, scaled by ABC class.', anchor: 'lead-time-buffer' },
     { term: 'Channel', definition: 'Demand track: wholesale, online, or store.', anchor: 'three-channels' },
+    { term: 'Coverage Period', definition: 'Days of stock an order provides after arrival. Auto-calculated from lead time or set per supplier. Adjustable per-PO.', anchor: 'lead-time-buffer' },
     { term: 'Critical', definition: 'Days left < lead time + buffer. Order now.', anchor: 'stockout-projection' },
     { term: 'Days Left', definition: 'Stock / velocity = time until stockout.', anchor: 'stockout-projection' },
     { term: 'Dead Stock', definition: 'No sales for longer than the threshold (default 30 days).', anchor: 'page-dead-stock' },
@@ -529,11 +530,11 @@ export default function Help() {
               <Card>
                 <CardContent className="py-2">
                   <div className="flex items-center justify-center gap-1 flex-wrap py-3">
-                    <FormulaBox className="bg-blue-50 text-blue-700">Lead Time (90-180 days)</FormulaBox>
+                    <FormulaBox className="bg-blue-50 text-blue-700">Lead Time (days to arrive)</FormulaBox>
                     <FormulaOp>+</FormulaOp>
-                    <FormulaBox className="bg-amber-50 text-amber-700">Safety Buffer (ABC multiplier)</FormulaBox>
+                    <FormulaBox className="bg-cyan-50 text-cyan-700">Coverage Period (days after arrival)</FormulaBox>
                     <FormulaOp>=</FormulaOp>
-                    <FormulaBox className="bg-purple-50 text-purple-700 font-semibold">Coverage Period</FormulaBox>
+                    <FormulaBox className="bg-purple-50 text-purple-700 font-semibold">Total Coverage</FormulaBox>
                   </div>
                 </CardContent>
               </Card>
@@ -541,7 +542,8 @@ export default function Help() {
               <div className="flex gap-3 items-start bg-muted/50 rounded-lg px-4 py-3">
                 <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                 <p className="text-sm text-muted-foreground">
-                  Too little = stockouts. Too much = capital locked in inventory.
+                  Coverage period = how many months of stock each order provides after arrival.
+                  Auto-calculated from lead time (turns per year) or set per supplier. Adjustable per-PO in the PO Builder.
                 </p>
               </div>
             </section>
@@ -597,7 +599,9 @@ export default function Help() {
                     <FormulaOp>(</FormulaOp>
                     <FormulaBox className="bg-emerald-50 text-emerald-700">Velocity</FormulaBox>
                     <FormulaOp>x</FormulaOp>
-                    <FormulaBox className="bg-purple-50 text-purple-700">Coverage Days</FormulaBox>
+                    <FormulaBox className="bg-purple-50 text-purple-700">Total Coverage</FormulaBox>
+                    <FormulaOp>x</FormulaOp>
+                    <FormulaBox className="bg-amber-50 text-amber-700">Safety Buffer</FormulaBox>
                     <FormulaOp>)</FormulaOp>
                     <FormulaOp>-</FormulaOp>
                     <FormulaBox className="bg-blue-50 text-blue-700">Current Stock</FormulaBox>
@@ -605,7 +609,7 @@ export default function Help() {
                     <FormulaBox className="bg-red-50 text-red-700 font-semibold">Order Qty</FormulaBox>
                   </div>
                   <p className="text-xs text-center text-muted-foreground pb-2">
-                    How much to order so you do not run out before the next shipment arrives.
+                    How much to order so stock lasts through lead time plus the coverage period. Adjustable per-PO in the PO Builder.
                   </p>
                 </CardContent>
               </Card>
