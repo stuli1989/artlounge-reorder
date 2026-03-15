@@ -598,43 +598,45 @@ export default function CalculationBreakdown({
               Units sold ÷ in-stock days × 30 = monthly velocity
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Channel</TableHead>
-                  <TableHead className="text-right">Units Sold</TableHead>
-                  <TableHead className="text-right">/ Active Days</TableHead>
-                  <TableHead className="text-right">= Daily Rate</TableHead>
-                  <TableHead className="text-right">×30 = Monthly</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(['wholesale', 'online', 'store'] as const).map(ch => {
-                  const c = velocity[ch]
-                  const fieldName = `${ch}_velocity` as const
-                  const ovr = overrides[fieldName]
-                  return (
-                    <TableRow key={ch}>
-                      <TableCell className="capitalize">
-                        {ch}
-                        {ovr && <span className="ml-1"><OverrideBadge ovr={ovr} /></span>}
-                      </TableCell>
-                      <TableCell className="text-right">{c.total_units}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">/ {velocity.in_stock_days}</TableCell>
-                      <TableCell className="text-right">{c.daily_velocity}</TableCell>
-                      <TableCell className="text-right font-semibold">{c.monthly_velocity}</TableCell>
-                    </TableRow>
-                  )
-                })}
-                <TableRow className="border-t-2 font-semibold">
-                  <TableCell>Total</TableCell>
-                  <TableCell className="text-right">{velocity.total.total_units}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">/ {velocity.in_stock_days}</TableCell>
-                  <TableCell className="text-right">{velocity.total.daily_velocity}</TableCell>
-                  <TableCell className="text-right">{velocity.total.monthly_velocity}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Channel</TableHead>
+                    <TableHead className="text-right">Units Sold</TableHead>
+                    <TableHead className="text-right">/ Active Days</TableHead>
+                    <TableHead className="text-right">= Daily Rate</TableHead>
+                    <TableHead className="text-right">×30 = Monthly</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(['wholesale', 'online', 'store'] as const).map(ch => {
+                    const c = velocity[ch]
+                    const fieldName = `${ch}_velocity` as const
+                    const ovr = overrides[fieldName]
+                    return (
+                      <TableRow key={ch}>
+                        <TableCell className="capitalize">
+                          {ch}
+                          {ovr && <span className="ml-1"><OverrideBadge ovr={ovr} /></span>}
+                        </TableCell>
+                        <TableCell className="text-right">{c.total_units}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">/ {velocity.in_stock_days}</TableCell>
+                        <TableCell className="text-right">{c.daily_velocity}</TableCell>
+                        <TableCell className="text-right font-semibold">{c.monthly_velocity}</TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  <TableRow className="border-t-2 font-semibold">
+                    <TableCell>Total</TableCell>
+                    <TableCell className="text-right">{velocity.total.total_units}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">/ {velocity.in_stock_days}</TableCell>
+                    <TableCell className="text-right">{velocity.total.daily_velocity}</TableCell>
+                    <TableCell className="text-right">{velocity.total.monthly_velocity}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
 
             <div className="flex items-center gap-2 mt-2">
               <Badge variant="outline" className={confidenceColors[velocity.confidence]}>
@@ -643,7 +645,7 @@ export default function CalculationBreakdown({
               <span className="text-xs text-muted-foreground">{velocity.confidence_reason}</span>
             </div>
 
-            <div className="font-mono text-xs text-muted-foreground bg-white/60 rounded p-2 mt-2">
+            <div className="font-mono text-xs text-muted-foreground bg-white/60 rounded p-2 mt-2 overflow-x-auto break-all">
               {velocity.formula}
             </div>
 
@@ -713,14 +715,14 @@ export default function CalculationBreakdown({
                 Estimated stockout: <span className="font-medium">{new Date(stockout.estimated_stockout_date).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</span>
               </div>
             )}
-            <div className="font-mono text-xs text-muted-foreground bg-white/60 rounded p-2 mt-2">
+            <div className="font-mono text-xs text-muted-foreground bg-white/60 rounded p-2 mt-2 overflow-x-auto break-all">
               {stockout.formula}
             </div>
           </MethodologySection>
 
           {/* 4. Reorder Quantity */}
           <MethodologySection number={4} title="Reorder Quantity">
-            <div className="font-mono text-xs text-muted-foreground bg-white/60 rounded p-2">
+            <div className="font-mono text-xs text-muted-foreground bg-white/60 rounded p-2 overflow-x-auto break-all">
               {reorder.formula}
             </div>
             {reorder.supplier_name && (
