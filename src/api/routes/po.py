@@ -21,6 +21,7 @@ _PO_SELECT_COLS = """\
     sm.wholesale_velocity, sm.online_velocity,
     sm.days_to_stockout, sm.reorder_status,
     sm.abc_class, sm.trend_direction, sm.safety_buffer,
+    sm.total_in_stock_days,
     si.part_no, si.is_hazardous, si.reorder_intent,
     ovr.stock_override_value AS stock_override,
     ovr.total_vel_override_value AS total_vel_override,
@@ -110,6 +111,7 @@ def _compute_po_items(
             "reorder_intent": d.get("reorder_intent", "normal"),
             "abc_class": d.get("abc_class"),
             "trend_direction": d.get("trend_direction"),
+            "total_in_stock_days": d.get("total_in_stock_days", 0),
         }
         if "category_name" in d:
             item["category_name"] = d["category_name"]

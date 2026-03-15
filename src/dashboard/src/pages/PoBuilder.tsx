@@ -39,6 +39,7 @@ interface PoRow {
   reorder_intent: ReorderIntent
   abc_class: AbcClass | null
   trend_direction: TrendDirection | null
+  total_in_stock_days: number
   sku_buffer: number
   included: boolean
   order_qty: number
@@ -126,6 +127,9 @@ export default function PoBuilder() {
     setOverrides({})
   }
 
+  const LOW_CONFIDENCE_DAYS = 14  // Less than 2 weeks of in-stock data
+  const isLowConfidence = (row: PoRow) => row.total_in_stock_days > 0 && row.total_in_stock_days < LOW_CONFIDENCE_DAYS
+
   const leadTime = leadTimeType === 'sea' ? 180 : leadTimeType === 'air' ? 30 : customLeadTime
 
   const { data: poData, isLoading, isError: isPoError } = useQuery({
@@ -157,6 +161,7 @@ export default function PoBuilder() {
       const o = overrides[item.stock_item_name] || {}
       return {
         ...item,
+        total_in_stock_days: item.total_in_stock_days ?? 0,
         sku_buffer: item.sku_buffer ?? 1.3,
         included: o.included ?? true,
         order_qty: o.order_qty ?? (item.suggested_qty || 0),
@@ -193,6 +198,7 @@ export default function PoBuilder() {
   const includedRows = rows.filter(r => r.included)
   const totalItems = includedRows.length
   const totalQty = includedRows.reduce((sum, r) => sum + r.order_qty, 0)
+  const lowConfidenceCount = includedRows.filter(isLowConfidence).length
 
   // Timeline calculations
   const fmtDate = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -435,6 +441,17 @@ export default function PoBuilder() {
             </Alert>
           )}
 
+          {/* Low confidence velocity warning */}
+          {lowConfidenceCount > 0 && (
+            <Alert className="border-amber-300 bg-amber-50">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800 text-sm">
+                <strong>{lowConfidenceCount} item(s)</strong> have less than {LOW_CONFIDENCE_DAYS} days of in-stock data.
+                Their velocity estimates may be unreliable.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Subset mode banner */}
           {subsetMode && (
             <div className="text-xs bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center justify-between">
@@ -486,7 +503,7 @@ export default function PoBuilder() {
                   <MobileListRow
                     key={r.stock_item_name}
                     title={r.stock_item_name}
-                    subtitle={r.part_no || undefined}
+                    subtitle={r.part_no ? (isLowConfidence(r) ? `${r.part_no} · ${r.total_in_stock_days}d data` : r.part_no) : (isLowConfidence(r) ? `${r.total_in_stock_days}d data` : undefined)}
                     status={r.reorder_status}
                     statusLabel={statusLabel}
                     metrics={[
@@ -543,6 +560,11 @@ export default function PoBuilder() {
                     <div className="font-bold">{fmtDate(arrivalDate)}</div>
                   </div>
                 </div>
+                {isLowConfidence(editingRow) && (
+                  <div className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 border border-amber-200">
+                    Only {editingRow.total_in_stock_days} days of in-stock data. Velocity may be unreliable.
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <Checkbox
                     checked={editingRow.included}
@@ -811,6 +833,17 @@ export default function PoBuilder() {
         </Card>
       )}
 
+      {/* Low confidence velocity warning */}
+      {lowConfidenceCount > 0 && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800 text-sm">
+            <strong>{lowConfidenceCount} item(s)</strong> have less than {LOW_CONFIDENCE_DAYS} days of in-stock data.
+            Their velocity estimates may be unreliable — review suggested quantities carefully.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Table */}
       {isPoError ? (
         <div className="flex flex-col items-center justify-center p-12 text-center">
@@ -855,6 +888,11 @@ export default function PoBuilder() {
                         {r.stock_item_name}
                         {r.reorder_intent === 'must_stock' && (
                           <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px] px-1 py-0">Must Stock</Badge>
+                        )}
+                        {isLowConfidence(r) && (
+                          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-[10px] px-1 py-0 ml-1">
+                            {r.total_in_stock_days}d data
+                          </Badge>
                         )}
                       </span>
                     </div>

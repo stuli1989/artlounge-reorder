@@ -363,6 +363,7 @@ export interface PoDataItem {
   reorder_intent: ReorderIntent
   abc_class: AbcClass | null
   trend_direction: TrendDirection | null
+  total_in_stock_days: number
   category_name?: string
 }
 
