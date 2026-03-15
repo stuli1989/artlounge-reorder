@@ -11,6 +11,7 @@ import { X } from 'lucide-react'
 interface Props {
   categoryName: string
   stockItemName: string
+  disableDragSelect?: boolean
 }
 
 const channelColors: Record<string, string> = {
@@ -28,10 +29,11 @@ const fmtDate = (v: string) =>
 const fmtDateFull = (v: string) =>
   new Date(v).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
 
-export default memo(function StockTimeline({ categoryName, stockItemName }: Props) {
+export default memo(function StockTimeline({ categoryName, stockItemName, disableDragSelect = false }: Props) {
   const [selStart, setSelStart] = useState<string | null>(null)
   const [selEnd, setSelEnd] = useState<string | null>(null)
   const [dragging, setDragging] = useState<string | null>(null)
+  const [datePreset, setDatePreset] = useState<'7d' | '30d' | '90d' | 'all'>('all')
 
   const { data: positions, isLoading: posLoading } = useQuery({
     queryKey: ['positions', categoryName, stockItemName],
@@ -46,11 +48,23 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
   // Merge position data with in/out for the chart
   const chartData = useMemo(() => {
     if (!positions?.length) return []
-    return positions.map(p => ({
+    let filtered = positions
+    if (disableDragSelect && datePreset !== 'all') {
+      const now = new Date()
+      const daysMap = { '7d': 7, '30d': 30, '90d': 90 } as const
+      const days = daysMap[datePreset as keyof typeof daysMap]
+      if (days) {
+        const cutoff = new Date(now)
+        cutoff.setDate(cutoff.getDate() - days)
+        const cutoffStr = cutoff.toISOString().slice(0, 10)
+        filtered = positions.filter(p => p.position_date >= cutoffStr)
+      }
+    }
+    return filtered.map(p => ({
       ...p,
       date: p.position_date,
     }))
-  }, [positions])
+  }, [positions, disableDragSelect, datePreset])
 
   // Filter transactions by selected date range
   const filteredTxns = useMemo(() => {
@@ -105,26 +119,30 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
     <div className="space-y-4">
       {/* Chart */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs text-muted-foreground">
-            {hasSelection
-              ? <>Showing <strong className="text-foreground">{fmtDateFull(selFrom!)}</strong> — <strong className="text-foreground">{fmtDateFull(selTo!)}</strong> · {filteredTxns.length} transactions</>
-              : 'Drag on chart to filter transactions by date range'}
-          </p>
-          {hasSelection && (
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1" onClick={clearSelection}>
-              <X className="h-3 w-3" /> Clear
-            </Button>
-          )}
-        </div>
-        <ResponsiveContainer width="100%" height={200} style={{ userSelect: 'none' }}>
+        {!disableDragSelect && (
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-muted-foreground">
+              {hasSelection
+                ? <>Showing <strong className="text-foreground">{fmtDateFull(selFrom!)}</strong> — <strong className="text-foreground">{fmtDateFull(selTo!)}</strong> · {filteredTxns.length} transactions</>
+                : 'Drag on chart to filter transactions by date range'}
+            </p>
+            {hasSelection && (
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1" onClick={clearSelection}>
+                <X className="h-3 w-3" /> Clear
+              </Button>
+            )}
+          </div>
+        )}
+        <ResponsiveContainer width="100%" height={disableDragSelect ? 180 : 200} style={{ userSelect: 'none' }}>
           <AreaChart
             data={chartData}
-            margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
-            onMouseDown={handleMouseDown as any}
-            onMouseMove={handleMouseMove as any}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            margin={{ top: 5, right: 10, bottom: 5, left: 0 }}
+            {...(!disableDragSelect ? {
+              onMouseDown: handleMouseDown as any,
+              onMouseMove: handleMouseMove as any,
+              onMouseUp: handleMouseUp,
+              onMouseLeave: handleMouseUp,
+            } : {})}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis
@@ -147,7 +165,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
               }}
             />
             <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="3 3" />
-            {hasSelection && (
+            {!disableDragSelect && hasSelection && (
               <ReferenceArea
                 x1={selFrom!}
                 x2={selTo!}
@@ -157,7 +175,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
                 strokeOpacity={0.3}
               />
             )}
-            {dragging && selEnd && (
+            {!disableDragSelect && dragging && selEnd && (
               <ReferenceArea
                 x1={dragging}
                 x2={selEnd}
@@ -174,6 +192,24 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
             />
           </AreaChart>
         </ResponsiveContainer>
+        {/* Date preset buttons for mobile */}
+        {disableDragSelect && (
+          <div className="flex gap-2 mt-2">
+            {(['7d', '30d', '90d', 'all'] as const).map(preset => (
+              <button
+                key={preset}
+                onClick={() => setDatePreset(preset)}
+                className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  datePreset === preset
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {preset === 'all' ? 'All' : preset.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Transactions table */}

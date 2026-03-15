@@ -19,9 +19,15 @@ import AbcBadge from '@/components/AbcBadge'
 import VelocityToggle from '@/components/VelocityToggle'
 import TrendIndicator from '@/components/TrendIndicator'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
-import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar, Snowflake, Filter } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar, Snowflake, Filter, ArrowUpDown } from 'lucide-react'
 import { vel, daysColor } from '@/lib/formatters'
 import HelpTip from '@/components/HelpTip'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
+import { FilterButton, FilterChips, FilterDrawer } from '@/components/mobile/FilterDrawer'
+import type { FilterChip } from '@/components/mobile/FilterDrawer'
+import { MobileSortSheet } from '@/components/mobile/MobileSortSheet'
+import MobileSkuDetail from '@/components/mobile/MobileSkuDetail'
 
 function formatDateForInput(d: Date): string {
   return d.toISOString().slice(0, 10)
@@ -292,9 +298,19 @@ const SkuRow = memo(function SkuRow({
   )
 })
 
+const SKU_SORT_OPTIONS = [
+  { value: 'stock_item_name', label: 'Name' },
+  { value: 'reorder_status', label: 'Status' },
+  { value: 'current_stock', label: 'Stock' },
+  { value: 'total_velocity', label: 'Velocity' },
+  { value: 'days_to_stockout', label: 'Days to Stockout' },
+  { value: 'abc_class', label: 'ABC Class' },
+]
+
 export default function SkuDetail() {
   const { categoryName } = useParams<{ categoryName: string }>()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const decodedName = decodeURIComponent(categoryName || '')
 
   const [statusFilter, setStatusFilter] = useState('all')
@@ -303,6 +319,14 @@ export default function SkuDetail() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(100)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
+
+  // Mobile-specific state
+  const [selectedSku, setSelectedSku] = useState<SkuMetrics | null>(null)
+  const [scrollPosition, setScrollPosition] = useState(0)
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+  const [mobileSortOpen, setMobileSortOpen] = useState(false)
+  const [mobileSortCol, setMobileSortCol] = useState('reorder_status')
+  const [mobileSortDir, setMobileSortDir] = useState<'asc' | 'desc'>('desc')
 
   // V2 controls
   const [velocityType, setVelocityType] = useState<'flat' | 'wma'>('flat')
@@ -414,6 +438,304 @@ export default function SkuDetail() {
     ? `?from_date=${encodeURIComponent(analysisRange.from)}&to_date=${encodeURIComponent(analysisRange.to)}`
     : ''
 
+  // Mobile filter chips
+  const mobileFilterChips: FilterChip[] = []
+  if (abcFilter) mobileFilterChips.push({ key: 'abc', label: `ABC: ${abcFilter}`, onRemove: () => { setAbcFilter(''); setPage(0) } })
+  if (xyzFilter) mobileFilterChips.push({ key: 'xyz', label: `XYZ: ${xyzFilter}`, onRemove: () => { setXyzFilter(''); setPage(0) } })
+  if (hazardousFilter) mobileFilterChips.push({ key: 'haz', label: 'Hazardous', onRemove: () => { setHazardousFilter(false); setPage(0) } })
+  if (deadStockFilter) mobileFilterChips.push({ key: 'dead', label: 'Dead Stock', onRemove: () => { setDeadStockFilter(false); setPage(0) } })
+  if (intentFilter) mobileFilterChips.push({ key: 'intent', label: `Intent: ${intentFilter}`, onRemove: () => { setIntentFilter(''); setPage(0) } })
+  if (!hideInactive) mobileFilterChips.push({ key: 'inactive', label: 'Show Inactive', onRemove: () => { setHideInactive(true); setPage(0) } })
+  if (rangePreset !== 'full_fy') mobileFilterChips.push({ key: 'range', label: `Range: ${rangePreset}`, onRemove: () => { setRangePreset('full_fy'); setPage(0) } })
+
+  const mobileFilterCount = mobileFilterChips.length + (velocityType !== 'flat' ? 1 : 0)
+
+  const statusPills = [
+    { value: 'all', label: 'All', count: totalSkus },
+    { value: 'critical', label: 'Critical', count: counts.critical, color: 'text-red-600' },
+    { value: 'critical_warning', label: 'Warning', count: counts.warning, color: 'text-amber-600' },
+    { value: 'out_of_stock', label: 'OOS', count: counts.out_of_stock, color: 'text-red-500' },
+  ]
+
+  // ==================== MOBILE LAYOUT ====================
+  if (isMobile) {
+    // If a SKU is selected, show full-screen detail overlay
+    if (selectedSku) {
+      return (
+        <MobileSkuDetail
+          sku={selectedSku}
+          categoryName={decodedName}
+          velocityType={velocityType}
+          analysisRange={analysisRange}
+          onBack={() => {
+            setSelectedSku(null)
+            // Restore scroll position after next paint
+            requestAnimationFrame(() => {
+              window.scrollTo(0, scrollPosition)
+            })
+          }}
+        />
+      )
+    }
+
+    return (
+      <div className="px-4 py-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/brands')}
+            className="p-1.5 -ml-1 rounded-md hover:bg-muted transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-semibold truncate">{decodedName}</h2>
+            <span className="text-xs text-muted-foreground">{isLoading && !skuPage ? '...' : totalSkus} SKUs</span>
+          </div>
+          <button
+            onClick={() => setMobileSortOpen(true)}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors"
+            aria-label="Sort"
+          >
+            <ArrowUpDown className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Summary Cards — horizontal scroll */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
+          {[
+            { label: 'Critical', value: counts.critical, color: 'text-red-600' },
+            { label: 'Warning', value: counts.warning, color: 'text-amber-600' },
+            { label: 'OK', value: counts.ok, color: 'text-green-600' },
+            { label: 'OOS', value: counts.out_of_stock, color: 'text-red-500' },
+            { label: 'Dead', value: counts.dead_stock, color: 'text-blue-600' },
+          ].map(c => (
+            <Card key={c.label} className="min-w-[90px] flex-shrink-0">
+              <CardContent className="pt-2 pb-2 px-3">
+                <div className={`text-lg font-bold ${c.color}`}>{c.value}</div>
+                <div className="text-[10px] text-muted-foreground">{c.label}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Search + Filter button */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search SKUs..."
+              value={search}
+              onChange={e => {
+                setSearch(e.target.value)
+                setPage(0)
+              }}
+              className="pl-9 h-10"
+            />
+          </div>
+          <FilterButton activeCount={mobileFilterCount} onClick={() => setMobileFilterOpen(true)} />
+        </div>
+
+        {/* Status pill tabs — horizontal scroll */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4">
+          {statusPills.map(pill => (
+            <button
+              key={pill.value}
+              onClick={() => { setStatusFilter(pill.value); setPage(0) }}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                statusFilter === pill.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {pill.label}
+              {pill.count > 0 && ` (${pill.count})`}
+            </button>
+          ))}
+        </div>
+
+        {/* Filter chips */}
+        <FilterChips chips={mobileFilterChips} />
+
+        {/* SKU list — MobileListRow */}
+        {isLoading ? (
+          <div className="-mx-4">
+            {Array.from({ length: 8 }).map((_, i) => <MobileListRowSkeleton key={i} />)}
+          </div>
+        ) : (
+          <div className="-mx-4">
+            {skus.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">No SKUs found</div>
+            ) : (
+              skus.map((s: SkuMetrics) => {
+                const stock = s.effective_stock ?? s.current_stock
+                const totalV = velocityType === 'wma' ? (s.wma_total_velocity ?? 0) : (s.effective_velocity ?? s.total_velocity)
+                const daysLeft = s.effective_days_to_stockout ?? s.days_to_stockout
+                const status = s.effective_status ?? s.reorder_status
+                const statusLabel = status === 'out_of_stock' ? 'Out of Stock'
+                  : status === 'no_data' ? 'No Data'
+                  : status.charAt(0).toUpperCase() + status.slice(1)
+                return (
+                  <MobileListRow
+                    key={s.stock_item_name}
+                    title={s.stock_item_name}
+                    subtitle={s.part_no || undefined}
+                    status={status}
+                    statusLabel={statusLabel}
+                    metrics={[
+                      { label: 'Stk', value: stock.toLocaleString() },
+                      { label: 'Vel', value: `${vel(totalV)}/mo` },
+                      { label: 'Out', value: daysLeft === null ? 'N/A' : daysLeft === 0 ? 'OUT' : `${daysLeft}d` },
+                    ]}
+                    badges={s.abc_class ? <AbcBadge value={s.abc_class} /> : undefined}
+                    onClick={() => {
+                      setScrollPosition(window.scrollY)
+                      setSelectedSku(s)
+                    }}
+                  />
+                )
+              })
+            )}
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <span className="text-xs text-muted-foreground">
+                {pageStart}-{pageEnd} of {totalSkus}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!hasPreviousPage}
+                  onClick={() => setPage(p => Math.max(p - 1, 0))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!hasNextPage}
+                  onClick={() => setPage(p => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Filter Drawer */}
+        <FilterDrawer open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
+          <div className="space-y-4">
+            <div>
+              <div className="text-sm font-medium mb-2">Velocity Type</div>
+              <VelocityToggle value={velocityType} onChange={setVelocityType} />
+            </div>
+            <div>
+              <div className="text-sm font-medium mb-2">Date Range</div>
+              <Select value={rangePreset} onValueChange={v => {
+                if (!v) return
+                setRangePreset(v)
+                setPage(0)
+              }}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Analysis period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full_fy">Full Financial Year</SelectItem>
+                  <SelectItem value="6m">Last 6 Months</SelectItem>
+                  <SelectItem value="3m">Last 3 Months</SelectItem>
+                  <SelectItem value="2m">Last 2 Months</SelectItem>
+                  <SelectItem value="30d">Last 30 Days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <div className="text-sm font-medium mb-2">ABC Class</div>
+              <Select value={abcFilter || 'all'} onValueChange={v => { if (v) { setAbcFilter(v === 'all' ? '' : v); setPage(0) } }}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="ABC Class" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Classes</SelectItem>
+                  <SelectItem value="A">A Class</SelectItem>
+                  <SelectItem value="B">B Class</SelectItem>
+                  <SelectItem value="C">C Class</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <div className="text-sm font-medium mb-2">XYZ Class</div>
+              <Select value={xyzFilter || 'all'} onValueChange={v => { if (v) { setXyzFilter(v === 'all' ? '' : v); setPage(0) } }}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="XYZ Class" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All XYZ</SelectItem>
+                  <SelectItem value="X">X Class</SelectItem>
+                  <SelectItem value="Y">Y Class</SelectItem>
+                  <SelectItem value="Z">Z Class</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <div className="text-sm font-medium mb-2">Intent</div>
+              <Select value={intentFilter || 'all'} onValueChange={v => { if (v) { setIntentFilter(v === 'all' ? '' : v); setPage(0) } }}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Intent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Intents</SelectItem>
+                  <SelectItem value="must_stock">Must Stock</SelectItem>
+                  <SelectItem value="do_not_reorder">Do Not Reorder</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hazardousFilter}
+                onChange={e => { setHazardousFilter(e.target.checked); setPage(0) }}
+                className="rounded border-gray-300"
+              />
+              <span className="text-sm">Hazardous only</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={deadStockFilter}
+                onChange={e => { setDeadStockFilter(e.target.checked); setPage(0) }}
+                className="rounded border-gray-300"
+              />
+              <span className="text-sm">Dead stock only</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!hideInactive}
+                onChange={e => { setHideInactive(!e.target.checked); setPage(0) }}
+                className="rounded border-gray-300"
+              />
+              <span className="text-sm">Show inactive</span>
+            </label>
+          </div>
+        </FilterDrawer>
+
+        {/* Mobile Sort Sheet */}
+        <MobileSortSheet
+          open={mobileSortOpen}
+          onOpenChange={setMobileSortOpen}
+          options={SKU_SORT_OPTIONS}
+          value={mobileSortCol}
+          direction={mobileSortDir}
+          onSort={(val) => { setMobileSortCol(val); setMobileSortDir('desc') }}
+          onToggleDirection={() => setMobileSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+        />
+      </div>
+    )
+  }
+
+  // ==================== DESKTOP LAYOUT ====================
   return (
     <TooltipProvider>
       <div className="space-y-6">

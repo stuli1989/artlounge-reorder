@@ -14,15 +14,31 @@ import ClassificationExplainer from '@/components/ClassificationExplainer'
 import { Search, ArrowUpDown, LayoutGrid, TableProperties } from 'lucide-react'
 import { daysColor } from '@/lib/formatters'
 import HelpTip from '@/components/HelpTip'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import { FilterButton, FilterChips, FilterDrawer } from '@/components/mobile/FilterDrawer'
+import type { FilterChip } from '@/components/mobile/FilterDrawer'
+import { MobileSortSheet } from '@/components/mobile/MobileSortSheet'
+import type { SortOption } from '@/components/mobile/MobileSortSheet'
+
+const BRAND_SORT_OPTIONS: SortOption[] = [
+  { value: 'critical_skus', label: 'Critical SKUs' },
+  { value: 'total_skus', label: 'Total SKUs' },
+  { value: 'dead_stock_skus', label: 'Dead Stock' },
+  { value: 'avg_days_to_stockout', label: 'Avg Days to Stockout' },
+  { value: 'a_class_skus', label: 'A-Class SKUs' },
+]
 
 export default function BrandOverview() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [criticalOnly, setCriticalOnly] = useState(false)
   const [sortCol, setSortCol] = useState<string>('critical_skus')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact')
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false)
+  const [sortSheetOpen, setSortSheetOpen] = useState(false)
 
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleBrandHover = useCallback((categoryName: string) => {
@@ -74,6 +90,142 @@ export default function BrandOverview() {
     { label: 'Dead Stock SKUs', value: summary?.total_dead_stock_skus, color: 'text-blue-600' },
     { label: 'Slow Mover SKUs', value: summary?.total_slow_mover_skus, color: 'text-amber-600' },
   ]
+
+  // Mobile filter chips
+  const mobileFilterChips: FilterChip[] = []
+  if (criticalOnly) mobileFilterChips.push({ key: 'critical', label: 'Critical/Warning only', onRemove: () => setCriticalOnly(false) })
+  const mobileFilterCount = mobileFilterChips.length + (sortCol !== 'critical_skus' ? 1 : 0)
+
+  if (isMobile) {
+    return (
+      <div className="px-4 py-4 space-y-4">
+        {/* Summary Cards — horizontal scroll */}
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4" data-tour="brand-cards">
+          {summaryCards.map(c => (
+            <Card key={c.label} className="min-w-[110px] flex-shrink-0">
+              <CardContent className="pt-3 pb-2 px-3">
+                <div className={`text-lg font-bold ${c.color}`}>{c.value ?? '...'}</div>
+                <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">{c.label}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Search + Filter button */}
+        <div className="flex items-center gap-2" data-tour="brand-filters">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search brands..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9 h-10"
+            />
+          </div>
+          <FilterButton activeCount={mobileFilterCount} onClick={() => setFilterDrawerOpen(true)} />
+        </div>
+
+        {/* Filter chips */}
+        <FilterChips chips={mobileFilterChips} />
+
+        {/* Brand cards — always card view on mobile */}
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-28 bg-muted animate-pulse rounded-lg" />
+            ))}
+          </div>
+        ) : filteredBrands.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">No brands found</div>
+        ) : (
+          <div className="space-y-3 -mx-4">
+            {filteredBrands.map(b => {
+              const worstStatus = b.critical_skus > 0 ? 'critical' : b.warning_skus > 0 ? 'warning' : 'ok'
+              const borderColor = worstStatus === 'critical' ? 'border-l-red-500' : worstStatus === 'warning' ? 'border-l-amber-500' : 'border-l-green-500'
+              const healthPct = b.total_skus > 0 ? Math.round((b.ok_skus / b.total_skus) * 100) : 0
+              const healthColor = healthPct >= 70 ? 'text-green-600' : healthPct >= 40 ? 'text-amber-600' : 'text-red-600'
+              return (
+                <div
+                  key={b.category_name}
+                  className={`border-l-[3px] ${borderColor} px-4 py-3 border-b border-border/50 active:bg-muted/50 transition-colors cursor-pointer`}
+                  onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <span className="font-semibold text-sm">{b.category_name}</span>
+                      <div className="text-xs text-muted-foreground">{b.total_skus.toLocaleString()} SKUs</div>
+                    </div>
+                    <span className={`text-xs font-medium ${healthColor}`}>Health: {healthPct}%</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div>
+                      <div className="text-sm font-bold text-red-600">{b.critical_skus}</div>
+                      <div className="text-[10px] text-muted-foreground">Crit</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-amber-600">{b.warning_skus}</div>
+                      <div className="text-[10px] text-muted-foreground">Warn</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-green-600">{b.ok_skus}</div>
+                      <div className="text-[10px] text-muted-foreground">OK</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-blue-600">{b.dead_stock_skus}</div>
+                      <div className="text-[10px] text-muted-foreground">Dead</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Filter Drawer */}
+        <FilterDrawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen}>
+          <div className="space-y-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={criticalOnly}
+                onCheckedChange={(v) => setCriticalOnly(!!v)}
+              />
+              <span className="text-sm">Show critical/warning only</span>
+            </label>
+            <div>
+              <div className="text-sm font-medium mb-2">Sort by</div>
+              {BRAND_SORT_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    if (sortCol === opt.value) {
+                      setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+                    } else {
+                      setSortCol(opt.value)
+                      setSortDir('desc')
+                    }
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded text-sm ${sortCol === opt.value ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
+                >
+                  {opt.label} {sortCol === opt.value && (sortDir === 'desc' ? '\u2193' : '\u2191')}
+                </button>
+              ))}
+            </div>
+          </div>
+        </FilterDrawer>
+
+        {/* Sort Sheet (for header sort button if needed) */}
+        <MobileSortSheet
+          open={sortSheetOpen}
+          onOpenChange={setSortSheetOpen}
+          options={BRAND_SORT_OPTIONS}
+          value={sortCol}
+          direction={sortDir}
+          onSort={(val) => { setSortCol(val); setSortDir('desc') }}
+          onToggleDirection={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

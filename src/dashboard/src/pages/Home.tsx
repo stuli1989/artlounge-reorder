@@ -9,9 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Search, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import HelpTip from '@/components/HelpTip'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
 
 export default function Home() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [searchQuery, setSearchQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
@@ -43,12 +46,24 @@ export default function Home() {
 
   if (isLoading || !s) {
     return (
-      <div className="space-y-6">
+      <div className={isMobile ? 'px-4 py-4 space-y-4' : 'space-y-6'}>
         <div className="h-10 w-full bg-muted animate-pulse rounded" />
-        <div className="grid grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => <div key={i} className="h-28 bg-muted animate-pulse rounded-lg" />)}
-        </div>
-        <div className="h-64 bg-muted animate-pulse rounded-lg" />
+        {isMobile ? (
+          <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-4 px-4">
+            {[1, 2, 3].map(i => <div key={i} className="min-w-[130px] flex-shrink-0 h-24 bg-muted animate-pulse rounded-lg" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-4">
+            {[1, 2, 3].map(i => <div key={i} className="h-28 bg-muted animate-pulse rounded-lg" />)}
+          </div>
+        )}
+        {isMobile ? (
+          <div className="space-y-0">
+            {[1, 2, 3, 4, 5].map(i => <MobileListRowSkeleton key={i} />)}
+          </div>
+        ) : (
+          <div className="h-64 bg-muted animate-pulse rounded-lg" />
+        )}
       </div>
     )
   }
@@ -56,14 +71,14 @@ export default function Home() {
   const totalCritical = s.a_critical + s.b_critical + s.c_critical
 
   return (
-    <div className="space-y-8">
+    <div className={isMobile ? 'px-4 py-4 space-y-5' : 'space-y-8'}>
       {/* Section 1: Brand Search */}
       <section>
         <div ref={searchRef} className="relative" data-tour="brand-search">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Jump to brand... (type to search)"
-            className="pl-10 h-11 text-base"
+            className={isMobile ? 'pl-10 h-10 text-sm' : 'pl-10 h-11 text-base'}
             value={searchQuery}
             onChange={e => {
               setSearchQuery(e.target.value)
@@ -100,15 +115,23 @@ export default function Home() {
 
       {/* Section 2: Action Cards */}
       <section>
-        <div className="grid grid-cols-3 gap-4" data-tour="summary-cards">
+        <div
+          className={isMobile
+            ? 'flex gap-2.5 overflow-x-auto pb-2 -mx-4 px-4'
+            : 'grid grid-cols-3 gap-4'}
+          data-tour="summary-cards"
+        >
           {/* Critical SKUs */}
           <Card
-            className="cursor-pointer hover:shadow-md transition-shadow bg-red-50 border-red-200"
+            className={`cursor-pointer hover:shadow-md transition-shadow bg-red-50 border-red-200 ${isMobile ? 'min-w-[130px] flex-shrink-0' : ''}`}
             onClick={() => navigate('/critical')}
           >
-            <CardContent className="pt-6">
-              <div className="text-4xl font-bold text-red-600">{totalCritical}</div>
-              <div className="text-sm font-medium mt-1">Critical SKUs <HelpTip tip="SKUs with less than lead time + buffer days of stock at current sell-through rate." helpAnchor="stockout-projection" /></div>
+            <CardContent className={isMobile ? 'pt-4 pb-3 px-3' : 'pt-6'}>
+              <div className={`font-bold text-red-600 ${isMobile ? 'text-2xl' : 'text-4xl'}`}>{totalCritical}</div>
+              <div className={`font-medium mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                Critical SKUs
+                {!isMobile && <> <HelpTip tip="SKUs with less than lead time + buffer days of stock at current sell-through rate." helpAnchor="stockout-projection" /></>}
+              </div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 across {s.brands_with_critical} brands
               </div>
@@ -117,12 +140,12 @@ export default function Home() {
 
           {/* Brands Needing POs */}
           <Card
-            className="cursor-pointer hover:shadow-md transition-shadow bg-amber-50 border-amber-200"
+            className={`cursor-pointer hover:shadow-md transition-shadow bg-amber-50 border-amber-200 ${isMobile ? 'min-w-[130px] flex-shrink-0' : ''}`}
             onClick={() => navigate('/brands')}
           >
-            <CardContent className="pt-6">
-              <div className="text-4xl font-bold text-amber-600">{s.brands_with_critical}</div>
-              <div className="text-sm font-medium mt-1">Brands Needing POs</div>
+            <CardContent className={isMobile ? 'pt-4 pb-3 px-3' : 'pt-6'}>
+              <div className={`font-bold text-amber-600 ${isMobile ? 'text-2xl' : 'text-4xl'}`}>{s.brands_with_critical}</div>
+              <div className={`font-medium mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>Brands Needing POs</div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 have critical SKUs
               </div>
@@ -130,10 +153,10 @@ export default function Home() {
           </Card>
 
           {/* Total Brands */}
-          <Card className="bg-muted/40">
-            <CardContent className="pt-6">
-              <div className="text-4xl font-bold">{s.total_brands}</div>
-              <div className="text-sm font-medium mt-1">Total Brands</div>
+          <Card className={`bg-muted/40 ${isMobile ? 'min-w-[130px] flex-shrink-0' : ''}`}>
+            <CardContent className={isMobile ? 'pt-4 pb-3 px-3' : 'pt-6'}>
+              <div className={`font-bold ${isMobile ? 'text-2xl' : 'text-4xl'}`}>{s.total_brands}</div>
+              <div className={`font-medium mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>Total Brands</div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 in portfolio
               </div>
@@ -142,54 +165,87 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Section 3: Priority Brands Table */}
+      {/* Section 3: Priority Brands */}
       <section data-tour="priority-table">
         <h3 className="text-sm font-medium text-muted-foreground mb-3">Priority Brands</h3>
-        <Card>
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Brand</TableHead>
-                  <TableHead className="text-right">Critical</TableHead>
-                  <TableHead className="text-right">Warning</TableHead>
-                  <TableHead className="text-right">Out of Stock</TableHead>
-                  <TableHead className="w-10" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {s.top_brands.slice(0, 10).map(brand => (
-                  <TableRow
-                    key={brand.category_name}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => navigate(`/brands/${encodeURIComponent(brand.category_name)}/skus`)}
-                  >
-                    <TableCell className="font-medium">{brand.category_name}</TableCell>
-                    <TableCell className="text-right">
-                      <span className={brand.critical_skus > 0 ? 'text-red-600 font-medium' : ''}>
-                        {brand.critical_skus || '-'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className={brand.warning_skus > 0 ? 'text-amber-600' : ''}>
-                        {brand.warning_skus || '-'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">&mdash;</TableCell>
-                    <TableCell className="text-right">
-                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                    </TableCell>
+        {isMobile ? (
+          /* Mobile: MobileListRow cards */
+          <div className="border rounded-lg overflow-hidden -mx-4">
+            {s.top_brands.slice(0, 10).map(brand => {
+              const status = brand.critical_skus > 0 ? 'critical' : brand.warning_skus > 0 ? 'warning' : 'ok'
+              const statusLabel = brand.critical_skus > 0
+                ? `${brand.critical_skus} critical`
+                : brand.warning_skus > 0
+                  ? `${brand.warning_skus} warning`
+                  : 'OK'
+              return (
+                <MobileListRow
+                  key={brand.category_name}
+                  title={brand.category_name}
+                  status={status}
+                  statusLabel={statusLabel}
+                  metrics={[
+                    { label: 'Critical', value: String(brand.critical_skus || 0), color: brand.critical_skus > 0 ? 'text-red-500' : undefined },
+                    { label: 'Warning', value: String(brand.warning_skus || 0), color: brand.warning_skus > 0 ? 'text-amber-500' : undefined },
+                  ]}
+                  onClick={() => navigate(`/brands/${encodeURIComponent(brand.category_name)}/skus`)}
+                />
+              )
+            })}
+            <div className="px-4 py-3 border-t">
+              <Button variant="ghost" size="sm" onClick={() => navigate('/brands')} className="text-muted-foreground w-full justify-center">
+                View all {s.total_brands} brands <ArrowRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
+        ) : (
+          /* Desktop: Table */
+          <Card>
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Brand</TableHead>
+                    <TableHead className="text-right">Critical</TableHead>
+                    <TableHead className="text-right">Warning</TableHead>
+                    <TableHead className="text-right">Out of Stock</TableHead>
+                    <TableHead className="w-10" />
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="px-4 py-3 border-t">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/brands')} className="text-muted-foreground">
-              View all {s.total_brands} brands <ArrowRight className="h-3.5 w-3.5 ml-1" />
-            </Button>
-          </div>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {s.top_brands.slice(0, 10).map(brand => (
+                    <TableRow
+                      key={brand.category_name}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/brands/${encodeURIComponent(brand.category_name)}/skus`)}
+                    >
+                      <TableCell className="font-medium">{brand.category_name}</TableCell>
+                      <TableCell className="text-right">
+                        <span className={brand.critical_skus > 0 ? 'text-red-600 font-medium' : ''}>
+                          {brand.critical_skus || '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className={brand.warning_skus > 0 ? 'text-amber-600' : ''}>
+                          {brand.warning_skus || '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">&mdash;</TableCell>
+                      <TableCell className="text-right">
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="px-4 py-3 border-t">
+              <Button variant="ghost" size="sm" onClick={() => navigate('/brands')} className="text-muted-foreground">
+                View all {s.total_brands} brands <ArrowRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </Card>
+        )}
       </section>
     </div>
   )
