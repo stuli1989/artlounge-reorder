@@ -22,6 +22,7 @@ from engine.velocity import (
 )
 from engine.reorder import (
     calculate_days_to_stockout,
+    compute_coverage_days,
     detect_import_history,
     determine_reorder_status,
     get_supplier_for_category,
@@ -165,13 +166,18 @@ def run_computation_pipeline(db_conn, incremental=False):
         # Supplier lead time
         supplier = supplier_map.get(item["category_name"])
         lead_time = supplier["lead_time_default"] if supplier else DEFAULT_LEAD_TIME
+        coverage = compute_coverage_days(
+            lead_time,
+            supplier["typical_order_months"] if supplier else None,
+        )
 
         # Days to stockout (using flat velocity initially — will be updated after classification)
         days_to_stockout = calculate_days_to_stockout(current_stock, velocity["total_velocity"])
 
         # Reorder status (preliminary — will be recomputed with safety buffer)
         status, suggested_qty = determine_reorder_status(
-            current_stock, days_to_stockout, lead_time, velocity["total_velocity"]
+            current_stock, days_to_stockout, lead_time, velocity["total_velocity"],
+            coverage_period=coverage,
         )
 
         # Intent-based override
@@ -179,7 +185,7 @@ def run_computation_pipeline(db_conn, incremental=False):
         if intent == "must_stock" and status in ("no_data", "out_of_stock"):
             status = "critical"
             if suggested_qty is None:
-                suggested_qty = must_stock_fallback_qty(lead_time)
+                suggested_qty = must_stock_fallback_qty(lead_time + coverage)
         elif intent == "do_not_reorder":
             status = "no_data"
             suggested_qty = None
@@ -315,10 +321,15 @@ def run_computation_pipeline(db_conn, incremental=False):
         current_stock = m["current_stock"]
         total_vel = m["total_velocity"]
         lead_time = supplier["lead_time_default"] if supplier else DEFAULT_LEAD_TIME
+        coverage = compute_coverage_days(
+            lead_time,
+            supplier["typical_order_months"] if supplier else None,
+        )
         days_to_stockout = calculate_days_to_stockout(current_stock, total_vel)
 
         status, suggested_qty = determine_reorder_status(
-            current_stock, days_to_stockout, lead_time, total_vel, safety_buffer=buf
+            current_stock, days_to_stockout, lead_time, total_vel,
+            safety_buffer=buf, coverage_period=coverage,
         )
 
         # Re-apply intent override
@@ -326,7 +337,7 @@ def run_computation_pipeline(db_conn, incremental=False):
         if intent == "must_stock" and status in ("no_data", "out_of_stock"):
             status = "critical"
             if suggested_qty is None:
-                suggested_qty = must_stock_fallback_qty(lead_time)
+                suggested_qty = must_stock_fallback_qty(lead_time + coverage)
         elif intent == "do_not_reorder":
             status = "no_data"
             suggested_qty = None
@@ -425,7 +436,7 @@ def fetch_all_supplier_mappings(db_conn) -> dict[str, dict]:
         cur.execute("""
             SELECT sc.tally_name AS category_name,
                    s.name, s.lead_time_default, s.lead_time_sea, s.lead_time_air,
-                   s.buffer_override
+                   s.buffer_override, s.typical_order_months
             FROM stock_categories sc
             JOIN suppliers s ON UPPER(s.name) = UPPER(sc.tally_name)
         """)
@@ -436,6 +447,7 @@ def fetch_all_supplier_mappings(db_conn) -> dict[str, dict]:
                 "lead_time_sea": row[3],
                 "lead_time_air": row[4],
                 "buffer_override": float(row[5]) if row[5] is not None else None,
+                "typical_order_months": row[6],
             }
     return mapping
 
