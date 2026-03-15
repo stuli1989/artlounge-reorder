@@ -6,6 +6,25 @@ from datetime import date
 DEFAULT_LEAD_TIME = 180  # days (sea freight default)
 
 
+def compute_coverage_days(lead_time: int, typical_order_months: int | None = None) -> int:
+    """Compute coverage period in days for the reorder formula.
+
+    If typical_order_months is set (per-supplier config), use it directly.
+    Otherwise, auto-calculate from lead time using turns-per-year logic:
+    the number of order cycles that fit in a financial year, capped at 6.
+    """
+    if typical_order_months is not None:
+        return typical_order_months * 30
+
+    # Auto-calculate: how many turns fit in a year?
+    fy_days = 365
+    max_turns = max(1, fy_days // lead_time)
+    # Cap at 6 turns — ordering more than every 2 months is impractical
+    # for an import business with min order quantities
+    turns = min(max_turns, 6)
+    return fy_days // turns
+
+
 def must_stock_fallback_qty(lead_time: int) -> int:
     """Minimum order quantity for must_stock items with no velocity data."""
     return max(1, round(lead_time / 30))
