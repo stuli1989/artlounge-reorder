@@ -7,6 +7,8 @@ import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAl
 import HelpMenu from '@/components/HelpMenu'
 import GuidedTour, { isTourCompleted, resetTour } from '@/components/GuidedTour'
 import HelpTip from '@/components/HelpTip'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import MobileLayout from '@/components/mobile/MobileLayout'
 
 const freshnessColors = {
   fresh: 'bg-green-500',
@@ -17,6 +19,7 @@ const freshnessColors = {
 export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [tourRunning, setTourRunning] = useState(() => !isTourCompleted())
 
   const handleReplayTour = () => {
@@ -25,6 +28,8 @@ export default function Layout() {
     setTimeout(() => setTourRunning(true), 300)
   }
 
+  // Keep all hooks above any early returns to satisfy Rules of Hooks.
+  // MobileLayout manages its own queries internally.
   const { data: sync } = useQuery({
     queryKey: ['syncStatus'],
     queryFn: fetchSyncStatus,
@@ -40,6 +45,15 @@ export default function Layout() {
   })
 
   const staleCount = staleOverrides?.length ?? 0
+
+  if (isMobile) {
+    return (
+      <MobileLayout
+        tourRunning={tourRunning}
+        setTourRunning={setTourRunning}
+      />
+    )
+  }
 
   const navGroups = [
     // Primary actions — daily workflow
