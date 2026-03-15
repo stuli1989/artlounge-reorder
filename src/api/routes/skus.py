@@ -11,7 +11,7 @@ from engine.velocity import (
     calculate_velocity, find_in_stock_periods,
     resolve_date_range, fetch_batch_velocities, velocities_from_batch_row, opt_float,
 )
-from engine.reorder import calculate_days_to_stockout, determine_reorder_status, DEFAULT_LEAD_TIME, must_stock_fallback_qty
+from engine.reorder import calculate_days_to_stockout, determine_reorder_status, DEFAULT_LEAD_TIME, must_stock_fallback_qty, compute_coverage_days
 from engine.effective_values import compute_effective_values, compute_effective_status
 from engine.classification import compute_safety_buffer, fetch_buffer_settings, fetch_use_xyz_global
 from config.settings import FY_START_DATE, FY_END_DATE
@@ -646,7 +646,8 @@ def get_breakdown(
 
             # 5. Supplier lookup
             cur.execute("""
-                SELECT name, lead_time_default, lead_time_sea, lead_time_air
+                SELECT name, lead_time_default, lead_time_sea, lead_time_air,
+                       buffer_override, typical_order_months
                 FROM suppliers
                 WHERE UPPER(name) = UPPER(%s)
                 LIMIT 1
@@ -836,13 +837,25 @@ def get_breakdown(
     # Reorder — uses effective values
     supplier_name = supplier_row["name"] if supplier_row else None
     lead_time = supplier_row["lead_time_default"] if supplier_row else DEFAULT_LEAD_TIME
+    typical_months = supplier_row["typical_order_months"] if supplier_row else None
+    coverage_days = compute_coverage_days(lead_time, typical_months)
+    total_coverage = lead_time + coverage_days
 
-    status, suggested_qty = determine_reorder_status(eff_stock, days_to_so, lead_time, eff_total_vel, safety_buffer=buffer_multiplier)
+    status, suggested_qty = determine_reorder_status(
+        eff_stock, days_to_so, lead_time, eff_total_vel,
+        safety_buffer=buffer_multiplier, coverage_period=coverage_days,
+    )
     warning_buffer = max(30, int(lead_time * 0.5))
     threshold_warning = lead_time + warning_buffer
 
     if eff_total_vel > 0:
-        reorder_formula = f"{eff_total_vel} units/day x {lead_time} days lead time x {buffer_multiplier} safety buffer = {round(eff_total_vel * lead_time * buffer_multiplier, 1)} -> {suggested_qty} units"
+        raw_val = round(eff_total_vel * total_coverage * buffer_multiplier, 1)
+        reorder_formula = (
+            f"{eff_total_vel} units/day x {total_coverage} days "
+            f"({lead_time}d lead + {coverage_days}d coverage) "
+            f"x {buffer_multiplier} safety buffer = {raw_val} "
+            f"-> {suggested_qty} units"
+        )
     else:
         reorder_formula = "No demand data — suggested quantity cannot be calculated"
 
@@ -874,7 +887,10 @@ def get_breakdown(
         "formula": reorder_formula,
         "status": status,
         "status_reason": status_reason,
-        "status_thresholds": f"critical: <={lead_time}d | warning: <={threshold_warning}d | ok: >{threshold_warning}d",
+        "status_thresholds": f"critical: <={lead_time}d | warning: <={threshold_warning}d | ok: >{threshold_warning}d | coverage: {coverage_days}d",
+        "coverage_days": coverage_days,
+        "total_coverage": total_coverage,
+        "coverage_source": f"{typical_months} months" if typical_months else "auto",
     }
 
     return {
