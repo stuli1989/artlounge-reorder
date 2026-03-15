@@ -426,7 +426,15 @@ export default function SkuDetail() {
     placeholderData: previous => previous,
   })
 
-  const skus = skuPage?.items || []
+  const skusRaw = skuPage?.items || []
+  // Client-side sorting for mobile
+  const skus = isMobile && mobileSortCol !== 'reorder_status' ? [...skusRaw].sort((a, b) => {
+    const key = mobileSortCol as keyof typeof a
+    const av = a[key] ?? 0
+    const bv = b[key] ?? 0
+    const cmp = typeof av === 'string' ? av.localeCompare(bv as string) : (av as number) - (bv as number)
+    return mobileSortDir === 'asc' ? cmp : -cmp
+  }) : skusRaw
   const totalSkus = skuPage?.total ?? 0
   const counts = skuPage?.counts ?? DEFAULT_COUNTS
   const pageStart = totalSkus === 0 ? 0 : page * pageSize + 1

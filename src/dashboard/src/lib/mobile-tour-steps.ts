@@ -64,9 +64,9 @@ export const MOBILE_TOUR_STEPS: Step[] = [
     title: 'Filters',
   },
   {
-    target: '[data-tour="brand-table"]',
+    target: '[data-tour="brand-cards"]',
     placement: 'top',
-    content: 'Tap any brand to see all its SKUs with status badges, stock levels, and velocity data.',
+    content: 'Tap any brand card to see all its SKUs with status badges, stock levels, and velocity data.',
     title: 'Drill Into a Brand',
   },
   // Wrap-up (9)

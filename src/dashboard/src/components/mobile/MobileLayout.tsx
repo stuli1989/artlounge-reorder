@@ -142,7 +142,9 @@ export default function MobileLayout({ tourRunning, setTourRunning }: MobileLayo
               }
             />
           )}
-          <HelpMenu onReplayTour={handleReplayTour} />
+          <div data-tour="help-menu">
+            <HelpMenu onReplayTour={handleReplayTour} />
+          </div>
         </div>
       </header>
 
