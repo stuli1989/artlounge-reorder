@@ -1,12 +1,14 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import Joyride, { type CallBackProps, STATUS, EVENTS, ACTIONS } from 'react-joyride'
 import { useNavigate } from 'react-router-dom'
 import { TOUR_STEPS, STEP_ROUTE_MAP } from '@/lib/tour-steps'
+import { MOBILE_TOUR_STEPS, MOBILE_STEP_ROUTE_MAP } from '@/lib/mobile-tour-steps'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const TOUR_STORAGE_KEY = 'tourCompleted'
 
-function getRouteForStep(stepIndex: number): string | null {
-  for (const mapping of STEP_ROUTE_MAP) {
+function getRouteForStep(stepIndex: number, routeMap: { start: number; end: number; route: string }[]): string | null {
+  for (const mapping of routeMap) {
     if (stepIndex >= mapping.start && stepIndex <= mapping.end) {
       return mapping.route
     }
@@ -35,14 +37,23 @@ interface GuidedTourProps {
 }
 
 export default function GuidedTour({ run, onFinish }: GuidedTourProps) {
+  const isMobile = useIsMobile()
   const [stepIndex, setStepIndex] = useState(0)
   const [isReady, setIsReady] = useState(true)
   const navigate = useNavigate()
 
+  const steps = useMemo(() => isMobile ? MOBILE_TOUR_STEPS : TOUR_STEPS, [isMobile])
+  const routeMap = useMemo(() => isMobile ? MOBILE_STEP_ROUTE_MAP : STEP_ROUTE_MAP, [isMobile])
+
+  // Reset step index when switching between mobile and desktop
+  useEffect(() => {
+    setStepIndex(0)
+  }, [isMobile])
+
   // After stepIndex changes, wait for the target element to appear in the DOM
   useEffect(() => {
     if (!run) return
-    const step = TOUR_STEPS[stepIndex]
+    const step = steps[stepIndex]
     if (!step || step.target === 'body') {
       setIsReady(true)
       return
@@ -52,7 +63,7 @@ export default function GuidedTour({ run, onFinish }: GuidedTourProps) {
     waitForTarget(target, 8000).then(() => {
       setIsReady(true)
     })
-  }, [stepIndex, run])
+  }, [stepIndex, run, steps])
 
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -71,9 +82,9 @@ export default function GuidedTour({ run, onFinish }: GuidedTourProps) {
     }
     if (type === EVENTS.STEP_AFTER) {
       const nextIndex = action === ACTIONS.PREV ? index - 1 : index + 1
-      if (nextIndex < 0 || nextIndex >= TOUR_STEPS.length) return
-      const currentRoute = getRouteForStep(index)
-      const nextRoute = getRouteForStep(nextIndex)
+      if (nextIndex < 0 || nextIndex >= steps.length) return
+      const currentRoute = getRouteForStep(index, routeMap)
+      const nextRoute = getRouteForStep(nextIndex, routeMap)
       if (nextRoute && nextRoute !== currentRoute) {
         // Navigate to the new route, then advance step after a delay
         // to let the lazy chunk load + API data fetch + render
@@ -88,13 +99,13 @@ export default function GuidedTour({ run, onFinish }: GuidedTourProps) {
         setStepIndex(nextIndex)
       }
     }
-  }, [navigate, onFinish])
+  }, [navigate, onFinish, steps, routeMap])
 
   if (!run) return null
 
   return (
     <Joyride
-      steps={TOUR_STEPS}
+      steps={steps}
       stepIndex={stepIndex}
       run={run && isReady}
       continuous

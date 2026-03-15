@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Rocket, Lightbulb, Layout, CalendarCheck, BookOpen, ArrowRight,
   Package, Database, Users, LayoutDashboard, ShieldAlert, ClipboardList,
   Truck, Pencil, Settings, Search, Snowflake, TrendingUp, TrendingDown, Minus,
   Info,
 } from 'lucide-react'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 /* ---------- sidebar data ---------- */
 
@@ -121,6 +123,7 @@ function FlowArrow() {
 /* ---------- component ---------- */
 
 export default function Help() {
+  const isMobile = useIsMobile()
   const [activeSection, setActiveSection] = useState(ALL_SECTION_IDS[0])
 
   /* scroll-to-hash on mount */
@@ -209,51 +212,81 @@ export default function Help() {
     { term: 'XYZ Class', definition: 'Demand variability: X = stable, Y = variable, Z = erratic.', anchor: 'abc-classification' },
   ]
 
+  /* ---------- build flat TOC options for mobile ---------- */
+  const tocOptions = SIDEBAR_SECTIONS.flatMap(group =>
+    group.items.map(item => ({
+      id: item.id,
+      label: `${group.label} - ${item.label}`,
+    }))
+  )
+
   /* ---------- render ---------- */
   return (
-    <div className="space-y-6">
+    <div className={isMobile ? 'space-y-4 px-4 py-4' : 'space-y-6'}>
       {/* Page Header */}
-      <div className="flex items-center gap-3">
-        <BookOpen className="h-5 w-5 text-muted-foreground" />
-        <h2 className="text-xl font-semibold">Help &amp; Reference</h2>
-      </div>
+      {!isMobile && (
+        <div className="flex items-center gap-3">
+          <BookOpen className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-xl font-semibold">Help &amp; Reference</h2>
+        </div>
+      )}
+
+      {/* Mobile: sticky TOC dropdown */}
+      {isMobile && (
+        <div className="sticky top-0 z-20 bg-background pb-2 -mx-4 px-4 pt-1 border-b">
+          <Select value={activeSection} onValueChange={v => {
+            if (v) scrollToSection(v)
+          }}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Jump to section..." />
+            </SelectTrigger>
+            <SelectContent>
+              {tocOptions.map(opt => (
+                <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Layout: sidebar + content */}
-      <div className="flex gap-6">
-        {/* Sidebar */}
-        <nav className="w-[200px] shrink-0 space-y-4 sticky top-6 self-start max-h-[calc(100vh-6rem)] overflow-y-auto">
-          {SIDEBAR_SECTIONS.map(({ id, label, icon: Icon, items }) => (
-            <div key={id} className="space-y-0.5">
-              <div className="flex items-center gap-2 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                {label}
+      <div className={isMobile ? '' : 'flex gap-6'}>
+        {/* Sidebar — desktop only */}
+        {!isMobile && (
+          <nav className="w-[200px] shrink-0 space-y-4 sticky top-6 self-start max-h-[calc(100vh-6rem)] overflow-y-auto">
+            {SIDEBAR_SECTIONS.map(({ id, label, icon: Icon, items }) => (
+              <div key={id} className="space-y-0.5">
+                <div className="flex items-center gap-2 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {label}
+                </div>
+                {items.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => scrollToSection(item.id)}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors text-left ${
+                      activeSection === item.id
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
-              {items.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => scrollToSection(item.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors text-left ${
-                    activeSection === item.id
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          ))}
-        </nav>
+            ))}
+          </nav>
+        )}
 
         {/* Content Area */}
-        <div className="flex-1 space-y-10 min-w-0">
+        <div className={`${isMobile ? '' : 'flex-1'} space-y-10 min-w-0`}>
 
           {/* ============================================================
               GETTING STARTED
              ============================================================ */}
           <section id="getting-started" className="scroll-mt-6">
             <h3 className="text-lg font-semibold text-foreground mb-4">Getting Started</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-3'} gap-4`}>
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
@@ -365,7 +398,7 @@ export default function Help() {
             {/* --- Three Channels --- */}
             <section id="three-channels" className="space-y-4 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Three Parallel Demand Tracks</h4>
-              <div className="grid grid-cols-3 gap-4">
+              <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-3'} gap-4`}>
                 <Card className="bg-blue-50/50 border-blue-200 ring-blue-200">
                   <CardHeader>
                     <CardTitle className="text-sm text-blue-800">Wholesale</CardTitle>
@@ -427,7 +460,7 @@ export default function Help() {
               </Card>
 
               {/* Flat vs WMA comparison */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
                 <Card size="sm">
                   <CardContent>
                     <p className="text-sm font-medium text-foreground mb-1">Flat Average</p>
@@ -614,7 +647,7 @@ export default function Help() {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-foreground">Page Guides</h3>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
               {pageGuides.map(({ id, icon: Icon, name, desc, to }) => (
                 <section key={id} id={id} className="scroll-mt-6">
                   <Link to={to} className="block group">
@@ -730,7 +763,7 @@ export default function Help() {
           <section id="glossary" className="space-y-4 scroll-mt-6">
             <h3 className="text-lg font-semibold text-foreground">Glossary</h3>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
               {glossaryItems.map(({ term, definition, anchor }) => (
                 <button
                   key={term}

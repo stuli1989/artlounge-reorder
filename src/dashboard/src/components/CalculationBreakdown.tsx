@@ -7,13 +7,15 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ArrowRight, Info, Pencil, AlertTriangle, X, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import StatusBadge from '@/components/StatusBadge'
 import HelpTip from '@/components/HelpTip'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import { BottomSheet } from '@/components/mobile/BottomSheet'
 import type { ReorderStatus } from '@/lib/types'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -124,6 +126,7 @@ function OverrideForm({
   stockItemName: string
   categoryName?: string
 }) {
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState(currentOverride?.value?.toString() || '')
   const [reason, setReason] = useState('')
@@ -160,9 +163,67 @@ function OverrideForm({
     setOpen(true)
   }
 
+  const formContent = (
+    <div className="space-y-4 py-2">
+      {fieldName !== 'note' && (
+        <div className="space-y-2">
+          <Label htmlFor="override-value">Value</Label>
+          <Input
+            id="override-value"
+            type="number"
+            inputMode={isMobile ? 'decimal' : undefined}
+            step="any"
+            placeholder="Enter value"
+            value={value}
+            onChange={e => setValue(e.target.value)}
+          />
+        </div>
+      )}
+      <div className="space-y-2">
+        <Label htmlFor="override-reason">Reason</Label>
+        <textarea
+          id="override-reason"
+          placeholder="Why are you making this change?"
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[80px] resize-y"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="hold-po"
+          checked={holdFromPo}
+          onCheckedChange={(checked) => setHoldFromPo(checked === true)}
+        />
+        <Label htmlFor="hold-po" className="text-sm font-normal cursor-pointer">
+          Hold from PO suggestions
+        </Label>
+      </div>
+      {createMut.isError && (
+        <div className="text-sm text-red-600">Failed to save override</div>
+      )}
+      <div className={`flex ${isMobile ? 'flex-col' : ''} gap-2 pt-2`}>
+        <Button variant="outline" onClick={() => setOpen(false)} className={isMobile ? 'w-full' : ''}>Cancel</Button>
+        <Button
+          className={isMobile ? 'w-full' : ''}
+          disabled={(!value && fieldName !== 'note') || !reason || createMut.isPending}
+          onClick={() => createMut.mutate({
+            stock_item_name: stockItemName,
+            field_name: fieldName,
+            override_value: fieldName !== 'note' ? parseFloat(value) : undefined,
+            note: reason,
+            hold_from_po: holdFromPo,
+          })}
+        >
+          {createMut.isPending ? 'Saving...' : 'Save'}
+        </Button>
+      </div>
+    </div>
+  )
+
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {currentOverride && <OverrideBadge ovr={currentOverride} />}
         <Button variant="outline" size="sm" onClick={handleOpen}>
           <Pencil className="h-3 w-3 mr-1" />
@@ -175,66 +236,20 @@ function OverrideForm({
         )}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Override {label}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {fieldName !== 'note' && (
-              <div className="space-y-2">
-                <Label htmlFor="override-value">Value</Label>
-                <Input
-                  id="override-value"
-                  type="number"
-                  step="any"
-                  placeholder="Enter value"
-                  value={value}
-                  onChange={e => setValue(e.target.value)}
-                />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="override-reason">Reason</Label>
-              <textarea
-                id="override-reason"
-                placeholder="Why are you making this change?"
-                value={reason}
-                onChange={e => setReason(e.target.value)}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[80px] resize-y"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="hold-po"
-                checked={holdFromPo}
-                onCheckedChange={(checked) => setHoldFromPo(checked === true)}
-              />
-              <Label htmlFor="hold-po" className="text-sm font-normal cursor-pointer">
-                Hold from PO suggestions
-              </Label>
-            </div>
-            {createMut.isError && (
-              <div className="text-sm text-red-600">Failed to save override</div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button
-              disabled={(!value && fieldName !== 'note') || !reason || createMut.isPending}
-              onClick={() => createMut.mutate({
-                stock_item_name: stockItemName,
-                field_name: fieldName,
-                override_value: fieldName !== 'note' ? parseFloat(value) : undefined,
-                note: reason,
-                hold_from_po: holdFromPo,
-              })}
-            >
-              {createMut.isPending ? 'Saving...' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {isMobile ? (
+        <BottomSheet open={open} onOpenChange={setOpen} title={`Override ${label}`}>
+          {formContent}
+        </BottomSheet>
+      ) : (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Override {label}</DialogTitle>
+            </DialogHeader>
+            {formContent}
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   )
 }
@@ -408,6 +423,7 @@ export default function CalculationBreakdown({
   fromDate?: string
   toDate?: string
 }) {
+  const isMobile = useIsMobile()
   const { data, isLoading, error } = useQuery({
     queryKey: ['breakdown', categoryName, stockItemName, fromDate, toDate],
     queryFn: () => fetchBreakdown(categoryName, stockItemName, {
@@ -452,7 +468,7 @@ export default function CalculationBreakdown({
       <CollapsibleSection title="Key Assumptions" subtitle="inputs driving this recommendation" defaultOpen={true}>
         <div className="space-y-4">
           {/* Assumptions table */}
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <tbody>
                 {/* Lead Time */}
@@ -673,7 +689,7 @@ export default function CalculationBreakdown({
 
           {/* 3. Stockout Projection */}
           <MethodologySection number={3} title="Stockout Projection">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className={`flex ${isMobile ? 'flex-col' : 'items-center'} gap-2 flex-wrap`}>
               <FlowBox
                 label={effective_values.stock_source === 'override' ? 'Stock (override)' : 'Stock'}
                 value={`${stockout.current_stock}`}

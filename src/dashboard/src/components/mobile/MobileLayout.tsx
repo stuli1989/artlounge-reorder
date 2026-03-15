@@ -125,6 +125,7 @@ export default function MobileLayout({ tourRunning, setTourRunning }: MobileLayo
             onClick={() => setDrawerOpen(true)}
             className="p-1.5 rounded-md hover:bg-muted transition-colors"
             aria-label="Open menu"
+            data-tour-mobile="hamburger"
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -180,7 +181,7 @@ export default function MobileLayout({ tourRunning, setTourRunning }: MobileLayo
       </main>
 
       {/* Bottom Tab Bar */}
-      <nav className="border-t bg-card shrink-0 pb-[env(safe-area-inset-bottom)]">
+      <nav className="border-t bg-card shrink-0 pb-[env(safe-area-inset-bottom)]" data-tour-mobile="bottom-tabs">
         <div className="flex items-center justify-around">
           {BOTTOM_TABS.map(({ path, label, icon: Icon, exact }) => {
             const isActive = exact

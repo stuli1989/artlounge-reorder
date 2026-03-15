@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { fetchPositions, fetchTransactions } from '@/lib/api'
 import type { Transaction } from '@/lib/types'
 import { X } from 'lucide-react'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 interface Props {
   categoryName: string
@@ -30,6 +31,7 @@ const fmtDateFull = (v: string) =>
   new Date(v).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
 
 export default memo(function StockTimeline({ categoryName, stockItemName, disableDragSelect = false }: Props) {
+  const isMobile = useIsMobile()
   const [selStart, setSelStart] = useState<string | null>(null)
   const [selEnd, setSelEnd] = useState<string | null>(null)
   const [dragging, setDragging] = useState<string | null>(null)
@@ -213,14 +215,14 @@ export default memo(function StockTimeline({ categoryName, stockItemName, disabl
       </div>
 
       {/* Transactions table */}
-      <div className="border rounded-lg">
+      <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-[90px]">Date</TableHead>
               <TableHead>Party</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead className="w-[80px]">Voucher #</TableHead>
+              {!isMobile && <TableHead>Type</TableHead>}
+              {!isMobile && <TableHead className="w-[80px]">Voucher #</TableHead>}
               <TableHead className="w-[70px] text-right">Qty In</TableHead>
               <TableHead className="w-[70px] text-right">Qty Out</TableHead>
               <TableHead className="w-[80px]">Channel</TableHead>
@@ -229,7 +231,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName, disabl
           <TableBody>
             {filteredTxns.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                <TableCell colSpan={isMobile ? 5 : 7} className="text-center py-6 text-muted-foreground">
                   {hasSelection ? 'No transactions in selected period' : 'No transactions found'}
                 </TableCell>
               </TableRow>
@@ -238,8 +240,8 @@ export default memo(function StockTimeline({ categoryName, stockItemName, disabl
                 <TableRow key={i}>
                   <TableCell className="text-xs">{fmtDate(t.txn_date)}</TableCell>
                   <TableCell className="text-xs max-w-[200px] truncate">{t.party_name}</TableCell>
-                  <TableCell className="text-xs">{t.voucher_type}</TableCell>
-                  <TableCell className="text-xs">{t.voucher_number}</TableCell>
+                  {!isMobile && <TableCell className="text-xs">{t.voucher_type}</TableCell>}
+                  {!isMobile && <TableCell className="text-xs">{t.voucher_number}</TableCell>}
                   <TableCell className="text-xs text-right text-green-600">{t.is_inward ? t.quantity : ''}</TableCell>
                   <TableCell className="text-xs text-right text-red-600">{!t.is_inward ? t.quantity : ''}</TableCell>
                   <TableCell>
