@@ -115,6 +115,18 @@ export default function SupplierManagement() {
             onChange={e => updateField('buffer_override', e.target.value ? parseFloat(e.target.value) : null)}
           />
         </div>
+        <div className="space-y-1">
+          <Label>Order Coverage (months)</Label>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min="1"
+            placeholder="Auto"
+            value={form.typical_order_months ?? ''}
+            onChange={e => updateField('typical_order_months', e.target.value ? Number(e.target.value) : null)}
+          />
+          <p className="text-xs text-muted-foreground">How many months of stock each order covers. Leave empty to auto-calculate from lead time.</p>
+        </div>
       </div>
       <div className="space-y-1">
         <Label>Notes</Label>
@@ -162,6 +174,7 @@ export default function SupplierManagement() {
                 subtitle={s.tally_party || undefined}
                 metrics={[
                   { label: 'Lead', value: `${s.lead_time_default}d` },
+                  { label: 'Coverage', value: s.typical_order_months != null ? `${s.typical_order_months}mo` : 'auto' },
                   { label: 'Buffer', value: s.buffer_override != null ? `${s.buffer_override}x` : '\u2014' },
                 ]}
                 onClick={() => handleEdit(s)}
@@ -255,6 +268,7 @@ export default function SupplierManagement() {
                 <TableHead className="text-right">Air (days)</TableHead>
                 <TableHead className="text-right">Default (days)</TableHead>
                 <TableHead className="text-right">Buffer</TableHead>
+                <TableHead className="text-right">Coverage</TableHead>
                 <TableHead>Currency</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
@@ -270,6 +284,11 @@ export default function SupplierManagement() {
                   <TableCell className="text-right">{s.lead_time_default}</TableCell>
                   <TableCell className="text-right">
                     {s.buffer_override != null ? `${s.buffer_override}x` : '\u2014'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {s.typical_order_months != null
+                      ? `${s.typical_order_months}mo (${s.typical_order_months * 30}d)`
+                      : <span className="text-muted-foreground">auto</span>}
                   </TableCell>
                   <TableCell>{s.currency}</TableCell>
                   <TableCell className="text-xs max-w-[200px] truncate">{s.notes}</TableCell>
@@ -291,7 +310,7 @@ export default function SupplierManagement() {
               ))}
               {(suppliers || []).length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                     No suppliers configured
                   </TableCell>
                 </TableRow>
