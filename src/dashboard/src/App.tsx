@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import { MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
 
 const Home = lazy(() => import('./pages/Home'))
 const BrandOverview = lazy(() => import('./pages/BrandOverview'))
@@ -15,6 +17,19 @@ const Settings = lazy(() => import('./pages/Settings'))
 const Help = lazy(() => import('./pages/Help'))
 
 function LoadingSkeleton() {
+  const isMobile = useIsMobile()
+
+  if (isMobile) {
+    return (
+      <div className="space-y-2 p-4">
+        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+        {Array.from({ length: 5 }).map((_, i) => (
+          <MobileListRowSkeleton key={i} />
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4 p-6">
       <div className="h-8 w-48 bg-muted animate-pulse rounded" />
