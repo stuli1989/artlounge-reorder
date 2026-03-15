@@ -9,6 +9,9 @@ import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
+import { BottomSheet } from '@/components/mobile/BottomSheet'
 
 type FormData = Omit<Supplier, 'id'> & { id?: number }
 
@@ -20,10 +23,12 @@ const emptyForm: FormData = {
 
 export default function SupplierManagement() {
   const queryClient = useQueryClient()
+  const isMobile = useIsMobile()
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState<FormData>(emptyForm)
   const [error, setError] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
 
   const { data: suppliers, isLoading } = useQuery({
     queryKey: ['suppliers'],
@@ -60,13 +65,151 @@ export default function SupplierManagement() {
     try {
       await deleteSupplier(id)
       queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      setDeleteConfirmId(null)
     } catch {
       setError('Cannot delete — supplier is in use')
+      setDeleteConfirmId(null)
     }
   }
 
   const updateField = (field: string, value: string | number | null) => {
     setForm(f => ({ ...f, [field]: value }))
+  }
+
+  const renderForm = () => (
+    <div className="space-y-4">
+      <div className={isMobile ? 'space-y-3' : 'grid grid-cols-3 gap-4'}>
+        <div className="space-y-1">
+          <Label>Name *</Label>
+          <Input value={form.name} onChange={e => updateField('name', e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label>Tally Party</Label>
+          <Input value={form.tally_party} onChange={e => updateField('tally_party', e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label>Currency</Label>
+          <Input value={form.currency} onChange={e => updateField('currency', e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label>Sea Lead Time (days)</Label>
+          <Input type="number" inputMode="numeric" value={form.lead_time_sea ?? ''} onChange={e => updateField('lead_time_sea', e.target.value ? Number(e.target.value) : null)} />
+        </div>
+        <div className="space-y-1">
+          <Label>Air Lead Time (days)</Label>
+          <Input type="number" inputMode="numeric" value={form.lead_time_air ?? ''} onChange={e => updateField('lead_time_air', e.target.value ? Number(e.target.value) : null)} />
+        </div>
+        <div className="space-y-1">
+          <Label>Default Lead Time (days)</Label>
+          <Input type="number" inputMode="numeric" value={form.lead_time_default} onChange={e => updateField('lead_time_default', Number(e.target.value))} />
+        </div>
+        <div className="space-y-1">
+          <Label>Buffer Override</Label>
+          <Input
+            type="number"
+            inputMode="decimal"
+            step="0.1"
+            min="0.1"
+            placeholder="Leave empty for default"
+            value={form.buffer_override ?? ''}
+            onChange={e => updateField('buffer_override', e.target.value ? parseFloat(e.target.value) : null)}
+          />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label>Notes</Label>
+        <Input value={form.notes} onChange={e => updateField('notes', e.target.value)} />
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex gap-2">
+        <Button className="flex-1" onClick={handleSubmit}><Check className="h-4 w-4 mr-1" /> Save</Button>
+        <Button variant="outline" className="flex-1" onClick={() => { setShowForm(false); setEditingId(null); setError(null) }}>
+          <X className="h-4 w-4 mr-1" /> Cancel
+        </Button>
+      </div>
+    </div>
+  )
+
+  if (isMobile) {
+    return (
+      <div className="px-4 py-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Suppliers</h2>
+          <Button size="sm" onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true) }}>
+            <Plus className="h-4 w-4 mr-1" /> Add
+          </Button>
+        </div>
+
+        {error && !showForm && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Supplier list */}
+        {isLoading ? (
+          <div className="space-y-0 -mx-4">
+            {Array.from({ length: 4 }).map((_, i) => <MobileListRowSkeleton key={i} />)}
+          </div>
+        ) : (suppliers || []).length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">No suppliers configured</div>
+        ) : (
+          <div className="-mx-4">
+            {(suppliers || []).map(s => (
+              <MobileListRow
+                key={s.id}
+                title={s.name}
+                subtitle={s.tally_party || undefined}
+                metrics={[
+                  { label: 'Lead', value: `${s.lead_time_default}d` },
+                  { label: 'Buffer', value: s.buffer_override != null ? `${s.buffer_override}x` : '\u2014' },
+                ]}
+                onClick={() => handleEdit(s)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Edit/Add BottomSheet */}
+        <BottomSheet
+          open={showForm}
+          onOpenChange={open => { if (!open) { setShowForm(false); setEditingId(null); setError(null) } }}
+          title={editingId ? 'Edit Supplier' : 'New Supplier'}
+        >
+          {renderForm()}
+          {editingId && (
+            <Button
+              variant="ghost"
+              className="w-full mt-2 text-red-600"
+              onClick={() => { setShowForm(false); setDeleteConfirmId(editingId) }}
+            >
+              <Trash2 className="h-4 w-4 mr-1" /> Delete Supplier
+            </Button>
+          )}
+        </BottomSheet>
+
+        {/* Delete confirmation BottomSheet */}
+        <BottomSheet
+          open={deleteConfirmId !== null}
+          onOpenChange={open => { if (!open) setDeleteConfirmId(null) }}
+          title="Delete Supplier?"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete this supplier? This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="destructive" className="flex-1" onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}>
+                Delete
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirmId(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </BottomSheet>
+      </div>
+    )
   }
 
   return (
@@ -92,58 +235,8 @@ export default function SupplierManagement() {
           <CardHeader>
             <CardTitle className="text-sm">{editingId ? 'Edit Supplier' : 'New Supplier'}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <Label>Name *</Label>
-                <Input value={form.name} onChange={e => updateField('name', e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Tally Party</Label>
-                <Input value={form.tally_party} onChange={e => updateField('tally_party', e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Currency</Label>
-                <Input value={form.currency} onChange={e => updateField('currency', e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Sea Lead Time (days)</Label>
-                <Input type="number" value={form.lead_time_sea ?? ''} onChange={e => updateField('lead_time_sea', e.target.value ? Number(e.target.value) : null)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Air Lead Time (days)</Label>
-                <Input type="number" value={form.lead_time_air ?? ''} onChange={e => updateField('lead_time_air', e.target.value ? Number(e.target.value) : null)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Default Lead Time (days)</Label>
-                <Input type="number" value={form.lead_time_default} onChange={e => updateField('lead_time_default', Number(e.target.value))} />
-              </div>
-              <div className="space-y-1">
-                <Label>Buffer Override</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  min="0.1"
-                  placeholder="Leave empty for global default"
-                  value={form.buffer_override ?? ''}
-                  onChange={e => updateField('buffer_override', e.target.value ? parseFloat(e.target.value) : null)}
-                  className="h-8"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Overrides global ABC buffer for this brand. E.g., 0.5 = conservative, 1.5 = safety stock.
-                </p>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>Notes</Label>
-              <Input value={form.notes} onChange={e => updateField('notes', e.target.value)} />
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleSubmit}><Check className="h-4 w-4 mr-1" /> Save</Button>
-              <Button variant="outline" onClick={() => { setShowForm(false); setEditingId(null) }}>
-                <X className="h-4 w-4 mr-1" /> Cancel
-              </Button>
-            </div>
+          <CardContent>
+            {renderForm()}
           </CardContent>
         </Card>
       )}

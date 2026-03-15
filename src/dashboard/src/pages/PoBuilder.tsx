@@ -19,11 +19,14 @@ import SkuSecondaryLine from '@/components/SkuSecondaryLine'
 import TrendIndicator from '@/components/TrendIndicator'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { ArrowLeft, Download, Calendar, Flame, AlertTriangle, ClipboardList } from 'lucide-react'
+import { ArrowLeft, Download, Calendar, Flame, AlertTriangle, ClipboardList, ChevronDown, ChevronRight } from 'lucide-react'
 import type { ReorderStatus, ReorderIntent, AbcClass, TrendDirection, SkuMatchResult, SkuMatchSummary, PoDataItem } from '@/lib/types'
 import SkuInputDialog from '@/components/SkuInputDialog'
 import SkuMatchReview from '@/components/SkuMatchReview'
 import HelpTip from '@/components/HelpTip'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
+import { BottomSheet } from '@/components/mobile/BottomSheet'
 
 interface PoRow {
   stock_item_name: string
@@ -176,12 +179,18 @@ export default function PoBuilder() {
     })
   }
 
+  const isMobile = useIsMobile()
+  const [configExpanded, setConfigExpanded] = useState(!isMobile)
+  const [editingSkuName, setEditingSkuName] = useState<string | null>(null)
+
   const includedRows = rows.filter(r => r.included)
   const totalItems = includedRows.length
   const totalQty = includedRows.reduce((sum, r) => sum + r.order_qty, 0)
 
   const hazardousIncluded = useMemo(() => rows.filter(r => r.included && r.is_hazardous), [rows])
   const hasHazardousConflict = leadTimeType === 'air' && hazardousIncluded.length > 0
+
+  const editingRow = editingSkuName ? rows.find(r => r.stock_item_name === editingSkuName) : null
 
   const handleExport = async () => {
     const payload = {
@@ -210,6 +219,257 @@ export default function PoBuilder() {
     link.click()
     link.remove()
     window.URL.revokeObjectURL(url)
+  }
+
+  if (isMobile) {
+    return (
+      <TooltipProvider>
+        <div className="px-4 py-4 space-y-4">
+          {/* Header */}
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/brands/${categoryName}/skus`)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h2 className="text-lg font-semibold truncate">
+              PO{subsetMode ? ' — Custom' : decodedName ? ` — ${decodedName}` : ''}
+            </h2>
+          </div>
+
+          {/* Active analysis period indicator */}
+          {(fromDate || toDate) && (
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded px-3 py-1.5 border flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>{fromDate || 'FY start'} — {toDate || 'today'}</span>
+            </div>
+          )}
+
+          {/* Collapsible Config */}
+          <Card>
+            <CardHeader
+              className="cursor-pointer pb-2"
+              onClick={() => setConfigExpanded(v => !v)}
+            >
+              <div className="flex items-center gap-2">
+                {configExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <CardTitle className="text-sm">Config</CardTitle>
+                {!configExpanded && (
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {leadTimeType === 'sea' ? 'Sea 180d' : leadTimeType === 'air' ? 'Air 30d' : `${customLeadTime}d`}
+                  </span>
+                )}
+              </div>
+            </CardHeader>
+            {configExpanded && (
+              <CardContent className="space-y-4 pt-0">
+                <div className="space-y-2">
+                  <Label>Lead Time</Label>
+                  <Select value={leadTimeType} onValueChange={v => { if (v) { setLeadTimeType(v); if (v === 'sea') setCustomLeadTime(180); if (v === 'air') setCustomLeadTime(30); } }}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sea">Sea Freight (180d)</SelectItem>
+                      <SelectItem value="air">Air Freight (30d)</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {leadTimeType === 'custom' && (
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      value={customLeadTime}
+                      onChange={e => setCustomLeadTime(Number(e.target.value))}
+                    />
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {bufferOverride ? (
+                    <>
+                      <Label>Buffer Override: {bufferValue.toFixed(1)}x</Label>
+                      <Slider
+                        value={[bufferValue]}
+                        onValueChange={v => setBufferValue(Array.isArray(v) ? v[0] : v)}
+                        min={1.0} max={2.0} step={0.1}
+                      />
+                      <button className="text-xs text-blue-600" onClick={() => setBufferOverride(false)}>
+                        Reset to per-SKU
+                      </button>
+                    </>
+                  ) : (
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => setBufferOverride(true)}>
+                      Override buffer (per-SKU)
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={includeWarning} onCheckedChange={setIncludeWarning} />
+                    <Label className="text-sm">Include Warning</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={includeOk} onCheckedChange={setIncludeOk} />
+                    <Label className="text-sm">Include OK</Label>
+                  </div>
+                </div>
+
+                <Button variant="outline" className="w-full" onClick={() => setShowSkuInput(true)}>
+                  <ClipboardList className="h-4 w-4 mr-1" /> Import SKU List
+                </Button>
+              </CardContent>
+            )}
+          </Card>
+
+          {/* Hazardous warning */}
+          {hasHazardousConflict && (
+            <Alert className="border-amber-300 bg-amber-50">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription>
+                <span className="text-amber-800 text-sm">
+                  {hazardousIncluded.length} hazardous item(s) can't ship by air.
+                </span>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Subset mode banner */}
+          {subsetMode && (
+            <div className="text-xs bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center justify-between">
+              <span className="text-blue-800">{rows.length} imported SKUs</span>
+              <Button variant="ghost" size="sm" className="text-blue-700 h-7 text-xs" onClick={clearSubsetMode}>Clear</Button>
+            </div>
+          )}
+
+          {/* Match review */}
+          {showMatchReview && matchResults && (
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Review Matches</CardTitle></CardHeader>
+              <CardContent>
+                <SkuMatchReview
+                  matches={matchResults.matches}
+                  summary={matchResults.summary}
+                  onConfirm={activateSubsetFromReview}
+                  onBack={() => { setShowMatchReview(false); setShowSkuInput(true) }}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Footer Totals */}
+          <div className="flex justify-between items-center px-3 py-2 bg-muted rounded-lg text-sm">
+            <span>Items: <b>{totalItems}</b></span>
+            <span>Qty: <b>{totalQty.toLocaleString()}</b></span>
+          </div>
+
+          {/* SKU List */}
+          {isLoading ? (
+            <div className="space-y-0 -mx-4">
+              {Array.from({ length: 5 }).map((_, i) => <MobileListRowSkeleton key={i} />)}
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No items need reordering</div>
+          ) : (
+            <div className="-mx-4">
+              {rows.map(r => {
+                const statusLabel = (r.reorder_status as string).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                return (
+                  <MobileListRow
+                    key={r.stock_item_name}
+                    title={r.stock_item_name}
+                    subtitle={r.part_no || undefined}
+                    status={r.reorder_status}
+                    statusLabel={statusLabel}
+                    metrics={[
+                      { label: 'Stk', value: String(r.current_stock) },
+                      { label: 'Qty', value: String(r.order_qty) },
+                    ]}
+                    className={cn(!r.included && 'opacity-40')}
+                    onClick={() => setEditingSkuName(r.stock_item_name)}
+                  />
+                )
+              })}
+            </div>
+          )}
+
+          {/* Export FAB */}
+          {totalItems > 0 && (
+            <button
+              className="fixed bottom-20 right-4 z-30 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center"
+              onClick={handleExport}
+            >
+              <Download className="h-5 w-5" />
+            </button>
+          )}
+
+          {/* Edit BottomSheet */}
+          <BottomSheet
+            open={!!editingSkuName}
+            onOpenChange={open => { if (!open) setEditingSkuName(null) }}
+            title="Edit SKU"
+          >
+            {editingRow && (
+              <div className="space-y-4">
+                <div>
+                  <p className="font-medium text-sm">{editingRow.stock_item_name}</p>
+                  <p className="text-xs text-muted-foreground">{editingRow.part_no || 'No part number'}</p>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-center text-xs">
+                  <div>
+                    <div className="text-muted-foreground">Stock</div>
+                    <div className="font-bold">{editingRow.current_stock}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Suggested</div>
+                    <div className="font-bold">{editingRow.suggested_qty ?? '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Days Left</div>
+                    <div className="font-bold">
+                      {editingRow.days_to_stockout === null ? 'N/A' : editingRow.days_to_stockout === 0 ? 'OUT' : `${editingRow.days_to_stockout}d`}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={editingRow.included}
+                    onCheckedChange={() => toggleRow(editingRow.stock_item_name)}
+                  />
+                  <Label className="text-sm">Include in PO</Label>
+                </div>
+                <div className="space-y-1">
+                  <Label>Order Quantity</Label>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    value={editingRow.order_qty}
+                    onChange={e => updateQty(editingRow.stock_item_name, Number(e.target.value))}
+                    disabled={!editingRow.included}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Notes</Label>
+                  <Input
+                    value={editingRow.notes}
+                    onChange={e => updateNotes(editingRow.stock_item_name, e.target.value)}
+                    placeholder="Notes"
+                    disabled={!editingRow.included}
+                  />
+                </div>
+                <Button className="w-full" onClick={() => setEditingSkuName(null)}>Done</Button>
+              </div>
+            )}
+          </BottomSheet>
+
+          <SkuInputDialog
+            open={showSkuInput}
+            onOpenChange={setShowSkuInput}
+            onSubmit={handleSkuSubmit}
+            isLoading={matchMutation.isPending}
+          />
+        </div>
+      </TooltipProvider>
+    )
   }
 
   return (

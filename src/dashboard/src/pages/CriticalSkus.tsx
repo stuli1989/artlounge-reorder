@@ -14,6 +14,9 @@ import VelocityToggle from '@/components/VelocityToggle'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
 import { Search, ChevronDown, ChevronRight } from 'lucide-react'
 import { vel, daysDisplay } from '@/lib/formatters'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
+import { FilterButton, FilterDrawer } from '@/components/mobile/FilterDrawer'
 
 const IMMEDIATE_DAYS = 7
 const URGENT_DAYS = 30
@@ -63,10 +66,12 @@ function TierCard({
   tier,
   items,
   velocityType,
+  isMobile,
 }: {
   tier: 'immediate' | 'urgent' | 'watch'
   items: CriticalItem[]
   velocityType: 'flat' | 'wma'
+  isMobile: boolean
 }) {
   const navigate = useNavigate()
   const config = tierConfig[tier]
@@ -89,58 +94,87 @@ function TierCard({
             {config.emoji} {config.title} — {items.length} items
           </CardTitle>
         </div>
-        <p className="text-xs text-muted-foreground ml-6">{config.description}</p>
+        {!isMobile && (
+          <p className="text-xs text-muted-foreground ml-6">{config.description}</p>
+        )}
       </CardHeader>
 
       {isExpanded && (
         <CardContent className="pt-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[80px]">Status</TableHead>
-                <TableHead className="text-xs">Brand</TableHead>
-                <TableHead>SKU Name</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead className="text-right">
-                  {velocityType === 'wma' ? 'WMA /mo' : 'Vel /mo'}
-                </TableHead>
-                <TableHead className="text-right">Days Left</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          {isMobile ? (
+            <div className="-mx-4">
               {displayItems.map((r) => {
                 const velValue = velocityType === 'wma'
                   ? (r.wma_total_velocity as number || 0)
                   : (r.total_velocity as number || 0)
+                const daysLeft = r.days_to_stockout as number | null
+                const daysStr = daysLeft === null ? 'N/A' : daysLeft === 0 ? 'OUT' : `${daysLeft}d`
                 return (
-                  <Fragment key={r.stock_item_name as string}>
-                    <TableRow
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(`/brands/${encodeURIComponent(r.category_name as string)}/skus`)}
-                    >
-                      <TableCell><StatusBadge status={r.reorder_status as 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'} /></TableCell>
-                      <TableCell className="font-medium text-xs">{r.category_name as string}</TableCell>
-                      <TableCell className="max-w-[280px] truncate" title={r.stock_item_name as string}>
-                        {r.stock_item_name as string}
-                      </TableCell>
-                      <TableCell className="text-right">{r.current_stock as number}</TableCell>
-                      <TableCell className="text-right">{vel(velValue)}</TableCell>
-                      <TableCell className="text-right">{daysDisplay(r.days_to_stockout as number | null)}</TableCell>
-                    </TableRow>
-                    <TableRow className="border-0">
-                      <TableCell colSpan={6} className="pt-0 pb-2 pl-12">
-                        <SkuSecondaryLine
-                          abc_class={r.abc_class as string}
-                          xyz_class={r.xyz_class as string}
-                          part_no={r.part_no as string}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  </Fragment>
+                  <MobileListRow
+                    key={r.stock_item_name as string}
+                    title={r.stock_item_name as string}
+                    subtitle={r.category_name as string}
+                    status={r.reorder_status as string}
+                    statusLabel={(r.reorder_status as string).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    metrics={[
+                      { label: 'Stk', value: String(r.current_stock as number) },
+                      { label: 'Vel', value: vel(velValue) },
+                      { label: 'Out', value: daysStr },
+                    ]}
+                    onClick={() => navigate(`/brands/${encodeURIComponent(r.category_name as string)}/skus`)}
+                  />
                 )
               })}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[80px]">Status</TableHead>
+                  <TableHead className="text-xs">Brand</TableHead>
+                  <TableHead>SKU Name</TableHead>
+                  <TableHead className="text-right">Stock</TableHead>
+                  <TableHead className="text-right">
+                    {velocityType === 'wma' ? 'WMA /mo' : 'Vel /mo'}
+                  </TableHead>
+                  <TableHead className="text-right">Days Left</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {displayItems.map((r) => {
+                  const velValue = velocityType === 'wma'
+                    ? (r.wma_total_velocity as number || 0)
+                    : (r.total_velocity as number || 0)
+                  return (
+                    <Fragment key={r.stock_item_name as string}>
+                      <TableRow
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => navigate(`/brands/${encodeURIComponent(r.category_name as string)}/skus`)}
+                      >
+                        <TableCell><StatusBadge status={r.reorder_status as 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'} /></TableCell>
+                        <TableCell className="font-medium text-xs">{r.category_name as string}</TableCell>
+                        <TableCell className="max-w-[280px] truncate" title={r.stock_item_name as string}>
+                          {r.stock_item_name as string}
+                        </TableCell>
+                        <TableCell className="text-right">{r.current_stock as number}</TableCell>
+                        <TableCell className="text-right">{vel(velValue)}</TableCell>
+                        <TableCell className="text-right">{daysDisplay(r.days_to_stockout as number | null)}</TableCell>
+                      </TableRow>
+                      <TableRow className="border-0">
+                        <TableCell colSpan={6} className="pt-0 pb-2 pl-12">
+                          <SkuSecondaryLine
+                            abc_class={r.abc_class as string}
+                            xyz_class={r.xyz_class as string}
+                            part_no={r.part_no as string}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    </Fragment>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
           {items.length > DEFAULT_SHOW && (
             <Button
               variant="ghost"
@@ -159,12 +193,14 @@ function TierCard({
 
 export default function CriticalSkus() {
   const [searchParams] = useSearchParams()
+  const isMobile = useIsMobile()
 
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'critical,warning')
   const [abcFilter, setAbcFilter] = useState<string>(searchParams.get('abc_class') || '')
   const [velocityType, setVelocityType] = useState<'flat' | 'wma'>('flat')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false)
   const pageSize = 500
 
   // Load analysis defaults from settings
@@ -214,6 +250,114 @@ export default function CriticalSkus() {
     }
     return groups
   }, [filtered])
+
+  const activeFilterCount = (statusFilter !== 'critical,warning' ? 1 : 0) + (abcFilter ? 1 : 0)
+
+  if (isMobile) {
+    return (
+      <TooltipProvider>
+        <div className="px-4 py-4 space-y-4">
+          <h2 className="text-lg font-semibold">Critical SKUs</h2>
+
+          {/* Search + Filter */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search SKUs or brands..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9 h-10"
+              />
+            </div>
+            <FilterButton activeCount={activeFilterCount} onClick={() => setFilterDrawerOpen(true)} />
+          </div>
+
+          {/* Tiered Groups */}
+          {isLoading ? (
+            <div className="space-y-0 -mx-4">
+              {Array.from({ length: 6 }).map((_, i) => <MobileListRowSkeleton key={i} />)}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(['immediate', 'urgent', 'watch'] as const).map(tier => (
+                <TierCard
+                  key={tier}
+                  tier={tier}
+                  items={tiers[tier]}
+                  velocityType={velocityType}
+                  isMobile
+                />
+              ))}
+
+              {filtered.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No critical SKUs found
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {total > pageSize && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {page * pageSize + 1}-{Math.min((page + 1) * pageSize, total)} of {total}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+                  Prev
+                </Button>
+                <Button variant="outline" size="sm" disabled={(page + 1) * pageSize >= total} onClick={() => setPage(p => p + 1)}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Filter Drawer */}
+          <FilterDrawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen}>
+            <div className="space-y-4">
+              <div>
+                <div className="text-sm font-medium mb-2">Status</div>
+                {[
+                  { value: 'critical,warning', label: 'Critical & Warning' },
+                  { value: 'critical', label: 'Critical Only' },
+                  { value: 'warning', label: 'Warning Only' },
+                  { value: 'out_of_stock', label: 'Out of Stock' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => { setStatusFilter(opt.value); setPage(0) }}
+                    className={`w-full text-left px-3 py-2.5 rounded text-sm ${statusFilter === opt.value ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div>
+                <div className="text-sm font-medium mb-2">ABC Class</div>
+                {[
+                  { value: '', label: 'All Classes' },
+                  { value: 'A', label: 'A Class' },
+                  { value: 'B', label: 'B Class' },
+                  { value: 'C', label: 'C Class' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => { setAbcFilter(opt.value); setPage(0) }}
+                    className={`w-full text-left px-3 py-2.5 rounded text-sm ${abcFilter === opt.value ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </FilterDrawer>
+        </div>
+      </TooltipProvider>
+    )
+  }
 
   return (
     <TooltipProvider>
@@ -272,6 +416,7 @@ export default function CriticalSkus() {
                 tier={tier}
                 items={tiers[tier]}
                 velocityType={velocityType}
+                isMobile={false}
               />
             ))}
 
