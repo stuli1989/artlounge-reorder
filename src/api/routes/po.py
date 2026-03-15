@@ -10,7 +10,7 @@ from openpyxl.styles import Font, Border, Side
 from api.database import get_db
 from api.sql_fragments import OVERRIDE_AGG_SUBQUERY
 from engine.effective_values import compute_effective_values, compute_effective_status
-from engine.reorder import must_stock_fallback_qty
+from engine.reorder import must_stock_fallback_qty, compute_coverage_days
 from engine.velocity import resolve_date_range, fetch_batch_velocities, velocities_from_batch_row, opt_float
 
 router = APIRouter(tags=["po"])
@@ -42,6 +42,7 @@ _PO_ORDER = "ORDER BY sm.days_to_stockout ASC NULLS LAST"
 def _compute_po_items(
     rows: list[dict],
     lead_time: int,
+    coverage_period: int,
     buffer: float | None,
     vel_by_sku: dict,
 ) -> list[dict]:
@@ -83,12 +84,12 @@ def _compute_po_items(
         sku_buffer = float(d.get("safety_buffer") or 1.3)
         effective_buffer = buffer if buffer is not None else sku_buffer
         if vals["eff_total"] > 0:
-            raw_need = vals["eff_total"] * lead_time * effective_buffer
+            raw_need = vals["eff_total"] * (lead_time + coverage_period) * effective_buffer
             suggested = max(0, round(raw_need - max(0, vals["eff_stock"])))
             if suggested == 0:
                 suggested = None
         elif d.get("reorder_intent") == "must_stock":
-            suggested = must_stock_fallback_qty(lead_time)
+            suggested = must_stock_fallback_qty(lead_time + coverage_period)
         else:
             suggested = None
 
@@ -101,6 +102,7 @@ def _compute_po_items(
             "reorder_status": st["eff_status"],
             "suggested_qty": suggested,
             "lead_time": lead_time,
+            "coverage_period": coverage_period,
             "buffer": effective_buffer,
             "sku_buffer": sku_buffer,
             "has_override": vals["has_stock_override"] or vals["has_velocity_override"],
@@ -120,6 +122,7 @@ def _compute_po_items(
 def po_data(
     category_name: str,
     lead_time: int = Query(None),
+    coverage_days: int = Query(None, description="Coverage period in days beyond lead time. Defaults to supplier setting."),
     buffer: float = Query(None),
     include_warning: bool = Query(True),
     include_ok: bool = Query(False),
@@ -139,6 +142,22 @@ def po_data(
                 """, (category_name,))
                 row = cur.fetchone()
                 lead_time = row["supplier_lead_time"] if row and row["supplier_lead_time"] else 180
+
+            # Get coverage period
+            if coverage_days is None:
+                cur.execute("""
+                    SELECT s.lead_time_default, s.typical_order_months
+                    FROM suppliers s
+                    WHERE UPPER(s.name) = UPPER(%s)
+                """, (category_name,))
+                srow = cur.fetchone()
+                if srow:
+                    coverage_days = compute_coverage_days(
+                        srow["lead_time_default"],
+                        srow["typical_order_months"],
+                    )
+                else:
+                    coverage_days = compute_coverage_days(lead_time, None)
 
             # Build status filter — skip SQL filter when custom range (status recalculated)
             statuses = ["critical", "out_of_stock"]
@@ -167,7 +186,7 @@ def po_data(
                 sku_names = [r["stock_item_name"] for r in rows]
                 vel_by_sku = fetch_batch_velocities(cur, sku_names, range_start, range_end)
 
-    result = _compute_po_items(rows, lead_time, buffer, vel_by_sku)
+    result = _compute_po_items(rows, lead_time, coverage_days, buffer, vel_by_sku)
 
     # Post-recalculation status filter when custom range is active
     if custom_range:
@@ -191,6 +210,7 @@ class PoExportRequest(BaseModel):
     category_name: str
     supplier_name: str = ""
     lead_time: int = 180
+    coverage_days: int = 180
     buffer: float = 1.3
     items: list[PoItem]
 
@@ -198,6 +218,7 @@ class PoExportRequest(BaseModel):
 class SkuMatchRequest(BaseModel):
     sku_names: list[str]
     lead_time: int | None = None
+    coverage_days: int | None = None
     buffer: float | None = None
     from_date: str | None = None
     to_date: str | None = None
@@ -313,6 +334,10 @@ def match_and_build_po(req: SkuMatchRequest):
                 row = cur.fetchone()
                 lead_time = row["supplier_lead_time"] if row and row["supplier_lead_time"] else 180
 
+            coverage_days = req.coverage_days
+            if coverage_days is None:
+                coverage_days = compute_coverage_days(lead_time, None)
+
             placeholders = ",".join(["%s"] * len(matched_names))
             cur.execute(f"""
                 SELECT {_PO_SELECT_COLS},
@@ -329,7 +354,7 @@ def match_and_build_po(req: SkuMatchRequest):
                 sku_names_list = [r["stock_item_name"] for r in rows]
                 vel_by_sku = fetch_batch_velocities(cur, sku_names_list, range_start, range_end)
 
-    po_result = _compute_po_items(rows, lead_time, req.buffer, vel_by_sku)
+    po_result = _compute_po_items(rows, lead_time, coverage_days, req.buffer, vel_by_sku)
 
     summary = {
         "total_input": len(matches),
@@ -384,7 +409,7 @@ def export_po(req: PoExportRequest):
 
     brand_prefix = req.category_name[:3].upper().replace(" ", "")
     ws["A4"] = f"Reference: PO-{brand_prefix}-{date.today().strftime('%Y%m%d')}"
-    ws["A5"] = f"Lead Time: {req.lead_time} days | Buffer: {req.buffer}x"
+    ws["A5"] = f"Lead Time: {req.lead_time} days | Coverage: {req.coverage_days} days | Buffer: {req.buffer}x"
 
     # Column headers (row 7) — now includes Part No
     headers = ["#", "Part No", "Item Name", "Qty", "Unit", "Current Stock",
