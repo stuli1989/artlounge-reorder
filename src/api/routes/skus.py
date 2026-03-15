@@ -203,7 +203,7 @@ def list_skus(
             store_ovr=opt_float(d["store_vel_override_value"]),
             total_ovr=opt_float(d["total_vel_override_value"]),
         )
-        st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time, d["safety_buffer"])
+        st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time, float(d["safety_buffer"] or 1.3))
 
         d["effective_stock"] = vals["eff_stock"]
         d["effective_wholesale_velocity"] = vals["eff_wholesale"]
