@@ -46,7 +46,8 @@ def recalculate_all_buffers(db_conn):
     with db_conn.cursor() as cur:
         cur.execute("""
             SELECT sc.tally_name AS category_name,
-                   s.name, s.lead_time_default, s.lead_time_sea, s.lead_time_air
+                   s.name, s.lead_time_default, s.lead_time_sea, s.lead_time_air,
+                   s.buffer_override
             FROM stock_categories sc
             JOIN suppliers s ON UPPER(s.name) = UPPER(sc.tally_name)
         """)
@@ -56,6 +57,7 @@ def recalculate_all_buffers(db_conn):
                 "lead_time_default": row["lead_time_default"],
                 "lead_time_sea": row["lead_time_sea"],
                 "lead_time_air": row["lead_time_air"],
+                "buffer_override": float(row["buffer_override"]) if row["buffer_override"] is not None else None,
             }
 
     today = date.today()
@@ -83,9 +85,13 @@ def recalculate_all_buffers(db_conn):
 
         buf = compute_safety_buffer(abc, xyz, buffer_settings, use_xyz=use_xyz)
 
+        # Apply per-brand buffer override if set
+        supplier = supplier_map.get(row["category_name"])
+        if supplier and supplier.get("buffer_override") is not None:
+            buf = supplier["buffer_override"]
+
         current_stock = _to_float(row["current_stock"])
         total_vel = _to_float(row["total_velocity"])
-        supplier = supplier_map.get(row["category_name"])
         lead_time = supplier["lead_time_default"] if supplier else DEFAULT_LEAD_TIME
         days_to_stockout = calculate_days_to_stockout(current_stock, total_vel)
 

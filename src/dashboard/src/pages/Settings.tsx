@@ -243,7 +243,7 @@ export default function Settings() {
                             <TableCell>
                               <Input
                                 type="number"
-                                min={0}
+                                min={0.1}
                                 step={0.1}
                                 value={value}
                                 onChange={e => setter(e.target.value)}
@@ -254,7 +254,7 @@ export default function Settings() {
                               <SaveButton
                                 settingKey={key}
                                 value={value}
-                                disabled={!value || isNaN(parseFloat(value)) || parseFloat(value) < 0}
+                                disabled={!value || isNaN(parseFloat(value)) || parseFloat(value) < 0.1}
                               />
                             </TableCell>
                           </TableRow>

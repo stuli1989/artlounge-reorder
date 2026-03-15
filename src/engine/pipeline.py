@@ -305,12 +305,15 @@ def run_computation_pipeline(db_conn, incremental=False):
         item_xyz_pref = item_data.get("use_xyz_buffer")  # None/True/False
         use_xyz = item_xyz_pref if item_xyz_pref is not None else use_xyz_global
         buf = compute_safety_buffer(abc, xyz, buffer_settings, use_xyz=use_xyz)
+        # Apply per-brand buffer override
+        supplier = supplier_map.get(m["category_name"])
+        if supplier and supplier.get("buffer_override") is not None:
+            buf = supplier["buffer_override"]
         m["safety_buffer"] = buf
 
         # Recompute reorder status with variable safety buffer
         current_stock = m["current_stock"]
         total_vel = m["total_velocity"]
-        supplier = supplier_map.get(m["category_name"])
         lead_time = supplier["lead_time_default"] if supplier else DEFAULT_LEAD_TIME
         days_to_stockout = calculate_days_to_stockout(current_stock, total_vel)
 
@@ -421,7 +424,8 @@ def fetch_all_supplier_mappings(db_conn) -> dict[str, dict]:
     with db_conn.cursor() as cur:
         cur.execute("""
             SELECT sc.tally_name AS category_name,
-                   s.name, s.lead_time_default, s.lead_time_sea, s.lead_time_air
+                   s.name, s.lead_time_default, s.lead_time_sea, s.lead_time_air,
+                   s.buffer_override
             FROM stock_categories sc
             JOIN suppliers s ON UPPER(s.name) = UPPER(sc.tally_name)
         """)
@@ -431,6 +435,7 @@ def fetch_all_supplier_mappings(db_conn) -> dict[str, dict]:
                 "lead_time_default": row[2],
                 "lead_time_sea": row[3],
                 "lead_time_air": row[4],
+                "buffer_override": float(row[5]) if row[5] is not None else None,
             }
     return mapping
 

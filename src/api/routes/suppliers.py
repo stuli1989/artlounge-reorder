@@ -1,7 +1,8 @@
 """Supplier CRUD API endpoints."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from api.database import get_db
+from engine.recalculate_buffers import recalculate_all_buffers
 
 router = APIRouter(tags=["suppliers"])
 
@@ -16,6 +17,7 @@ class SupplierCreate(BaseModel):
     min_order_value: float | None = None
     typical_order_months: int | None = None
     notes: str = ""
+    buffer_override: float | None = None
 
 
 class SupplierUpdate(BaseModel):
@@ -28,6 +30,7 @@ class SupplierUpdate(BaseModel):
     min_order_value: float | None = None
     typical_order_months: int | None = None
     notes: str | None = None
+    buffer_override: float | None = None
 
 
 @router.get("/suppliers")
@@ -40,34 +43,52 @@ def list_suppliers():
     return [dict(r) for r in rows]
 
 
+def _recalc_buffers():
+    """Background task: recalculate all safety buffers and reorder statuses."""
+    with get_db() as conn:
+        recalculate_all_buffers(conn)
+
+
 @router.post("/suppliers")
-def create_supplier(req: SupplierCreate):
+def create_supplier(req: SupplierCreate, background_tasks: BackgroundTasks):
     """Add a new supplier."""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 INSERT INTO suppliers (name, tally_party, lead_time_sea, lead_time_air,
-                    lead_time_default, currency, min_order_value, typical_order_months, notes)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    lead_time_default, currency, min_order_value, typical_order_months,
+                    notes, buffer_override)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING *
             """, (req.name, req.tally_party, req.lead_time_sea, req.lead_time_air,
                   req.lead_time_default, req.currency, req.min_order_value,
-                  req.typical_order_months, req.notes))
+                  req.typical_order_months, req.notes, req.buffer_override))
             row = cur.fetchone()
         conn.commit()
+
+    if req.buffer_override is not None:
+        background_tasks.add_task(_recalc_buffers)
+
     return dict(row)
 
 
 @router.put("/suppliers/{supplier_id}")
-def update_supplier(supplier_id: int, req: SupplierUpdate):
+def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: BackgroundTasks):
     """Update an existing supplier."""
+    # buffer_override can be explicitly set to None (to clear it), so include
+    # it whenever the client sends the field (even as null).
+    sent_fields = req.model_dump(exclude_unset=True)
     updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    if "buffer_override" in sent_fields:
+        updates["buffer_override"] = sent_fields["buffer_override"]
     if not updates:
         raise HTTPException(400, "No fields to update")
 
     set_parts = [f"{k} = %s" for k in updates]
     values = list(updates.values())
     values.append(supplier_id)
+
+    buffer_changed = "buffer_override" in sent_fields
 
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -79,6 +100,10 @@ def update_supplier(supplier_id: int, req: SupplierUpdate):
             if not row:
                 raise HTTPException(404, "Supplier not found")
         conn.commit()
+
+    if buffer_changed:
+        background_tasks.add_task(_recalc_buffers)
+
     return dict(row)
 
 
