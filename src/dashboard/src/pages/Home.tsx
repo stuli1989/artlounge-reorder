@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useState, useRef, useEffect } from 'react'
 import { fetchDashboardSummary, fetchBrands } from '@/lib/api'
@@ -14,12 +14,13 @@ import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/Mobile
 
 export default function Home() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const isMobile = useIsMobile()
   const [searchQuery, setSearchQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
 
-  const { data: s, isLoading } = useQuery({
+  const { data: s, isLoading, isError } = useQuery({
     queryKey: ['dashboardSummary'],
     queryFn: fetchDashboardSummary,
   })
@@ -43,6 +44,17 @@ export default function Home() {
   const filteredBrands = (brands ?? []).filter(b =>
     b.category_name.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center">
+        <p className="text-muted-foreground mb-4">Failed to load dashboard data</p>
+        <button onClick={() => queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] })} className="text-primary hover:underline">
+          Retry
+        </button>
+      </div>
+    )
+  }
 
   if (isLoading || !s) {
     return (
@@ -208,7 +220,6 @@ export default function Home() {
                     <TableHead>Brand</TableHead>
                     <TableHead className="text-right">Critical</TableHead>
                     <TableHead className="text-right">Warning</TableHead>
-                    <TableHead className="text-right">Out of Stock</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
@@ -230,7 +241,6 @@ export default function Home() {
                           {brand.warning_skus || '-'}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">&mdash;</TableCell>
                       <TableCell className="text-right">
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
                       </TableCell>

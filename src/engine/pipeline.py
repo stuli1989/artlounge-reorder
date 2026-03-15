@@ -647,10 +647,15 @@ def compute_last_sale_date(transactions: list[dict]):
 
 
 def compute_zero_activity_days(positions: list[dict], opening_gap: float = 0.0) -> int:
-    """Count days where item had stock but zero inward and outward movement."""
+    """Count days where item had stock but zero inward and outward movement.
+
+    Uses closing_qty directly (backward-reconstructed from Tally's authoritative
+    closing balance) without adding opening_gap. The gap represents a one-time
+    FY-start discrepancy and should not inflate every day's quantity.
+    """
     count = 0
     for p in positions:
-        if (p.get("closing_qty", 0) + opening_gap) > 0 and p.get("inward_qty", 0) == 0 and p.get("outward_qty", 0) == 0:
+        if p.get("closing_qty", 0) > 0 and p.get("inward_qty", 0) == 0 and p.get("outward_qty", 0) == 0:
             count += 1
     return count
 

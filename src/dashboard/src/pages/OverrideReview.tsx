@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { AlertTriangle, CheckCircle2, Trash2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Trash2, Loader2 } from 'lucide-react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
 
@@ -25,6 +25,7 @@ export default function OverrideReview() {
   const queryClient = useQueryClient()
   const isMobile = useIsMobile()
   const [staleOnly, setStaleOnly] = useState(false)
+  const [pendingAction, setPendingAction] = useState<{ id: number; action: string } | null>(null)
 
   const { data: overrides, isLoading } = useQuery({
     queryKey: ['overrides', staleOnly],
@@ -41,6 +42,9 @@ export default function OverrideReview() {
       queryClient.invalidateQueries({ queryKey: ['skus'] })
       queryClient.invalidateQueries({ queryKey: ['breakdown'] })
       queryClient.invalidateQueries({ queryKey: ['poData'] })
+    },
+    onSettled: () => {
+      setPendingAction(null)
     },
   })
 
@@ -110,9 +114,13 @@ export default function OverrideReview() {
                         size="sm"
                         className="h-8 text-xs"
                         disabled={reviewMut.isPending}
-                        onClick={() => reviewMut.mutate({ id: o.id, action: 'keep' })}
+                        onClick={() => { setPendingAction({ id: o.id, action: 'keep' }); reviewMut.mutate({ id: o.id, action: 'keep' }) }}
                       >
-                        <CheckCircle2 className="h-3 w-3 mr-1" /> Keep
+                        {pendingAction?.id === o.id && pendingAction.action === 'keep' ? (
+                          <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Saving...</>
+                        ) : (
+                          <><CheckCircle2 className="h-3 w-3 mr-1" /> Keep</>
+                        )}
                       </Button>
                     )}
                     <Button
@@ -120,9 +128,13 @@ export default function OverrideReview() {
                       size="sm"
                       className="h-8 text-xs text-red-600"
                       disabled={reviewMut.isPending}
-                      onClick={() => reviewMut.mutate({ id: o.id, action: 'remove' })}
+                      onClick={() => { setPendingAction({ id: o.id, action: 'remove' }); reviewMut.mutate({ id: o.id, action: 'remove' }) }}
                     >
-                      <Trash2 className="h-3 w-3 mr-1" /> Remove
+                      {pendingAction?.id === o.id && pendingAction.action === 'remove' ? (
+                        <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Removing...</>
+                      ) : (
+                        <><Trash2 className="h-3 w-3 mr-1" /> Remove</>
+                      )}
                     </Button>
                   </div>
                 </MobileListRow>
@@ -237,9 +249,13 @@ export default function OverrideReview() {
                           variant="outline"
                           size="sm"
                           disabled={reviewMut.isPending}
-                          onClick={() => reviewMut.mutate({ id: o.id, action: 'keep' })}
+                          onClick={() => { setPendingAction({ id: o.id, action: 'keep' }); reviewMut.mutate({ id: o.id, action: 'keep' }) }}
                         >
-                          Keep
+                          {pendingAction?.id === o.id && pendingAction.action === 'keep' ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            'Keep'
+                          )}
                         </Button>
                       )}
                       <Button
@@ -247,9 +263,13 @@ export default function OverrideReview() {
                         size="sm"
                         className="text-red-600"
                         disabled={reviewMut.isPending}
-                        onClick={() => reviewMut.mutate({ id: o.id, action: 'remove' })}
+                        onClick={() => { setPendingAction({ id: o.id, action: 'remove' }); reviewMut.mutate({ id: o.id, action: 'remove' }) }}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        {pendingAction?.id === o.id && pendingAction.action === 'remove' ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
                       </Button>
                     </div>
                   </TableCell>

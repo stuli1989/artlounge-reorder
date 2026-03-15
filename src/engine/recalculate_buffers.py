@@ -4,6 +4,9 @@ Called when buffer settings change in the UI — no Tally sync needed.
 """
 from decimal import Decimal
 from datetime import date, timedelta
+from collections import defaultdict
+
+import psycopg2.extras
 
 from engine.classification import compute_safety_buffer
 from engine.reorder import calculate_days_to_stockout, determine_reorder_status, must_stock_fallback_qty, DEFAULT_LEAD_TIME
@@ -120,49 +123,50 @@ def recalculate_all_buffers(db_conn):
 
     # ── Batch update sku_metrics ──
     with db_conn.cursor() as cur:
-        for u in updates:
-            cur.execute("""
-                UPDATE sku_metrics
-                SET safety_buffer = %s,
-                    reorder_status = %s,
-                    reorder_qty_suggested = %s,
-                    days_to_stockout = %s,
-                    estimated_stockout_date = %s
-                WHERE stock_item_name = %s
-            """, u)
+        psycopg2.extras.execute_batch(cur, """
+            UPDATE sku_metrics
+            SET safety_buffer = %s,
+                reorder_status = %s,
+                reorder_qty_suggested = %s,
+                days_to_stockout = %s,
+                estimated_stockout_date = %s
+            WHERE stock_item_name = %s
+        """, updates, page_size=1000)
     db_conn.commit()
 
     # ── Recompute brand rollups ──
-    # Fetch categories (dict-cursor compatible)
-    with db_conn.cursor() as cur:
-        cur.execute("SELECT tally_name FROM stock_categories ORDER BY tally_name")
-        categories = [row["tally_name"] for row in cur.fetchall()]
-
+    # Fetch ALL sku_metrics in one query and group by category in Python
     NUMERIC_COLS = {"current_stock", "wholesale_velocity", "online_velocity",
                     "total_velocity", "days_to_stockout", "reorder_qty_suggested",
                     "total_revenue", "safety_buffer"}
 
-    brand_batch = []
-    for cat_name in categories:
-        with db_conn.cursor() as cur:
-            cur.execute("""
-                SELECT sm.stock_item_name, sm.current_stock, sm.wholesale_velocity, sm.online_velocity,
-                       sm.total_velocity, sm.total_in_stock_days, sm.days_to_stockout, sm.reorder_status,
-                       sm.reorder_qty_suggested, sm.last_sale_date, sm.abc_class, sm.xyz_class,
-                       sm.total_revenue, sm.safety_buffer,
-                       si.reorder_intent, si.is_active
-                FROM sku_metrics sm
-                JOIN stock_items si ON si.tally_name = sm.stock_item_name
-                WHERE sm.category_name = %s
-            """, (cat_name,))
-            sku_rows = []
-            for r in cur.fetchall():
-                d = dict(r)
-                for c in NUMERIC_COLS:
-                    if d.get(c) is not None:
-                        d[c] = float(d[c])
-                sku_rows.append(d)
+    by_category = defaultdict(list)
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT sm.stock_item_name, sm.category_name,
+                   sm.current_stock, sm.wholesale_velocity, sm.online_velocity,
+                   sm.total_velocity, sm.total_in_stock_days, sm.days_to_stockout, sm.reorder_status,
+                   sm.reorder_qty_suggested, sm.last_sale_date, sm.abc_class, sm.xyz_class,
+                   sm.total_revenue, sm.safety_buffer,
+                   si.reorder_intent, si.is_active
+            FROM sku_metrics sm
+            JOIN stock_items si ON si.tally_name = sm.stock_item_name
+        """)
+        for r in cur.fetchall():
+            d = dict(r)
+            for c in NUMERIC_COLS:
+                if d.get(c) is not None:
+                    d[c] = float(d[c])
+            by_category[d["category_name"]].append(d)
 
+    # Also fetch categories with no SKUs so they get zero-count rollups
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT tally_name FROM stock_categories ORDER BY tally_name")
+        all_categories = [row["tally_name"] for row in cur.fetchall()]
+
+    brand_batch = []
+    for cat_name in all_categories:
+        sku_rows = by_category.get(cat_name, [])
         supplier = supplier_map.get(cat_name)
         brand_data = compute_brand_metrics(cat_name, sku_rows, supplier, today=today)
         brand_batch.append(brand_data)

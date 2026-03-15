@@ -52,6 +52,9 @@ export default function PartyClassification() {
       setEditingParty(null)
       queryClient.invalidateQueries({ queryKey: ['unclassifiedParties'] })
       queryClient.invalidateQueries({ queryKey: ['syncStatus'] })
+    } catch (err) {
+      console.error("Failed to classify party:", err)
+      alert("Failed to save classification. Please try again.")
     } finally {
       setSaving(null)
     }

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     currency            TEXT DEFAULT 'USD',
     min_order_value     NUMERIC,
     typical_order_months INTEGER DEFAULT 6,
+    buffer_override     NUMERIC,
     notes               TEXT,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW()
@@ -33,7 +34,8 @@ CREATE TABLE IF NOT EXISTS stock_categories (
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_stock_categories_name ON stock_categories(tally_name);
+-- Note: stock_categories.tally_name has a UNIQUE constraint which creates an index;
+-- no separate idx_stock_categories_name needed.
 
 -- ============================================================
 -- 3. stock_items — SKUs
@@ -57,7 +59,8 @@ CREATE TABLE IF NOT EXISTS stock_items (
     CONSTRAINT valid_reorder_intent CHECK (reorder_intent IN ('must_stock', 'normal', 'do_not_reorder'))
 );
 CREATE INDEX IF NOT EXISTS idx_stock_items_category ON stock_items(category_name);
-CREATE INDEX IF NOT EXISTS idx_stock_items_name ON stock_items(tally_name);
+-- Note: stock_items.tally_name has a UNIQUE constraint which creates an index;
+-- no separate idx_stock_items_name needed.
 CREATE INDEX IF NOT EXISTS idx_stock_items_intent ON stock_items(reorder_intent);
 
 -- ============================================================
@@ -98,8 +101,13 @@ CREATE TABLE IF NOT EXISTS transactions (
     tally_master_id     TEXT,
     tally_alter_id      TEXT,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(txn_date, voucher_number, stock_item_name, quantity, is_inward, rate)
+    CONSTRAINT valid_txn_channel CHECK (channel IN (
+        'supplier', 'wholesale', 'online', 'store', 'internal', 'ignore', 'unclassified'
+    ))
 );
+-- Dedup index uses COALESCE to handle NULL voucher_number (NULL != NULL in UNIQUE)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_transactions_dedup
+    ON transactions(txn_date, COALESCE(voucher_number, ''), stock_item_name, quantity, is_inward, rate);
 CREATE INDEX IF NOT EXISTS idx_txn_date ON transactions(txn_date);
 CREATE INDEX IF NOT EXISTS idx_txn_stock_item ON transactions(stock_item_name);
 CREATE INDEX IF NOT EXISTS idx_txn_party ON transactions(party_name);
@@ -110,7 +118,7 @@ CREATE INDEX IF NOT EXISTS idx_txn_item_date ON transactions(stock_item_name, tx
 -- 6. daily_stock_positions — Reconstructed daily stock levels
 -- ============================================================
 CREATE TABLE IF NOT EXISTS daily_stock_positions (
-    id                  SERIAL PRIMARY KEY,
+    id                  BIGSERIAL PRIMARY KEY,
     stock_item_name     TEXT NOT NULL,
     position_date       DATE NOT NULL,
     opening_qty         NUMERIC NOT NULL,
@@ -123,7 +131,8 @@ CREATE TABLE IF NOT EXISTS daily_stock_positions (
     is_in_stock         BOOLEAN NOT NULL,
     UNIQUE(stock_item_name, position_date)
 );
-CREATE INDEX IF NOT EXISTS idx_daily_pos_item ON daily_stock_positions(stock_item_name);
+-- Note: idx_daily_pos_item and idx_dsp_item_date_desc removed as redundant
+-- (subsumed by the composite UNIQUE index and covering index)
 CREATE INDEX IF NOT EXISTS idx_daily_pos_date ON daily_stock_positions(position_date);
 CREATE INDEX IF NOT EXISTS idx_daily_pos_in_stock ON daily_stock_positions(stock_item_name, is_in_stock);
 
@@ -154,6 +163,8 @@ CREATE TABLE IF NOT EXISTS sku_metrics (
     CONSTRAINT valid_reorder_status CHECK (reorder_status IN (
         'critical', 'warning', 'ok', 'out_of_stock', 'no_data'
     ))
+    -- Note: CHECK constraints for trend_direction, abc_class, xyz_class are added
+    -- by migration 006_check_constraints.sql (columns added by migration_v2.sql)
 );
 CREATE INDEX IF NOT EXISTS idx_sku_metrics_category ON sku_metrics(category_name);
 CREATE INDEX IF NOT EXISTS idx_sku_metrics_status ON sku_metrics(reorder_status);
@@ -165,13 +176,13 @@ CREATE INDEX IF NOT EXISTS idx_sku_metrics_stockout ON sku_metrics(days_to_stock
 CREATE TABLE IF NOT EXISTS brand_metrics (
     id                          SERIAL PRIMARY KEY,
     category_name               TEXT UNIQUE NOT NULL,
-    total_skus                  INTEGER DEFAULT 0,
-    in_stock_skus               INTEGER DEFAULT 0,
-    out_of_stock_skus           INTEGER DEFAULT 0,
-    critical_skus               INTEGER DEFAULT 0,
-    warning_skus                INTEGER DEFAULT 0,
-    ok_skus                     INTEGER DEFAULT 0,
-    no_data_skus                INTEGER DEFAULT 0,
+    total_skus                  INTEGER NOT NULL DEFAULT 0,
+    in_stock_skus               INTEGER NOT NULL DEFAULT 0,
+    out_of_stock_skus           INTEGER NOT NULL DEFAULT 0,
+    critical_skus               INTEGER NOT NULL DEFAULT 0,
+    warning_skus                INTEGER NOT NULL DEFAULT 0,
+    ok_skus                     INTEGER NOT NULL DEFAULT 0,
+    no_data_skus                INTEGER NOT NULL DEFAULT 0,
     avg_days_to_stockout        NUMERIC,
     dead_stock_skus             INTEGER DEFAULT 0,
     slow_mover_skus             INTEGER DEFAULT 0,
@@ -200,6 +211,7 @@ CREATE TABLE IF NOT EXISTS sync_log (
     sync_started        TIMESTAMPTZ NOT NULL,
     sync_completed      TIMESTAMPTZ,
     status              TEXT DEFAULT 'running',
+    CONSTRAINT valid_sync_status CHECK (status IN ('running', 'completed', 'failed')),
     categories_synced   INTEGER DEFAULT 0,
     items_synced        INTEGER DEFAULT 0,
     transactions_synced INTEGER DEFAULT 0,

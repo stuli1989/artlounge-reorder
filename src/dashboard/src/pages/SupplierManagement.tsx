@@ -278,7 +278,11 @@ export default function SupplierManagement() {
                       <Button variant="ghost" size="sm" onClick={() => handleEdit(s)}>
                         <Pencil className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(s.id)}>
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        if (window.confirm(`Delete supplier "${s.name}"?`)) {
+                          handleDelete(s.id)
+                        }
+                      }}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>

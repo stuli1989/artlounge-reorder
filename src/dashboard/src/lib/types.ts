@@ -384,3 +384,28 @@ export interface SkuMatchResponse {
   po_data: PoDataItem[]
   summary: SkuMatchSummary
 }
+
+export interface CriticalItem {
+  stock_item_name: string
+  category_name: string
+  current_stock: number
+  total_velocity: number
+  wholesale_velocity: number
+  online_velocity: number
+  days_of_stock: number | null
+  days_to_stockout: number | null
+  reorder_status: string
+  safety_buffer: number
+  abc_class: string | null
+  xyz_class: string | null
+  is_hazardous: boolean
+  reorder_intent: string
+  part_no: string | null
+  wma_total_velocity: number
+  wma_wholesale_velocity: number
+}
+
+export interface CriticalSkusResponse {
+  items: CriticalItem[]
+  total: number
+}

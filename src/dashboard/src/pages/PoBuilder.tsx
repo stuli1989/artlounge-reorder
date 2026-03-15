@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchPoData, exportPo, matchSkusForPo } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -54,6 +54,7 @@ interface RowOverride {
 export default function PoBuilder() {
   const { categoryName } = useParams<{ categoryName: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const decodedName = decodeURIComponent(categoryName || '')
 
   const [searchParams] = useSearchParams()
@@ -125,7 +126,7 @@ export default function PoBuilder() {
 
   const leadTime = leadTimeType === 'sea' ? 180 : leadTimeType === 'air' ? 30 : customLeadTime
 
-  const { data: poData, isLoading } = useQuery({
+  const { data: poData, isLoading, isError: isPoError } = useQuery({
     queryKey: ['poData', decodedName, leadTime, bufferOverride, bufferValue, includeWarning, includeOk, fromDate, toDate],
     queryFn: () => {
       const params: Record<string, string | number | boolean> = {
@@ -192,32 +193,37 @@ export default function PoBuilder() {
   const editingRow = editingSkuName ? rows.find(r => r.stock_item_name === editingSkuName) : null
 
   const handleExport = async () => {
-    const payload = {
-      category_name: subsetMode ? 'CUSTOM' : decodedName,
-      supplier_name: '',
-      lead_time: leadTime,
-      buffer: bufferOverride ? bufferValue : (includedRows.length > 0 ? includedRows.reduce((s, r) => s + r.sku_buffer, 0) / includedRows.length : 1.3),
-      items: includedRows.map(r => ({
-        stock_item_name: r.stock_item_name,
-        part_no: r.part_no || '',
-        order_qty: r.order_qty,
-        current_stock: r.current_stock,
-        velocity_per_month: r.total_velocity * 30,
-        days_to_stockout: r.days_to_stockout,
-        notes: r.notes,
-      })),
-    }
+    try {
+      const payload = {
+        category_name: subsetMode ? 'CUSTOM' : decodedName,
+        supplier_name: '',
+        lead_time: leadTime,
+        buffer: bufferOverride ? bufferValue : (includedRows.length > 0 ? includedRows.reduce((s, r) => s + r.sku_buffer, 0) / includedRows.length : 1.3),
+        items: includedRows.map(r => ({
+          stock_item_name: r.stock_item_name,
+          part_no: r.part_no || '',
+          order_qty: r.order_qty,
+          current_stock: r.current_stock,
+          velocity_per_month: r.total_velocity * 30,
+          days_to_stockout: r.days_to_stockout,
+          notes: r.notes,
+        })),
+      }
 
-    const blob = await exportPo(payload)
-    const url = window.URL.createObjectURL(new Blob([blob]))
-    const link = document.createElement('a')
-    link.href = url
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-    link.setAttribute('download', `PO-${decodedName.slice(0, 3).toUpperCase()}-${today}.xlsx`)
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.URL.revokeObjectURL(url)
+      const blob = await exportPo(payload)
+      const url = window.URL.createObjectURL(new Blob([blob]))
+      const link = document.createElement('a')
+      link.href = url
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      link.setAttribute('download', `PO-${decodedName.slice(0, 3).toUpperCase()}-${today}.xlsx`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Export failed:", err)
+      alert("Failed to export PO. Please try again.")
+    }
   }
 
   if (isMobile) {
@@ -226,7 +232,7 @@ export default function PoBuilder() {
         <div className="px-4 py-4 space-y-4">
           {/* Header */}
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate(`/brands/${categoryName}/skus`)}>
+            <Button variant="ghost" size="sm" onClick={() => navigate(categoryName ? `/brands/${categoryName}/skus` : '/brands')}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-lg font-semibold truncate">
@@ -362,7 +368,14 @@ export default function PoBuilder() {
           </div>
 
           {/* SKU List */}
-          {isLoading ? (
+          {isPoError ? (
+            <div className="flex flex-col items-center justify-center p-8 text-center">
+              <p className="text-muted-foreground mb-4">Failed to load PO data</p>
+              <button onClick={() => queryClient.invalidateQueries({ queryKey: ['poData'] })} className="text-primary hover:underline text-sm">
+                Retry
+              </button>
+            </div>
+          ) : isLoading ? (
             <div className="space-y-0 -mx-4">
               {Array.from({ length: 5 }).map((_, i) => <MobileListRowSkeleton key={i} />)}
             </div>
@@ -476,8 +489,8 @@ export default function PoBuilder() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/brands/${categoryName}/skus`)}>
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back to SKUs
+        <Button variant="ghost" size="sm" onClick={() => navigate(categoryName ? `/brands/${categoryName}/skus` : '/brands')}>
+          <ArrowLeft className="h-4 w-4 mr-1" /> {categoryName ? 'Back to SKUs' : 'Back to Brands'}
         </Button>
         <h2 className="text-xl font-semibold">
           Purchase Order{subsetMode ? ' — Custom List' : decodedName ? ` — ${decodedName}` : ''}
@@ -635,7 +648,14 @@ export default function PoBuilder() {
       )}
 
       {/* Table */}
-      {isLoading ? (
+      {isPoError ? (
+        <div className="flex flex-col items-center justify-center p-12 text-center">
+          <p className="text-muted-foreground mb-4">Failed to load PO data</p>
+          <button onClick={() => queryClient.invalidateQueries({ queryKey: ['poData'] })} className="text-primary hover:underline">
+            Retry
+          </button>
+        </div>
+      ) : isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Loading PO data...</div>
       ) : (
         <div className="border rounded-lg" data-tour="po-table">

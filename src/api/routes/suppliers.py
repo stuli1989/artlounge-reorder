@@ -75,14 +75,20 @@ def create_supplier(req: SupplierCreate, background_tasks: BackgroundTasks):
 @router.put("/suppliers/{supplier_id}")
 def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: BackgroundTasks):
     """Update an existing supplier."""
+    ALLOWED_SUPPLIER_COLUMNS = {
+        "name", "tally_party", "lead_time_sea", "lead_time_air",
+        "lead_time_default", "currency", "min_order_value",
+        "typical_order_months", "notes", "buffer_override",
+    }
+
     # buffer_override can be explicitly set to None (to clear it), so include
     # it whenever the client sends the field (even as null).
     sent_fields = req.model_dump(exclude_unset=True)
-    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    updates = {k: v for k, v in req.model_dump().items() if v is not None and k in ALLOWED_SUPPLIER_COLUMNS}
     if "buffer_override" in sent_fields:
         updates["buffer_override"] = sent_fields["buffer_override"]
     if not updates:
-        raise HTTPException(400, "No fields to update")
+        raise HTTPException(400, "No valid fields to update")
 
     set_parts = [f"{k} = %s" for k in updates]
     values = list(updates.values())

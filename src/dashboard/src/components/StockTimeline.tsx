@@ -236,7 +236,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
               </TableRow>
             ) : (
               filteredTxns.map((t: Transaction, i: number) => (
-                <TableRow key={i}>
+                <TableRow key={`${t.txn_date}-${t.voucher_number}-${i}`}>
                   <TableCell className="text-xs">{fmtDate(t.txn_date)}</TableCell>
                   <TableCell className="text-xs max-w-[200px] truncate">{t.party_name}</TableCell>
                   {!isMobile && <TableCell className="text-xs">{t.voucher_type}</TableCell>}

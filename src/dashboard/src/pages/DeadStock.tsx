@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Fragment } from 'react'
+import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchSkus, fetchSettings, updateSetting } from '@/lib/api'
@@ -15,6 +15,7 @@ import StockTimeline from '@/components/StockTimeline'
 import CalculationBreakdown from '@/components/CalculationBreakdown'
 import AbcBadge from '@/components/AbcBadge'
 import { ArrowLeft, Snowflake, ChevronDown, ChevronRight, Search, ClipboardList } from 'lucide-react'
+import { vel } from '@/lib/formatters'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
 
@@ -33,6 +34,8 @@ export default function DeadStock() {
   const [saving, setSaving] = useState(false)
   const [thresholdExpanded, setThresholdExpanded] = useState(!isMobile)
 
+  const hasInitialized = useRef(false)
+
   // Load settings
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -40,14 +43,17 @@ export default function DeadStock() {
   })
 
   useEffect(() => {
-    if (settings?.dead_stock_threshold_days && thresholdInput === '') {
-      setThresholdInput(settings.dead_stock_threshold_days)
+    if (!hasInitialized.current && settings) {
+      if (settings.dead_stock_threshold_days) {
+        setThresholdInput(settings.dead_stock_threshold_days)
+      }
+      if (settings.slow_mover_velocity_threshold) {
+        // Convert daily to monthly for display
+        setSlowThresholdInput(String((parseFloat(settings.slow_mover_velocity_threshold) * 30).toFixed(1)))
+      }
+      hasInitialized.current = true
     }
-    if (settings?.slow_mover_velocity_threshold && slowThresholdInput === '') {
-      // Convert daily to monthly for display
-      setSlowThresholdInput(String((parseFloat(settings.slow_mover_velocity_threshold) * 30).toFixed(1)))
-    }
-  }, [settings, thresholdInput, slowThresholdInput])
+  }, [settings])
 
   const deadThreshold = settings?.dead_stock_threshold_days || '30'
   const slowThresholdDaily = settings?.slow_mover_velocity_threshold || '0.1'
@@ -109,8 +115,6 @@ export default function DeadStock() {
     setSaving(true)
     thresholdMutation.mutate({ key: 'slow_mover_velocity_threshold', value: daily })
   }
-
-  const vel = (v: number) => (v * 30).toFixed(1)
 
   const renderExpandedDetail = (stockItemName: string) => (
     <Tabs defaultValue="timeline">
@@ -486,7 +490,9 @@ export default function DeadStock() {
                       <Fragment key={s.stock_item_name}>
                         <TableRow
                           className="cursor-pointer hover:bg-muted/50"
+                          tabIndex={0}
                           onClick={() => setExpandedRow(expandedRow === s.stock_item_name ? null : s.stock_item_name)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedRow(expandedRow === s.stock_item_name ? null : s.stock_item_name) } }}
                         >
                           <TableCell>
                             {expandedRow === s.stock_item_name
@@ -568,7 +574,9 @@ export default function DeadStock() {
                       <Fragment key={s.stock_item_name}>
                         <TableRow
                           className="cursor-pointer hover:bg-muted/50"
+                          tabIndex={0}
                           onClick={() => setExpandedRow(expandedRow === s.stock_item_name ? null : s.stock_item_name)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedRow(expandedRow === s.stock_item_name ? null : s.stock_item_name) } }}
                         >
                           <TableCell>
                             {expandedRow === s.stock_item_name

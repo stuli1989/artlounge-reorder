@@ -36,6 +36,18 @@ def _get_cached_settings(cur) -> dict:
         _settings_cache["expires"] = time.monotonic() + _SETTINGS_TTL
     return data
 
+
+def _invalidate_settings_cache():
+    """Clear settings cache so next request fetches fresh values."""
+    global _settings_cache
+    with _settings_lock:
+        _settings_cache = {"data": None, "expires": 0.0}
+
+
+def _escape_ilike(s: str) -> str:
+    """Escape PostgreSQL ILIKE special characters."""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
 ALLOWED_SORT_COLS = {
     "days_to_stockout", "total_velocity", "current_stock",
     "stock_item_name", "reorder_status", "wholesale_velocity", "online_velocity",
@@ -82,9 +94,10 @@ def list_skus(
         params.append(min_velocity)
 
     if search:
+        escaped = _escape_ilike(search)
         conditions.append("(sm.stock_item_name ILIKE %s OR COALESCE(si.part_no, '') ILIKE %s)")
-        params.append(f"%{search}%")
-        params.append(f"%{search}%")
+        params.append(f"%{escaped}%")
+        params.append(f"%{escaped}%")
 
     if hazardous is not None:
         conditions.append("COALESCE(si.is_hazardous, FALSE) = %s")
@@ -190,7 +203,7 @@ def list_skus(
             store_ovr=opt_float(d["store_vel_override_value"]),
             total_ovr=opt_float(d["total_vel_override_value"]),
         )
-        st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time)
+        st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time, d["safety_buffer"])
 
         d["effective_stock"] = vals["eff_stock"]
         d["effective_wholesale_velocity"] = vals["eff_wholesale"]
@@ -477,6 +490,17 @@ def get_positions(
     to_date: str = Query(None),
 ):
     """Daily stock position data for charting."""
+    if from_date:
+        try:
+            date.fromisoformat(from_date)
+        except ValueError:
+            raise HTTPException(400, f"Invalid from_date format: {from_date}. Use YYYY-MM-DD.")
+    if to_date:
+        try:
+            date.fromisoformat(to_date)
+        except ValueError:
+            raise HTTPException(400, f"Invalid to_date format: {to_date}. Use YYYY-MM-DD.")
+
     conditions = ["stock_item_name = %s"]
     params = [stock_item_name]
 

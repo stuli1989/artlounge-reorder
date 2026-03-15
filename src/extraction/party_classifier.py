@@ -12,6 +12,8 @@ import csv
 import os
 from datetime import datetime
 
+import psycopg2.extras
+
 # Priority 2: Exact party name matches
 EXACT_PARTY_RULES = {
     "MAGENTO2": "online",
@@ -203,12 +205,11 @@ def detect_new_parties(db_conn) -> list[str]:
         new_names = [row[0] for row in cur.fetchall()]
 
         if new_names:
-            for name in new_names:
-                cur.execute("""
-                    INSERT INTO parties (tally_name, channel)
-                    VALUES (%s, 'unclassified')
-                    ON CONFLICT (tally_name) DO NOTHING
-                """, (name,))
+            psycopg2.extras.execute_batch(cur, """
+                INSERT INTO parties (tally_name, channel)
+                VALUES (%s, 'unclassified')
+                ON CONFLICT (tally_name) DO NOTHING
+            """, [(name,) for name in new_names], page_size=100)
 
     db_conn.commit()
     return new_names

@@ -1,6 +1,7 @@
 """Brand overview API endpoints."""
 from fastapi import APIRouter, Query
 from api.database import get_db
+from api.routes.skus import _escape_ilike
 
 router = APIRouter(tags=["brands"])
 
@@ -13,35 +14,45 @@ def list_brands(search: str = Query(None)):
             sql = "SELECT * FROM brand_metrics"
             params = []
             if search:
+                escaped = _escape_ilike(search)
                 sql += " WHERE category_name ILIKE %s"
-                params.append(f"%{search}%")
+                params.append(f"%{escaped}%")
             sql += " ORDER BY critical_skus DESC, warning_skus DESC, avg_days_to_stockout ASC NULLS LAST"
             cur.execute(sql, params)
             rows = cur.fetchall()
     return [dict(r) for r in rows]
 
 
+def _brands_summary_query(cur) -> dict:
+    """Execute the brands summary query using the provided cursor."""
+    cur.execute("""
+        SELECT
+            COUNT(*) AS total_brands,
+            SUM(CASE WHEN critical_skus > 0 THEN 1 ELSE 0 END) AS brands_with_critical,
+            SUM(CASE WHEN warning_skus > 0 THEN 1 ELSE 0 END) AS brands_with_warning,
+            SUM(out_of_stock_skus) AS total_skus_out_of_stock,
+            SUM(COALESCE(dead_stock_skus, 0)) AS total_dead_stock_skus,
+            SUM(COALESCE(slow_mover_skus, 0)) AS total_slow_mover_skus,
+            SUM(COALESCE(a_class_skus, 0)) AS total_a_class_skus,
+            SUM(COALESCE(b_class_skus, 0)) AS total_b_class_skus,
+            SUM(COALESCE(c_class_skus, 0)) AS total_c_class_skus,
+            SUM(COALESCE(inactive_skus, 0)) AS total_inactive_skus
+        FROM brand_metrics
+    """)
+    return dict(cur.fetchone())
+
+
 @router.get("/brands/summary")
-def brands_summary():
-    """Aggregate summary stats for dashboard header cards."""
+def brands_summary(cur=None):
+    """Aggregate summary stats for dashboard header cards.
+
+    If ``cur`` is provided, use it instead of opening a new connection.
+    """
+    if cur is not None:
+        return _brands_summary_query(cur)
     with get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT
-                    COUNT(*) AS total_brands,
-                    SUM(CASE WHEN critical_skus > 0 THEN 1 ELSE 0 END) AS brands_with_critical,
-                    SUM(CASE WHEN warning_skus > 0 THEN 1 ELSE 0 END) AS brands_with_warning,
-                    SUM(out_of_stock_skus) AS total_skus_out_of_stock,
-                    SUM(COALESCE(dead_stock_skus, 0)) AS total_dead_stock_skus,
-                    SUM(COALESCE(slow_mover_skus, 0)) AS total_slow_mover_skus,
-                    SUM(COALESCE(a_class_skus, 0)) AS total_a_class_skus,
-                    SUM(COALESCE(b_class_skus, 0)) AS total_b_class_skus,
-                    SUM(COALESCE(c_class_skus, 0)) AS total_c_class_skus,
-                    SUM(COALESCE(inactive_skus, 0)) AS total_inactive_skus
-                FROM brand_metrics
-            """)
-            row = cur.fetchone()
-    return dict(row)
+        with conn.cursor() as c:
+            return _brands_summary_query(c)
 
 
 @router.get("/dashboard-summary")
@@ -90,6 +101,7 @@ def dashboard_summary():
             """)
             top_brands = [dict(r) for r in cur.fetchall()]
 
-    # Reuse brands_summary() to avoid duplicating its SQL
-    brand_row = brands_summary()
+            # Reuse brands_summary with the current cursor to avoid opening a second connection
+            brand_row = brands_summary(cur=cur)
+
     return {**sku_row, **brand_row, "top_brands": top_brands}

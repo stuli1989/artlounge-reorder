@@ -1,18 +1,42 @@
 """FastAPI application for Art Lounge Stock Intelligence."""
 import os
+import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from api.database import get_db
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Art Lounge Stock Intelligence", version="1.0.0")
 
-# CORS for local React dev server
+
+# Security headers middleware
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# CORS for local React dev server and production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
-    allow_credentials=True,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://artlounge-reorder-production.up.railway.app",
+        os.environ.get("CORS_ORIGIN", ""),
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -33,9 +57,22 @@ app.include_router(overrides.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 
 
+# Global exception handler — hide tracebacks from clients
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+        return {"status": "ok"}
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Database unreachable"})
 
 
 # Serve React static build (production)
@@ -47,9 +84,13 @@ if os.path.exists(build_dir):
     # SPA catch-all: serve index.html for all non-API routes
     @app.get("/{full_path:path}")
     async def serve_spa(request: Request, full_path: str):
-        # Try to serve the exact file first (e.g. favicon.ico, vite.svg)
         file_path = os.path.join(build_dir, full_path)
-        if full_path and os.path.isfile(file_path):
-            return FileResponse(file_path)
+        # Prevent path traversal
+        resolved = os.path.realpath(file_path)
+        if not resolved.startswith(os.path.realpath(build_dir)):
+            return FileResponse(os.path.join(build_dir, "index.html"))
+        # Try to serve the exact file first (e.g. favicon.ico, vite.svg)
+        if full_path and os.path.isfile(resolved):
+            return FileResponse(resolved)
         # Otherwise serve index.html for SPA routing
         return FileResponse(os.path.join(build_dir, "index.html"))

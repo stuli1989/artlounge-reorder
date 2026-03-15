@@ -33,12 +33,17 @@ class OverrideReview(BaseModel):
     performed_by: str = "user"
 
 
+SAFE_COLUMNS = {"current_stock", "total_velocity", "wholesale_velocity", "online_velocity"}
+
+
 def _snapshot_computed_value(cur, stock_item_name: str, field_name: str) -> float | None:
     """Get the current computed value from sku_metrics for snapshotting."""
     if field_name == "note":
         return None
     col = OVERRIDE_FIELD_TO_COLUMN.get(field_name)
     if col:
+        if col not in SAFE_COLUMNS:
+            raise ValueError(f"Invalid column: {col}")
         cur.execute(f"SELECT {col} FROM sku_metrics WHERE stock_item_name = %s", (stock_item_name,))
         row = cur.fetchone()
         return float(row[col]) if row and row[col] is not None else None

@@ -98,9 +98,6 @@ export default function Settings() {
 
   // Track active section on scroll
   useEffect(() => {
-    const container = contentRef.current
-    if (!container) return
-
     const handleScroll = () => {
       const sections = SIDEBAR_SECTIONS.map(s => ({
         id: s.id,
@@ -118,8 +115,8 @@ export default function Settings() {
       }
     }
 
-    container.addEventListener('scroll', handleScroll)
-    return () => container.removeEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   // --- Toggle mobile collapsible sections ---

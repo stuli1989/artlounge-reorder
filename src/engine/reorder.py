@@ -34,13 +34,13 @@ def detect_import_history(stock_item_name: str, transactions: list[dict]) -> dic
             "last_import_supplier": None,
         }
 
-    imports.sort(key=lambda t: t["txn_date"] if "txn_date" in t else t["date"])
+    imports.sort(key=lambda t: t["date"])
 
     last = imports[-1]
     return {
-        "last_import_date": last.get("txn_date", last.get("date")),
+        "last_import_date": last["date"],
         "last_import_qty": last["quantity"],
-        "last_import_supplier": last.get("party_name", last.get("party", "")),
+        "last_import_supplier": last.get("party_name", ""),
     }
 
 

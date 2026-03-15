@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { fetchBrands, fetchBrandSummary, fetchSkusPage } from '@/lib/api'
@@ -32,11 +32,17 @@ export default function BrandOverview() {
   const isMobile = useIsMobile()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [criticalOnly, setCriticalOnly] = useState(false)
   const [sortCol, setSortCol] = useState<string>('critical_skus')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact')
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleBrandHover = useCallback((categoryName: string) => {
@@ -50,14 +56,20 @@ export default function BrandOverview() {
     }, 200)
   }, [queryClient])
 
+  useEffect(() => {
+    return () => {
+      if (hoverTimer.current) clearTimeout(hoverTimer.current)
+    }
+  }, [])
+
   const { data: summary } = useQuery({
     queryKey: ['brandSummary'],
     queryFn: fetchBrandSummary,
   })
 
-  const { data: brands, isLoading } = useQuery({
-    queryKey: ['brands', search],
-    queryFn: () => fetchBrands(search || undefined),
+  const { data: brands, isLoading, isError, refetch } = useQuery({
+    queryKey: ['brands', debouncedSearch],
+    queryFn: () => fetchBrands(debouncedSearch || undefined),
   })
 
   const filteredBrands = useMemo(() =>
@@ -93,6 +105,8 @@ export default function BrandOverview() {
   const mobileFilterChips: FilterChip[] = []
   if (criticalOnly) mobileFilterChips.push({ key: 'critical', label: 'Critical/Warning only', onRemove: () => setCriticalOnly(false) })
   const mobileFilterCount = mobileFilterChips.length + (sortCol !== 'critical_skus' ? 1 : 0)
+
+  if (isError) return <div className="p-8 text-center text-muted-foreground">Failed to load brands. <button onClick={() => refetch()} className="text-primary hover:underline">Retry</button></div>
 
   if (isMobile) {
     return (
@@ -218,7 +232,7 @@ export default function BrandOverview() {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-6 gap-4" data-tour="brand-cards">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4" data-tour="brand-cards">
         {summaryCards.map(c => (
           <Card key={c.label}>
             <CardHeader className="pb-2">
@@ -325,8 +339,10 @@ export default function BrandOverview() {
               ) : (
                 filteredBrands.map(b => (
                   <TableRow key={b.category_name} className="cursor-pointer hover:bg-muted/50"
+                    tabIndex={0}
                     onMouseEnter={() => handleBrandHover(b.category_name)}
-                    onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`)}>
+                    onClick={() => navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`) } }}>
                     <TableCell className="font-medium">{b.category_name}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 flex-wrap">

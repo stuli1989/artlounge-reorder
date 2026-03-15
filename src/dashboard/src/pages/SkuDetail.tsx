@@ -397,7 +397,7 @@ export default function SkuDetail() {
   })
   const brandLeadTime = brands?.find(b => b.category_name === decodedName)?.supplier_lead_time ?? undefined
 
-  const { data: skuPage, isLoading, isFetching } = useQuery({
+  const { data: skuPage, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['skus', decodedName, statusFilter, debouncedSearch, analysisRange?.from, analysisRange?.to, page, pageSize, abcFilter, hideInactive, velocityType, xyzFilter, hazardousFilter, deadStockFilter, intentFilter],
     queryFn: () => {
       const params: Record<string, string> = {}
@@ -467,6 +467,8 @@ export default function SkuDetail() {
     { value: 'critical_warning', label: 'Warning', count: counts.warning, color: 'text-amber-600' },
     { value: 'out_of_stock', label: 'OOS', count: counts.out_of_stock, color: 'text-red-500' },
   ]
+
+  if (isError) return <div className="p-8 text-center text-muted-foreground">Failed to load SKUs. <button onClick={() => refetch()} className="text-primary hover:underline">Retry</button></div>
 
   // ==================== MOBILE LAYOUT ====================
   if (isMobile) {

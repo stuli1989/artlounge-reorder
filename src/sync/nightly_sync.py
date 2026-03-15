@@ -25,12 +25,31 @@ from extraction.transaction_loader import (
 from extraction.party_classifier import auto_classify_all_parties, detect_new_parties
 from engine.pipeline import run_computation_pipeline
 from engine.override_drift import process_override_drift
-from sync.sync_helpers import create_sync_log, update_sync_log, get_last_sync_end_date
+from sync.sync_helpers import create_sync_log, update_sync_log, get_last_sync_end_date, validate_extraction_counts
 from sync.email_notifier import send_sync_notification
 
 
 def log(msg: str):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+
+
+def _recover_stale_syncs(db_conn):
+    """Mark any sync_log entries stuck in 'running' for >2 hours as 'failed'."""
+    try:
+        with db_conn.cursor() as cur:
+            cur.execute("""
+                UPDATE sync_log
+                SET status = 'failed',
+                    error_message = 'Sync interrupted — marked stale after 2 hours'
+                WHERE status = 'running'
+                  AND sync_started < NOW() - INTERVAL '2 hours'
+            """)
+            stale_count = cur.rowcount
+        db_conn.commit()
+        if stale_count > 0:
+            log(f"  Recovered {stale_count} stale sync(s) stuck in 'running' state")
+    except Exception:
+        pass  # Non-critical — don't block sync startup
 
 
 def run_sync(full: bool = False, dry_run: bool = False, offline: bool = False):
@@ -41,6 +60,10 @@ def run_sync(full: bool = False, dry_run: bool = False, offline: bool = False):
 
     if dry_run:
         log("DRY RUN mode — no database writes will be performed")
+
+    # Recover any stale syncs from previous interrupted runs
+    if not dry_run:
+        _recover_stale_syncs(db_conn)
 
     sync_id = None if dry_run else create_sync_log(db_conn)
     summary = {}
@@ -71,6 +94,15 @@ def run_sync(full: bool = False, dry_run: bool = False, offline: bool = False):
             summary["categories_synced"] = counts["categories"]
             summary["items_synced"] = counts["items"]
             log(f"Master data: {counts['categories']} categories, {counts['items']} items")
+
+        # 1b. Validate extraction counts against previous sync
+        if not dry_run:
+            extraction_warnings = validate_extraction_counts(db_conn, {
+                "categories": summary.get("categories_synced", 0),
+                "items": summary.get("items_synced", 0),
+            })
+            for w in extraction_warnings:
+                log(f"  WARNING: {w}")
 
         # 2. Auto-classify parties (skip in dry-run)
         if not dry_run:
@@ -161,6 +193,19 @@ def run_sync(full: bool = False, dry_run: bool = False, offline: bool = False):
         sys.exit(1)
 
     finally:
+        # Safety net: if sync_id exists and status was never updated from 'running',
+        # mark it as failed so it doesn't stay stuck forever
+        if sync_id:
+            try:
+                with db_conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE sync_log SET status = 'failed',
+                            error_message = COALESCE(error_message, 'Sync interrupted unexpectedly')
+                        WHERE id = %s AND status = 'running'
+                    """, (sync_id,))
+                db_conn.commit()
+            except Exception:
+                pass
         db_conn.close()
 
 

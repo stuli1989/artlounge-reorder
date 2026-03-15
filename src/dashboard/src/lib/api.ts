@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse } from './types'
+import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse, CriticalSkusResponse } from './types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
@@ -82,13 +82,6 @@ export const fetchBreakdown = (categoryName: string, itemName: string, params?: 
 
 export const fetchPoData = (categoryName: string, params?: Record<string, string | number | boolean>): Promise<PoDataItem[]> =>
   api.get(`/api/brands/${encodeURIComponent(categoryName)}/po-data`, { params }).then(r => r.data)
-
-export interface CriticalSkusResponse {
-  items: Array<Record<string, unknown>>
-  total: number
-  offset: number
-  limit: number
-}
 
 export const fetchCriticalSkus = (params?: Record<string, string | number | boolean>): Promise<CriticalSkusResponse> =>
   api.get('/api/critical-skus', { params }).then(r => r.data)

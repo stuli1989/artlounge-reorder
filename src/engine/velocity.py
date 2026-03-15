@@ -33,7 +33,6 @@ def find_in_stock_periods(daily_positions: list[dict]) -> list[dict]:
             if current_start is not None:
                 # Previous day was the end of an in-stock period
                 prev_date = p["position_date"]
-                from datetime import timedelta
                 end_date = prev_date - timedelta(days=1)
                 days = (end_date - current_start).days + 1
                 periods.append({"from": current_start, "to": end_date, "days": days})

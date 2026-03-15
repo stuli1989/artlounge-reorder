@@ -69,6 +69,13 @@ export default function App() {
           <Route path="/overrides" element={<SuspenseWrapper><OverrideReview /></SuspenseWrapper>} />
           <Route path="/settings" element={<SuspenseWrapper><Settings /></SuspenseWrapper>} />
           <Route path="/help" element={<SuspenseWrapper><Help /></SuspenseWrapper>} />
+          <Route path="*" element={
+            <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
+              <h1 className="text-4xl font-bold mb-2">404</h1>
+              <p className="text-muted-foreground mb-6">Page not found</p>
+              <a href="/" className="text-primary hover:underline">Go to Home</a>
+            </div>
+          } />
         </Route>
       </Routes>
     </BrowserRouter>

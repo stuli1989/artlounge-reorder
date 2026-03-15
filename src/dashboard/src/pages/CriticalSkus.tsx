@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, Fragment } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fetchCriticalSkus, fetchSettings } from '@/lib/api'
+import type { CriticalItem } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,12 +23,10 @@ const IMMEDIATE_DAYS = 7
 const URGENT_DAYS = 30
 const DEFAULT_SHOW = 5
 
-type CriticalItem = Record<string, unknown>
-
 function tierOf(item: CriticalItem): 'immediate' | 'urgent' | 'watch' {
-  const abc = item.abc_class as string
-  const days = item.days_to_stockout as number | null
-  const status = item.reorder_status as string
+  const abc = item.abc_class
+  const days = item.days_to_stockout
+  const status = item.reorder_status
 
   if (abc === 'A' && status === 'critical' && (days === null || days === 0 || days < IMMEDIATE_DAYS)) {
     return 'immediate'
@@ -105,23 +104,23 @@ function TierCard({
             <div className="-mx-4">
               {displayItems.map((r) => {
                 const velValue = velocityType === 'wma'
-                  ? (r.wma_total_velocity as number || 0)
-                  : (r.total_velocity as number || 0)
-                const daysLeft = r.days_to_stockout as number | null
+                  ? (r.wma_total_velocity || 0)
+                  : (r.total_velocity || 0)
+                const daysLeft = r.days_to_stockout
                 const daysStr = daysLeft === null ? 'N/A' : daysLeft === 0 ? 'OUT' : `${daysLeft}d`
                 return (
                   <MobileListRow
-                    key={r.stock_item_name as string}
-                    title={r.stock_item_name as string}
-                    subtitle={r.category_name as string}
-                    status={r.reorder_status as string}
-                    statusLabel={(r.reorder_status as string).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    key={r.stock_item_name}
+                    title={r.stock_item_name}
+                    subtitle={r.category_name}
+                    status={r.reorder_status}
+                    statusLabel={r.reorder_status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     metrics={[
-                      { label: 'Stk', value: String(r.current_stock as number) },
+                      { label: 'Stk', value: String(r.current_stock) },
                       { label: 'Vel', value: vel(velValue) },
                       { label: 'Out', value: daysStr },
                     ]}
-                    onClick={() => navigate(`/brands/${encodeURIComponent(r.category_name as string)}/skus`)}
+                    onClick={() => navigate(`/brands/${encodeURIComponent(r.category_name)}/skus`)}
                   />
                 )
               })}
@@ -143,29 +142,31 @@ function TierCard({
               <TableBody>
                 {displayItems.map((r) => {
                   const velValue = velocityType === 'wma'
-                    ? (r.wma_total_velocity as number || 0)
-                    : (r.total_velocity as number || 0)
+                    ? (r.wma_total_velocity || 0)
+                    : (r.total_velocity || 0)
                   return (
-                    <Fragment key={r.stock_item_name as string}>
+                    <Fragment key={r.stock_item_name}>
                       <TableRow
                         className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => navigate(`/brands/${encodeURIComponent(r.category_name as string)}/skus`)}
+                        tabIndex={0}
+                        onClick={() => navigate(`/brands/${encodeURIComponent(r.category_name)}/skus`)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/brands/${encodeURIComponent(r.category_name)}/skus`) } }}
                       >
                         <TableCell><StatusBadge status={r.reorder_status as 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'} /></TableCell>
-                        <TableCell className="font-medium text-xs">{r.category_name as string}</TableCell>
-                        <TableCell className="max-w-[280px] truncate" title={r.stock_item_name as string}>
-                          {r.stock_item_name as string}
+                        <TableCell className="font-medium text-xs">{r.category_name}</TableCell>
+                        <TableCell className="max-w-[280px] truncate" title={r.stock_item_name}>
+                          {r.stock_item_name}
                         </TableCell>
-                        <TableCell className="text-right">{r.current_stock as number}</TableCell>
+                        <TableCell className="text-right">{r.current_stock}</TableCell>
                         <TableCell className="text-right">{vel(velValue)}</TableCell>
-                        <TableCell className="text-right">{daysDisplay(r.days_to_stockout as number | null)}</TableCell>
+                        <TableCell className="text-right">{daysDisplay(r.days_to_stockout)}</TableCell>
                       </TableRow>
                       <TableRow className="border-0">
                         <TableCell colSpan={6} className="pt-0 pb-2 pl-12">
                           <SkuSecondaryLine
-                            abc_class={r.abc_class as string}
-                            xyz_class={r.xyz_class as string}
-                            part_no={r.part_no as string}
+                            abc_class={r.abc_class}
+                            xyz_class={r.xyz_class}
+                            part_no={r.part_no}
                           />
                         </TableCell>
                       </TableRow>
@@ -217,7 +218,7 @@ export default function CriticalSkus() {
     }
   }, [settings, settingsApplied])
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['criticalSkus', statusFilter, abcFilter, velocityType, page],
     queryFn: () => {
       const params: Record<string, string | number | boolean> = {
@@ -237,8 +238,8 @@ export default function CriticalSkus() {
   // Client-side search filter
   const filtered = search
     ? items.filter(i =>
-        (i.stock_item_name as string)?.toLowerCase().includes(search.toLowerCase()) ||
-        (i.category_name as string)?.toLowerCase().includes(search.toLowerCase())
+        i.stock_item_name?.toLowerCase().includes(search.toLowerCase()) ||
+        i.category_name?.toLowerCase().includes(search.toLowerCase())
       )
     : items
 
@@ -252,6 +253,8 @@ export default function CriticalSkus() {
   }, [filtered])
 
   const activeFilterCount = (statusFilter !== 'critical,warning' ? 1 : 0) + (abcFilter ? 1 : 0)
+
+  if (isError) return <div className="p-8 text-center text-muted-foreground">Failed to load critical SKUs. <button onClick={() => refetch()} className="text-primary hover:underline">Retry</button></div>
 
   if (isMobile) {
     return (
