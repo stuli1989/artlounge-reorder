@@ -165,6 +165,7 @@ export interface Supplier {
   min_order_value: number | null
   typical_order_months: number | null
   notes: string
+  buffer_override: number | null
 }
 
 export interface OverrideInfo {

@@ -15,7 +15,7 @@ type FormData = Omit<Supplier, 'id'> & { id?: number }
 const emptyForm: FormData = {
   name: '', tally_party: '', lead_time_sea: null, lead_time_air: null,
   lead_time_default: 90, currency: 'USD', min_order_value: null,
-  typical_order_months: null, notes: '',
+  typical_order_months: null, notes: '', buffer_override: null,
 }
 
 export default function SupplierManagement() {
@@ -118,6 +118,21 @@ export default function SupplierManagement() {
                 <Label>Default Lead Time (days)</Label>
                 <Input type="number" value={form.lead_time_default} onChange={e => updateField('lead_time_default', Number(e.target.value))} />
               </div>
+              <div className="space-y-1">
+                <Label>Buffer Override</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  placeholder="Leave empty for global default"
+                  value={form.buffer_override ?? ''}
+                  onChange={e => updateField('buffer_override', e.target.value ? parseFloat(e.target.value) : null)}
+                  className="h-8"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Overrides global ABC buffer for this brand. E.g., 0.5 = conservative, 1.5 = safety stock.
+                </p>
+              </div>
             </div>
             <div className="space-y-1">
               <Label>Notes</Label>
@@ -146,6 +161,7 @@ export default function SupplierManagement() {
                 <TableHead className="text-right">Sea (days)</TableHead>
                 <TableHead className="text-right">Air (days)</TableHead>
                 <TableHead className="text-right">Default (days)</TableHead>
+                <TableHead className="text-right">Buffer</TableHead>
                 <TableHead>Currency</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
@@ -159,6 +175,9 @@ export default function SupplierManagement() {
                   <TableCell className="text-right">{s.lead_time_sea ?? '-'}</TableCell>
                   <TableCell className="text-right">{s.lead_time_air ?? '-'}</TableCell>
                   <TableCell className="text-right">{s.lead_time_default}</TableCell>
+                  <TableCell className="text-right">
+                    {s.buffer_override != null ? `${s.buffer_override}x` : '\u2014'}
+                  </TableCell>
                   <TableCell>{s.currency}</TableCell>
                   <TableCell className="text-xs max-w-[200px] truncate">{s.notes}</TableCell>
                   <TableCell>
@@ -175,7 +194,7 @@ export default function SupplierManagement() {
               ))}
               {(suppliers || []).length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No suppliers configured
                   </TableCell>
                 </TableRow>
