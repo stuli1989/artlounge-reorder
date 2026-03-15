@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Rocket, Lightbulb, Layout, CalendarCheck, BookOpen, ArrowRight } from 'lucide-react'
+import {
+  Rocket, Lightbulb, Layout, CalendarCheck, BookOpen, ArrowRight,
+  Package, Database, Users, LayoutDashboard, ShieldAlert, ClipboardList,
+  Truck, Pencil, Settings, Search, Snowflake, TrendingUp, TrendingDown, Minus,
+  Info,
+} from 'lucide-react'
 
 /* ---------- sidebar data ---------- */
 
@@ -79,6 +86,38 @@ const SIDEBAR_SECTIONS: SidebarGroup[] = [
 /** Flat list of every navigable section id */
 const ALL_SECTION_IDS = SIDEBAR_SECTIONS.flatMap(g => g.items.map(i => i.id))
 
+/* ---------- helper components ---------- */
+
+/** A styled box for visual formulas */
+function FormulaBox({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={`inline-flex items-center px-3 py-1.5 rounded-lg bg-muted text-sm font-medium text-foreground ${className}`}>
+      {children}
+    </span>
+  )
+}
+
+/** Operator symbol between formula boxes */
+function FormulaOp({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="mx-2 text-muted-foreground font-bold text-base">{children}</span>
+  )
+}
+
+/** A numbered step circle */
+function StepCircle({ n }: { n: number }) {
+  return (
+    <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">
+      {n}
+    </span>
+  )
+}
+
+/** A flow arrow between step items */
+function FlowArrow() {
+  return <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+}
+
 /* ---------- component ---------- */
 
 export default function Help() {
@@ -138,6 +177,38 @@ export default function Help() {
     window.history.replaceState(null, '', `#${id}`)
   }
 
+  /* ---------- page guide data ---------- */
+  const pageGuides: { id: string; icon: React.ElementType; name: string; desc: string; to: string }[] = [
+    { id: 'page-home', icon: LayoutDashboard, name: 'Home', desc: 'Summary cards, sync status, and overall inventory health at a glance.', to: '/' },
+    { id: 'page-brands', icon: Package, name: 'Brands', desc: 'Every brand with aggregated metrics. Sort by critical count to find hot spots.', to: '/brands' },
+    { id: 'page-sku-detail', icon: Search, name: 'SKU Detail', desc: 'Per-item stock timeline, velocity breakdown, and calculation details.', to: '/brands' },
+    { id: 'page-critical', icon: ShieldAlert, name: 'Critical SKUs', desc: 'Cross-brand view of every SKU below reorder threshold, sorted by urgency.', to: '/critical' },
+    { id: 'page-po-builder', icon: ClipboardList, name: 'Build PO', desc: 'Assemble purchase orders with pre-filled quantities and export to Excel.', to: '/po' },
+    { id: 'page-dead-stock', icon: Snowflake, name: 'Dead Stock', desc: 'Items with zero sales activity. Candidates for markdown or discontinuation.', to: '/brands' },
+    { id: 'page-parties', icon: Users, name: 'Parties', desc: 'Classify every Tally party into wholesale, online, or store channels.', to: '/parties' },
+    { id: 'page-suppliers', icon: Truck, name: 'Suppliers', desc: 'Manage supplier records and lead times that feed reorder calculations.', to: '/suppliers' },
+    { id: 'page-overrides', icon: Pencil, name: 'Overrides', desc: 'Review all active overrides. Stale ones are flagged for refresh.', to: '/overrides' },
+    { id: 'page-settings', icon: Settings, name: 'Settings', desc: 'Configure buffers, velocity method, dead stock thresholds, and rules.', to: '/settings' },
+  ]
+
+  /* ---------- glossary data ---------- */
+  const glossaryItems = [
+    { term: 'ABC Classification', definition: 'Revenue grouping: A = top 80%, B = next 15%, C = bottom 5%.', anchor: 'abc-classification' },
+    { term: 'Buffer', definition: 'Extra stock days beyond lead time, scaled by ABC class.', anchor: 'lead-time-buffer' },
+    { term: 'Channel', definition: 'Demand track: wholesale, online, or store.', anchor: 'three-channels' },
+    { term: 'Critical', definition: 'Days left < lead time + buffer. Order now.', anchor: 'stockout-projection' },
+    { term: 'Days Left', definition: 'Stock / velocity = time until stockout.', anchor: 'stockout-projection' },
+    { term: 'Dead Stock', definition: 'No sales for longer than the threshold (default 30 days).', anchor: 'page-dead-stock' },
+    { term: 'Lead Time', definition: 'Days from order to delivery. Set per supplier.', anchor: 'lead-time-buffer' },
+    { term: 'Override', definition: 'Manual adjustment to velocity or stock. Requires a reason.', anchor: 'overrides' },
+    { term: 'Party', definition: 'Customer or supplier name from Tally.', anchor: 'channel-classification' },
+    { term: 'Reorder Qty', definition: '(velocity x coverage) - current stock.', anchor: 'reorder-quantity' },
+    { term: 'Staleness', definition: 'Override is stale when system data has drifted.', anchor: 'overrides' },
+    { term: 'Velocity', definition: 'Units sold per day, excluding out-of-stock days.', anchor: 'velocity' },
+    { term: 'WMA', definition: 'Weighted Moving Average. More weight on recent sales.', anchor: 'velocity' },
+    { term: 'XYZ Class', definition: 'Demand variability: X = stable, Y = variable, Z = erratic.', anchor: 'abc-classification' },
+  ]
+
   /* ---------- render ---------- */
   return (
     <div className="space-y-6">
@@ -180,17 +251,107 @@ export default function Help() {
           {/* ============================================================
               GETTING STARTED
              ============================================================ */}
-          <section id="getting-started">
-            <h3 className="text-lg font-semibold text-foreground mb-3">Getting Started</h3>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              Stock Intelligence tracks every SKU Art Lounge carries, monitors how fast each one is
-              selling across wholesale, online, and store channels, and tells you when to reorder and
-              how much. All data syncs nightly from Tally Prime. The system pulls stock levels,
-              transactions, and party information, then calculates velocities, projects stockout
-              dates, and generates reorder suggestions. Built for the purchasing and inventory team
-              &mdash; use it daily to check what needs ordering, weekly to review dead stock and
-              overrides, and whenever you are building a purchase order.
-            </p>
+          <section id="getting-started" className="scroll-mt-6">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Getting Started</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-blue-50">
+                      <Package className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <CardTitle className="text-sm">What It Does</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Tracks 22,000+ SKUs across 167 brands. Tells you what to reorder and when.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-green-50">
+                      <Database className="h-5 w-5 text-green-600" />
+                    </div>
+                    <CardTitle className="text-sm">Data Source</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Syncs nightly from Tally Prime. Stock levels, transactions, and party data.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-purple-50">
+                      <Users className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <CardTitle className="text-sm">Built For</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    The purchasing team. Daily ordering, weekly dead stock review, monthly cleanup.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+
+          <Separator />
+
+          {/* ============================================================
+              THE BIG PICTURE — VISUAL FLOW
+             ============================================================ */}
+          <section className="scroll-mt-6">
+            <h3 className="text-lg font-semibold text-foreground mb-4">The Big Picture</h3>
+            <Card>
+              <CardContent className="py-2">
+                {/* Main flow */}
+                <div className="flex items-center justify-center gap-2 flex-wrap py-4">
+                  <button onClick={() => scrollToSection('three-channels')} className="px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer">
+                    3 Channels
+                  </button>
+                  <FlowArrow />
+                  <button onClick={() => scrollToSection('velocity')} className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-sm font-medium text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer">
+                    Velocity / Channel
+                  </button>
+                  <FlowArrow />
+                  <button onClick={() => scrollToSection('stockout-projection')} className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer">
+                    Stockout Projection
+                  </button>
+                  <FlowArrow />
+                  <button onClick={() => scrollToSection('reorder-quantity')} className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm font-medium text-red-700 hover:bg-red-100 transition-colors cursor-pointer">
+                    Reorder Quantity
+                  </button>
+                  <FlowArrow />
+                  <button onClick={() => scrollToSection('page-po-builder')} className="px-3 py-2 rounded-lg bg-purple-50 border border-purple-200 text-sm font-medium text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer">
+                    Purchase Order
+                  </button>
+                </div>
+                {/* Supporting concepts */}
+                <div className="flex items-center justify-center gap-8 pb-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground">Feeds into channels:</span>
+                    <button onClick={() => scrollToSection('channel-classification')} className="px-2 py-1 rounded bg-slate-100 border border-slate-200 font-medium text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer">
+                      Party Classification
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground">Feeds into projection:</span>
+                    <button onClick={() => scrollToSection('lead-time-buffer')} className="px-2 py-1 rounded bg-slate-100 border border-slate-200 font-medium text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer">
+                      Lead Time + ABC Buffer
+                    </button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </section>
 
           <Separator />
@@ -202,123 +363,246 @@ export default function Help() {
             <h3 className="text-lg font-semibold text-foreground">Key Concepts</h3>
 
             {/* --- Three Channels --- */}
-            <section id="three-channels" className="space-y-2 scroll-mt-6">
+            <section id="three-channels" className="space-y-4 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Three Parallel Demand Tracks</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Art Lounge serves three markets simultaneously, each with its own demand pattern.
-                <strong className="text-foreground"> Wholesale</strong> covers B2B retailers and
-                institutions &mdash; large irregular orders (50&ndash;500 units) with low predictability.
-                <strong className="text-foreground"> Online</strong> (Magento, Amazon, Flipkart) serves
-                individual consumers &mdash; a steady trickle of 1&ndash;3 units per day that is the most
-                predictable channel.
-                <strong className="text-foreground"> Store</strong> (physical retail) handles walk-in
-                customers with moderate volume and somewhat seasonal patterns.
-              </p>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                All three draw from the same physical stock. The system tracks them as parallel
-                pipelines: each gets its own velocity, and the total velocity is the sum of all three
-                (the combined drain rate). If total velocity is 5 units/day, it matters whether that
-                is 4 wholesale + 0.5 online + 0.5 store (risky &mdash; one client could stop buying)
-                versus 1 wholesale + 3 online + 1 store (stable consumer demand).
-              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <Card className="bg-blue-50/50 border-blue-200 ring-blue-200">
+                  <CardHeader>
+                    <CardTitle className="text-sm text-blue-800">Wholesale</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1">
+                    <p className="text-sm text-blue-700">B2B retailers &amp; institutions</p>
+                    <p className="text-xs text-blue-600/70">50-500 units per order</p>
+                    <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 mt-1">Low predictability</Badge>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-green-50/50 border-green-200 ring-green-200">
+                  <CardHeader>
+                    <CardTitle className="text-sm text-green-800">Online</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1">
+                    <p className="text-sm text-green-700">Magento, Amazon, Flipkart</p>
+                    <p className="text-xs text-green-600/70">1-3 units/day steady</p>
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 mt-1">Most predictable</Badge>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-amber-50/50 border-amber-200 ring-amber-200">
+                  <CardHeader>
+                    <CardTitle className="text-sm text-amber-800">Store</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1">
+                    <p className="text-sm text-amber-700">Walk-in customers</p>
+                    <p className="text-xs text-amber-600/70">Moderate volume</p>
+                    <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 mt-1">Somewhat seasonal</Badge>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex gap-3 items-start bg-muted/50 rounded-lg px-4 py-3">
+                <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  All three drain the same inventory. A wholesale spike of 200 units and 200 individual
+                  online sales look the same in totals but mean very different things for forecasting.
+                </p>
+              </div>
             </section>
 
             {/* --- Velocity --- */}
-            <section id="velocity" className="space-y-2 scroll-mt-6">
+            <section id="velocity" className="space-y-4 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Velocity</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Velocity is the number of units sold per day, counting only days when the item was in
-                stock. Out-of-stock days are excluded so velocity reflects actual demand, not supply
-                gaps. <strong className="text-foreground">Flat velocity</strong> treats all days
-                equally &mdash; a simple average. <strong className="text-foreground">WMA (Weighted
-                Moving Average)</strong> gives more weight to recent sales, making it more responsive
-                to changes in demand. The <strong className="text-foreground">trend indicator</strong>{' '}
-                compares recent 90-day WMA to the yearly average so you can spot accelerating or
-                decelerating demand at a glance.
-              </p>
+
+              {/* Visual formula */}
+              <Card>
+                <CardContent className="py-2">
+                  <div className="flex items-center justify-center gap-1 flex-wrap py-3">
+                    <FormulaBox className="bg-blue-50 text-blue-700">Units Sold</FormulaBox>
+                    <FormulaOp>/</FormulaOp>
+                    <FormulaBox className="bg-emerald-50 text-emerald-700">In-Stock Days</FormulaBox>
+                    <FormulaOp>=</FormulaOp>
+                    <FormulaBox className="bg-purple-50 text-purple-700 font-semibold">Daily Velocity</FormulaBox>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Flat vs WMA comparison */}
+              <div className="grid grid-cols-2 gap-4">
+                <Card size="sm">
+                  <CardContent>
+                    <p className="text-sm font-medium text-foreground mb-1">Flat Average</p>
+                    <p className="text-xs text-muted-foreground">Treats all days equally. Simple and stable.</p>
+                  </CardContent>
+                </Card>
+                <Card size="sm">
+                  <CardContent>
+                    <p className="text-sm font-medium text-foreground mb-1">WMA (Weighted Moving Average)</p>
+                    <p className="text-xs text-muted-foreground">More weight on recent sales. Responds to demand shifts.</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Trend arrows */}
+              <div className="flex items-center gap-6 text-sm">
+                <span className="text-muted-foreground font-medium">Trend indicators:</span>
+                <span className="flex items-center gap-1.5 text-green-600">
+                  <TrendingUp className="h-4 w-4" /> Accelerating
+                </span>
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Minus className="h-4 w-4" /> Flat
+                </span>
+                <span className="flex items-center gap-1.5 text-red-500">
+                  <TrendingDown className="h-4 w-4" /> Decelerating
+                </span>
+              </div>
             </section>
 
             {/* --- ABC Classification --- */}
-            <section id="abc-classification" className="space-y-2 scroll-mt-6">
+            <section id="abc-classification" className="space-y-3 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">ABC Classification</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                <strong className="text-foreground">A-class:</strong> the top 80% of revenue &mdash;
-                highest priority items that deserve the largest safety buffers.{' '}
-                <strong className="text-foreground">B-class:</strong> the next 15% of revenue &mdash;
-                moderate priority.{' '}
-                <strong className="text-foreground">C-class:</strong> the bottom 5% plus zero-revenue
-                items &mdash; minimal buffers. ABC classification drives reorder priority: A-class
-                critical items are surfaced and flagged first.
-              </p>
+
+              <div className="space-y-2">
+                {/* A tier */}
+                <div className="flex items-center gap-3">
+                  <Badge className="bg-red-100 text-red-700 hover:bg-red-100 w-8 justify-center">A</Badge>
+                  <div className="flex-1 h-3 rounded-full bg-red-100 relative overflow-hidden">
+                    <div className="absolute inset-y-0 left-0 w-[80%] bg-red-500 rounded-full" />
+                  </div>
+                  <span className="text-sm text-muted-foreground w-[280px] shrink-0">Top 80% revenue — highest priority, buffer 1.5x</span>
+                </div>
+                {/* B tier */}
+                <div className="flex items-center gap-3">
+                  <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 w-8 justify-center">B</Badge>
+                  <div className="flex-1 h-3 rounded-full bg-amber-100 relative overflow-hidden">
+                    <div className="absolute inset-y-0 left-0 w-[55%] bg-amber-500 rounded-full" />
+                  </div>
+                  <span className="text-sm text-muted-foreground w-[280px] shrink-0">Next 15% revenue — moderate priority, buffer 1.0x</span>
+                </div>
+                {/* C tier */}
+                <div className="flex items-center gap-3">
+                  <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100 w-8 justify-center">C</Badge>
+                  <div className="flex-1 h-3 rounded-full bg-gray-100 relative overflow-hidden">
+                    <div className="absolute inset-y-0 left-0 w-[25%] bg-gray-400 rounded-full" />
+                  </div>
+                  <span className="text-sm text-muted-foreground w-[280px] shrink-0">Bottom 5% + zero — minimal priority, buffer 0.5x</span>
+                </div>
+              </div>
             </section>
 
             {/* --- Lead Time & Buffer --- */}
-            <section id="lead-time-buffer" className="space-y-2 scroll-mt-6">
+            <section id="lead-time-buffer" className="space-y-4 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Lead Time &amp; Buffer</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                <strong className="text-foreground">Lead time</strong> is the number of days from
-                placing an order to receiving the goods &mdash; typically 90&ndash;180 days by sea for
-                imports. The <strong className="text-foreground">buffer</strong> is a safety-stock
-                multiplier that varies by ABC class: A-class 1.5x, B-class 1.0x, C-class 0.5x. The
-                balancing act: too little buffer means stockouts between shipments; too much means
-                capital locked in unsold inventory. Lead times are set per supplier on the Suppliers
-                page.
-              </p>
+
+              <Card>
+                <CardContent className="py-2">
+                  <div className="flex items-center justify-center gap-1 flex-wrap py-3">
+                    <FormulaBox className="bg-blue-50 text-blue-700">Lead Time (90-180 days)</FormulaBox>
+                    <FormulaOp>+</FormulaOp>
+                    <FormulaBox className="bg-amber-50 text-amber-700">Safety Buffer (ABC multiplier)</FormulaBox>
+                    <FormulaOp>=</FormulaOp>
+                    <FormulaBox className="bg-purple-50 text-purple-700 font-semibold">Coverage Period</FormulaBox>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex gap-3 items-start bg-muted/50 rounded-lg px-4 py-3">
+                <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  Too little = stockouts. Too much = capital locked in inventory.
+                </p>
+              </div>
             </section>
 
             {/* --- Stockout Projection --- */}
-            <section id="stockout-projection" className="space-y-2 scroll-mt-6">
+            <section id="stockout-projection" className="space-y-4 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Stockout Projection</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                The formula is straightforward: current stock divided by total daily velocity equals
-                days remaining.{' '}
-                <strong className="text-foreground">Critical</strong> means days remaining is less
-                than lead time plus buffer &mdash; you need to order now.{' '}
-                <strong className="text-foreground">Warning</strong> means you are approaching the
-                threshold.{' '}
-                <strong className="text-foreground">OK</strong> means you have comfortable runway.{' '}
-                <strong className="text-foreground">Out of Stock</strong> means zero inventory on
-                hand.{' '}
-                <strong className="text-foreground">No Data</strong> means there is insufficient
-                sales history to make a projection.
-              </p>
+
+              <Card>
+                <CardContent className="py-2">
+                  <div className="flex items-center justify-center gap-1 flex-wrap py-3">
+                    <FormulaBox className="bg-blue-50 text-blue-700">Current Stock</FormulaBox>
+                    <FormulaOp>/</FormulaOp>
+                    <FormulaBox className="bg-emerald-50 text-emerald-700">Daily Velocity</FormulaBox>
+                    <FormulaOp>=</FormulaOp>
+                    <FormulaBox className="bg-purple-50 text-purple-700 font-semibold">Days Left</FormulaBox>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Status badges */}
+              <div className="grid grid-cols-1 gap-2">
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-red-50/50 border border-red-100">
+                  <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Critical</Badge>
+                  <span className="text-sm text-muted-foreground">Order now. Stock will not last until next shipment arrives.</span>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-amber-50/50 border border-amber-100">
+                  <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Warning</Badge>
+                  <span className="text-sm text-muted-foreground">Plan your order soon. Approaching reorder threshold.</span>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-green-50/50 border border-green-100">
+                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100">OK</Badge>
+                  <span className="text-sm text-muted-foreground">Comfortable runway. No action needed right now.</span>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                  <Badge className="bg-slate-700 text-white hover:bg-slate-700">Out of Stock</Badge>
+                  <span className="text-sm text-muted-foreground">Zero inventory on hand.</span>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-gray-50 border border-gray-200">
+                  <Badge className="bg-gray-100 text-gray-500 hover:bg-gray-100">No Data</Badge>
+                  <span className="text-sm text-muted-foreground">Not enough sales history to project.</span>
+                </div>
+              </div>
             </section>
 
             {/* --- Reorder Quantity --- */}
-            <section id="reorder-quantity" className="space-y-2 scroll-mt-6">
+            <section id="reorder-quantity" className="space-y-4 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Reorder Quantity</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Formula: <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
-                (velocity x (lead_time + buffer_days)) - current_stock</code>. In plain English:
-                &ldquo;How much to order so you don&rsquo;t run out before the next shipment
-                arrives.&rdquo; The PO Builder page uses this formula to pre-fill quantities, which
-                you can then adjust before exporting.
-              </p>
+
+              <Card>
+                <CardContent className="py-2">
+                  <div className="flex items-center justify-center gap-1 flex-wrap py-3">
+                    <FormulaOp>(</FormulaOp>
+                    <FormulaBox className="bg-emerald-50 text-emerald-700">Velocity</FormulaBox>
+                    <FormulaOp>x</FormulaOp>
+                    <FormulaBox className="bg-purple-50 text-purple-700">Coverage Days</FormulaBox>
+                    <FormulaOp>)</FormulaOp>
+                    <FormulaOp>-</FormulaOp>
+                    <FormulaBox className="bg-blue-50 text-blue-700">Current Stock</FormulaBox>
+                    <FormulaOp>=</FormulaOp>
+                    <FormulaBox className="bg-red-50 text-red-700 font-semibold">Order Qty</FormulaBox>
+                  </div>
+                  <p className="text-xs text-center text-muted-foreground pb-2">
+                    How much to order so you do not run out before the next shipment arrives.
+                  </p>
+                </CardContent>
+              </Card>
             </section>
 
             {/* --- Overrides --- */}
             <section id="overrides" className="space-y-2 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Overrides</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Override velocity, stock level, or add notes when you know something the system does
-                not &mdash; a big order coming, a product being discontinued, or a seasonal shift.
-                Every override requires a reason so the team understands why the numbers were changed.
-                The system flags &ldquo;stale&rdquo; overrides when the underlying data drifts
-                significantly from the overridden value, prompting you to review and refresh.
-              </p>
+              <Card size="sm">
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    When you know better than the data — override velocity, stock, or add notes.
+                    Every override needs a reason and gets flagged when data drifts.
+                  </p>
+                </CardContent>
+              </Card>
             </section>
 
             {/* --- Channel Classification --- */}
             <section id="channel-classification" className="space-y-2 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Channel Classification</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Every Tally transaction has a party name. Each party must be classified into one of
-                six channels: wholesale, online, store, supplier, internal, or ignore. This
-                classification drives channel-level velocity separation. You manage classifications on
-                the <Link to="/parties" className="text-primary hover:underline">Parties</Link> page.
-                Unclassified parties trigger a warning banner on the Home page &mdash; classify them
-                promptly so velocity calculations stay accurate.
-              </p>
+              <Card size="sm">
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Classify every Tally party into wholesale / online / store on the{' '}
+                    <Link to="/parties" className="text-primary hover:underline font-medium">Parties page</Link>.
+                    Unclassified parties = inaccurate velocity.
+                  </p>
+                </CardContent>
+              </Card>
             </section>
           </div>
 
@@ -327,113 +611,33 @@ export default function Help() {
           {/* ============================================================
               PAGE GUIDES
              ============================================================ */}
-          <div className="space-y-8">
+          <div className="space-y-4">
             <h3 className="text-lg font-semibold text-foreground">Page Guides</h3>
 
-            <section id="page-home" className="space-y-2 scroll-mt-6">
-              <h4 className="text-base font-medium text-foreground">Home</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                The Home page is your dashboard landing screen. It shows summary cards with total
-                SKUs, critical counts, out-of-stock counts, and the last sync timestamp. Use it as
-                your daily starting point to see the overall health of inventory at a glance. Tip:
-                click any summary card to jump straight to the filtered view (e.g., clicking
-                &ldquo;Critical&rdquo; takes you to the Critical SKUs page).
-              </p>
-            </section>
-
-            <section id="page-brands" className="space-y-2 scroll-mt-6">
-              <h4 className="text-base font-medium text-foreground">Brands</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                The Brands page lists every brand (stock category from Tally) with aggregated metrics:
-                total SKUs, critical count, out-of-stock count, and revenue. Click any brand row to
-                drill into its SKUs. You can sort by any column and search by brand name. Tip: sort
-                by &ldquo;Critical&rdquo; descending to find brands that need the most attention
-                right now.
-              </p>
-            </section>
-
-            <section id="page-sku-detail" className="space-y-2 scroll-mt-6">
-              <h4 className="text-base font-medium text-foreground">SKU Detail</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                The SKU Detail page shows every item within a brand. Each row displays Part No, SKU
-                name, current stock, velocity (total and per-channel), days left, reorder status, and
-                ABC class. Click any row to expand the stock timeline chart and transaction history.
-                Tip: use the calculation breakdown button to see exactly how days-left and reorder
-                quantity were computed for any SKU.
-              </p>
-            </section>
-
-            <section id="page-critical" className="space-y-2 scroll-mt-6">
-              <h4 className="text-base font-medium text-foreground">Critical SKUs</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                A cross-brand view of every SKU whose days-left is below the reorder threshold.
-                Items are sorted by urgency so the most critical appear first. Use this page each
-                morning to identify what needs ordering immediately. Tip: you can add items directly
-                to a purchase order from this page without navigating to the brand first.
-              </p>
-            </section>
-
-            <section id="page-po-builder" className="space-y-2 scroll-mt-6">
-              <h4 className="text-base font-medium text-foreground">Build PO (Purchase Order)</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                The PO Builder lets you assemble a purchase order for a specific supplier/brand. It
-                pre-fills reorder quantities based on the system&rsquo;s calculations, but you can
-                adjust every line. When ready, export to Excel for sharing with suppliers. Tip: build
-                POs brand-by-brand so each export maps to a single supplier conversation.
-              </p>
-            </section>
-
-            <section id="page-dead-stock" className="space-y-2 scroll-mt-6">
-              <h4 className="text-base font-medium text-foreground">Dead Stock</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Shows items with zero sales activity for longer than the configured threshold (default
-                30 days). These are candidates for markdowns, bundling, or discontinuation. The page
-                also flags slow movers &mdash; items selling below the slow-mover velocity threshold.
-                Tip: review this monthly and update overrides for items you plan to keep despite low
-                movement.
-              </p>
-            </section>
-
-            <section id="page-parties" className="space-y-2 scroll-mt-6">
-              <h4 className="text-base font-medium text-foreground">Parties</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Every party (customer/supplier) from Tally is listed here with its current channel
-                classification. Unclassified parties appear at the top with a warning. Classify each
-                party as wholesale, online, store, supplier, internal, or ignore. Tip: after the
-                first sync, work through all unclassified parties before relying on channel-level
-                velocity numbers.
-              </p>
-            </section>
-
-            <section id="page-suppliers" className="space-y-2 scroll-mt-6">
-              <h4 className="text-base font-medium text-foreground">Suppliers</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Manage supplier records and their lead times (sea, air, default). Lead times feed
-                directly into the stockout projection and reorder quantity calculations. You can add,
-                edit, or delete suppliers and assign brands to them. Tip: set realistic lead times
-                &mdash; overly optimistic numbers lead to late reorders and stockouts.
-              </p>
-            </section>
-
-            <section id="page-overrides" className="space-y-2 scroll-mt-6">
-              <h4 className="text-base font-medium text-foreground">Overrides</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Review all active overrides in one place. Each override shows who set it, the reason,
-                and whether it has gone stale (the underlying system value has drifted). Stale
-                overrides should be refreshed or removed. Tip: check this page monthly to clean up
-                overrides that are no longer relevant.
-              </p>
-            </section>
-
-            <section id="page-settings" className="space-y-2 scroll-mt-6">
-              <h4 className="text-base font-medium text-foreground">Settings</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Configure safety buffer multipliers, default velocity calculation method, default
-                date range, dead stock thresholds, and view classification rules. Changes take effect
-                on the next nightly sync. Tip: start with the defaults and adjust only after
-                reviewing a few weeks of recommendations against actual ordering decisions.
-              </p>
-            </section>
+            <div className="grid grid-cols-2 gap-3">
+              {pageGuides.map(({ id, icon: Icon, name, desc, to }) => (
+                <section key={id} id={id} className="scroll-mt-6">
+                  <Link to={to} className="block group">
+                    <Card size="sm" className="transition-colors hover:bg-muted/30">
+                      <CardContent>
+                        <div className="flex items-start gap-3">
+                          <div className="p-1.5 rounded-md bg-muted shrink-0 mt-0.5">
+                            <Icon className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground">{name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+                            <span className="inline-flex items-center gap-1 text-xs text-primary mt-1.5 group-hover:underline">
+                              Go to page <ArrowRight className="h-3 w-3" />
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </section>
+              ))}
+            </div>
           </div>
 
           <Separator />
@@ -441,76 +645,79 @@ export default function Help() {
           {/* ============================================================
               DAILY WORKFLOWS
              ============================================================ */}
-          <div className="space-y-8">
+          <div className="space-y-6">
             <h3 className="text-lg font-semibold text-foreground">Daily Workflows</h3>
 
-            <section id="workflow-morning" className="space-y-2 scroll-mt-6">
+            {/* Morning Check */}
+            <section id="workflow-morning" className="space-y-3 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Morning Check</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Start on the <Link to="/" className="text-primary hover:underline">Home</Link> page
-                to see if the nightly sync succeeded and review summary numbers. Then go to{' '}
-                <Link to="/critical" className="text-primary hover:underline">Critical SKUs</Link>{' '}
-                to see what needs ordering today. For anything urgent, jump to the{' '}
-                <Link to="/po" className="text-primary hover:underline">PO Builder</Link>, assemble
-                the order, and export to Excel.
-              </p>
-              <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-                <span className="font-medium text-foreground">Flow:</span>
-                Home <ArrowRight className="h-3.5 w-3.5 shrink-0" /> Critical SKUs{' '}
-                <ArrowRight className="h-3.5 w-3.5 shrink-0" /> PO Builder{' '}
-                <ArrowRight className="h-3.5 w-3.5 shrink-0" /> Export
+              <p className="text-sm text-muted-foreground">Check sync status, review critical items, and build POs for anything urgent.</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <StepCircle n={1} />
+                <span className="text-sm">Home</span>
+                <FlowArrow />
+                <StepCircle n={2} />
+                <span className="text-sm">Critical SKUs</span>
+                <FlowArrow />
+                <StepCircle n={3} />
+                <span className="text-sm">PO Builder</span>
+                <FlowArrow />
+                <StepCircle n={4} />
+                <span className="text-sm">Export</span>
               </div>
             </section>
 
-            <section id="workflow-deep-dive" className="space-y-2 scroll-mt-6">
+            {/* Deep Dive */}
+            <section id="workflow-deep-dive" className="space-y-3 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Deep Dive</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                When you want to understand a specific SKU, search for it or navigate through{' '}
-                <Link to="/brands" className="text-primary hover:underline">Brands</Link>. On the
-                SKU Detail page, expand the stock timeline to see how inventory has moved over time.
-                Use the calculation breakdown to verify the days-left and reorder math. If you
-                disagree with the system&rsquo;s numbers, add an override with a clear reason.
-              </p>
-              <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-                <span className="font-medium text-foreground">Flow:</span>
-                Search / Brands <ArrowRight className="h-3.5 w-3.5 shrink-0" /> SKU Detail{' '}
-                <ArrowRight className="h-3.5 w-3.5 shrink-0" /> Timeline{' '}
-                <ArrowRight className="h-3.5 w-3.5 shrink-0" /> Calculation{' '}
-                <ArrowRight className="h-3.5 w-3.5 shrink-0" /> Override
+              <p className="text-sm text-muted-foreground">Investigate a specific SKU. View timeline, verify calculations, add overrides.</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <StepCircle n={1} />
+                <span className="text-sm">Search / Brands</span>
+                <FlowArrow />
+                <StepCircle n={2} />
+                <span className="text-sm">SKU Detail</span>
+                <FlowArrow />
+                <StepCircle n={3} />
+                <span className="text-sm">Timeline</span>
+                <FlowArrow />
+                <StepCircle n={4} />
+                <span className="text-sm">Calculation</span>
+                <FlowArrow />
+                <StepCircle n={5} />
+                <span className="text-sm">Override</span>
               </div>
             </section>
 
-            <section id="workflow-monthly" className="space-y-2 scroll-mt-6">
+            {/* Monthly Review */}
+            <section id="workflow-monthly" className="space-y-3 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Monthly Review</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Once a month, visit the{' '}
-                <Link to="/overrides" className="text-primary hover:underline">Overrides</Link> page
-                to clean up stale entries. Then check{' '}
-                <Link to="/brands/*/dead-stock" className="text-primary hover:underline">Dead Stock</Link>{' '}
-                across brands to identify items for markdown or discontinuation. Finally, review the{' '}
-                <Link to="/parties" className="text-primary hover:underline">Parties</Link> page for
-                any new unclassified parties that appeared since the last review.
-              </p>
-              <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-                <span className="font-medium text-foreground">Flow:</span>
-                Overrides <ArrowRight className="h-3.5 w-3.5 shrink-0" /> Dead Stock{' '}
-                <ArrowRight className="h-3.5 w-3.5 shrink-0" /> Parties
+              <p className="text-sm text-muted-foreground">Clean up stale overrides, review dead stock, classify new parties.</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <StepCircle n={1} />
+                <span className="text-sm">Overrides</span>
+                <FlowArrow />
+                <StepCircle n={2} />
+                <span className="text-sm">Dead Stock</span>
+                <FlowArrow />
+                <StepCircle n={3} />
+                <span className="text-sm">Parties</span>
               </div>
             </section>
 
-            <section id="workflow-setup" className="space-y-2 scroll-mt-6">
+            {/* Setup After Sync */}
+            <section id="workflow-setup" className="space-y-3 scroll-mt-6">
               <h4 className="text-base font-medium text-foreground">Setup After Sync</h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                After the first sync (or when a banner warns about unclassified parties), go to the{' '}
-                <Link to="/parties" className="text-primary hover:underline">Parties</Link> page and
-                classify every unclassified party. This is critical because channel-level velocity
-                depends on correct party classification. Without it, all sales are lumped together and
-                the wholesale/online/store split will be inaccurate.
-              </p>
-              <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-                <span className="font-medium text-foreground">Flow:</span>
-                Notice banner <ArrowRight className="h-3.5 w-3.5 shrink-0" /> Parties{' '}
-                <ArrowRight className="h-3.5 w-3.5 shrink-0" /> Classify all
+              <p className="text-sm text-muted-foreground">When the banner warns about unclassified parties, classify them immediately.</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <StepCircle n={1} />
+                <span className="text-sm">Notice banner</span>
+                <FlowArrow />
+                <StepCircle n={2} />
+                <span className="text-sm">Parties</span>
+                <FlowArrow />
+                <StepCircle n={3} />
+                <span className="text-sm">Classify all</span>
               </div>
             </section>
           </div>
@@ -522,93 +729,17 @@ export default function Help() {
              ============================================================ */}
           <section id="glossary" className="space-y-4 scroll-mt-6">
             <h3 className="text-lg font-semibold text-foreground">Glossary</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Quick reference for terms used throughout the application.
-            </p>
 
-            <div className="border rounded-lg divide-y">
-              {[
-                {
-                  term: 'ABC Classification',
-                  definition: 'Revenue-based grouping: A = top 80%, B = next 15%, C = bottom 5%. Drives buffer size and priority.',
-                  anchor: 'abc-classification',
-                },
-                {
-                  term: 'Buffer',
-                  definition: 'Extra days of stock beyond lead time, scaled by ABC class (A=1.5x, B=1.0x, C=0.5x).',
-                  anchor: 'lead-time-buffer',
-                },
-                {
-                  term: 'Channel',
-                  definition: 'One of three demand tracks: wholesale, online, or store. Each has independent velocity.',
-                  anchor: 'three-channels',
-                },
-                {
-                  term: 'Critical',
-                  definition: 'SKU whose days remaining is less than lead time + buffer. Needs immediate reorder.',
-                  anchor: 'stockout-projection',
-                },
-                {
-                  term: 'Days Left',
-                  definition: 'Current stock divided by total daily velocity. How long until stockout at current sell rate.',
-                  anchor: 'stockout-projection',
-                },
-                {
-                  term: 'Dead Stock',
-                  definition: 'Items with no sales activity for longer than the dead stock threshold (default 30 days).',
-                  anchor: 'page-dead-stock',
-                },
-                {
-                  term: 'Lead Time',
-                  definition: 'Days from placing an order to receiving goods. Set per supplier (typically 90-180 days by sea).',
-                  anchor: 'lead-time-buffer',
-                },
-                {
-                  term: 'Override',
-                  definition: 'Manual adjustment to velocity or stock when you know better than the system. Requires a reason.',
-                  anchor: 'overrides',
-                },
-                {
-                  term: 'Party',
-                  definition: 'A customer or supplier name from Tally. Must be classified into a channel for velocity separation.',
-                  anchor: 'channel-classification',
-                },
-                {
-                  term: 'Reorder Quantity',
-                  definition: 'Formula: (velocity x (lead_time + buffer_days)) - current_stock. Pre-filled in PO Builder.',
-                  anchor: 'reorder-quantity',
-                },
-                {
-                  term: 'Staleness',
-                  definition: 'An override is "stale" when the underlying system value has drifted significantly from the overridden value.',
-                  anchor: 'overrides',
-                },
-                {
-                  term: 'Velocity',
-                  definition: 'Units sold per day, excluding out-of-stock days. Available as flat average or weighted moving average.',
-                  anchor: 'velocity',
-                },
-                {
-                  term: 'WMA',
-                  definition: 'Weighted Moving Average — velocity calculation that gives more weight to recent sales periods.',
-                  anchor: 'velocity',
-                },
-                {
-                  term: 'XYZ Classification',
-                  definition: 'Demand variability grouping: X = stable (CV<0.5), Y = variable (0.5-1.0), Z = unpredictable (CV>1.0).',
-                  anchor: 'abc-classification',
-                },
-              ].map(({ term, definition, anchor }) => (
-                <div key={term} className="flex items-start gap-4 px-4 py-3">
-                  <span className="text-sm font-medium text-foreground w-[160px] shrink-0">{term}</span>
-                  <span className="text-sm text-muted-foreground flex-1">{definition}</span>
-                  <button
-                    onClick={() => scrollToSection(anchor)}
-                    className="text-xs text-primary hover:underline shrink-0 mt-0.5"
-                  >
-                    Learn more
-                  </button>
-                </div>
+            <div className="grid grid-cols-2 gap-2">
+              {glossaryItems.map(({ term, definition, anchor }) => (
+                <button
+                  key={term}
+                  onClick={() => scrollToSection(anchor)}
+                  className="flex items-start gap-3 px-3 py-2.5 rounded-lg border border-border/50 text-left hover:bg-muted/30 transition-colors cursor-pointer"
+                >
+                  <span className="text-sm font-medium text-foreground whitespace-nowrap">{term}</span>
+                  <span className="text-xs text-muted-foreground flex-1">{definition}</span>
+                </button>
               ))}
             </div>
           </section>
