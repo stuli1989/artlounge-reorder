@@ -357,6 +357,7 @@ export interface PoDataItem {
   reorder_status: ReorderStatus
   suggested_qty: number | null
   lead_time: number
+  coverage_period: number
   buffer: number
   sku_buffer?: number
   reorder_intent: ReorderIntent

@@ -65,6 +65,7 @@ export default function PoBuilder() {
   const [customLeadTime, setCustomLeadTime] = useState(180)
   const [bufferOverride, setBufferOverride] = useState(false)
   const [bufferValue, setBufferValue] = useState(1.3)
+  const [coverageDays, setCoverageDays] = useState<number | null>(null)
   const [includeWarning, setIncludeWarning] = useState(true)
   const [includeOk, setIncludeOk] = useState(false)
 
@@ -100,6 +101,7 @@ export default function PoBuilder() {
     matchMutation.mutate({
       sku_names: skuNames.slice(0, 500),
       lead_time: leadTime,
+      coverage_days: coverageDays ?? undefined,
       buffer: bufferOverride ? bufferValue : undefined,
       from_date: fromDate ?? undefined,
       to_date: toDate ?? undefined,
@@ -127,13 +129,14 @@ export default function PoBuilder() {
   const leadTime = leadTimeType === 'sea' ? 180 : leadTimeType === 'air' ? 30 : customLeadTime
 
   const { data: poData, isLoading, isError: isPoError } = useQuery({
-    queryKey: ['poData', decodedName, leadTime, bufferOverride, bufferValue, includeWarning, includeOk, fromDate, toDate],
+    queryKey: ['poData', decodedName, leadTime, coverageDays, bufferOverride, bufferValue, includeWarning, includeOk, fromDate, toDate],
     queryFn: () => {
       const params: Record<string, string | number | boolean> = {
         lead_time: leadTime,
         include_warning: includeWarning,
         include_ok: includeOk,
       }
+      if (coverageDays !== null) params.coverage_days = coverageDays
       if (bufferOverride) params.buffer = bufferValue
       if (fromDate) params.from_date = fromDate
       if (toDate) params.to_date = toDate
@@ -141,6 +144,10 @@ export default function PoBuilder() {
     },
     enabled: !!decodedName,
   })
+
+  // Extract the auto-calculated coverage from the first API response item
+  const sourceData = subsetMode && subsetRawData ? subsetRawData : poData
+  const defaultCoverage = sourceData?.[0]?.coverage_period ?? 180
 
   const [overrides, setOverrides] = useState<Record<string, RowOverride>>({})
 
@@ -198,6 +205,7 @@ export default function PoBuilder() {
         category_name: subsetMode ? 'CUSTOM' : decodedName,
         supplier_name: '',
         lead_time: leadTime,
+        coverage_days: coverageDays ?? defaultCoverage,
         buffer: bufferOverride ? bufferValue : (includedRows.length > 0 ? includedRows.reduce((s, r) => s + r.sku_buffer, 0) / includedRows.length : 1.3),
         items: includedRows.map(r => ({
           stock_item_name: r.stock_item_name,
@@ -285,6 +293,31 @@ export default function PoBuilder() {
                       value={customLeadTime}
                       onChange={e => setCustomLeadTime(Number(e.target.value))}
                     />
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Coverage Period</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      className="w-24"
+                      value={coverageDays ?? defaultCoverage}
+                      onChange={e => setCoverageDays(e.target.value ? Number(e.target.value) : null)}
+                      placeholder="Auto"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      days = {Math.round((coverageDays ?? defaultCoverage) / 30)}mo
+                    </span>
+                  </div>
+                  {coverageDays !== null && (
+                    <button
+                      className="text-xs text-blue-600"
+                      onClick={() => setCoverageDays(null)}
+                    >
+                      Reset to auto
+                    </button>
                   )}
                 </div>
 
@@ -537,6 +570,32 @@ export default function PoBuilder() {
                   />
                   <span className="text-xs text-muted-foreground">days</span>
                 </div>
+              )}
+            </div>
+
+            {/* Coverage Period */}
+            <div className="space-y-1.5 min-w-[140px]">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Coverage Period</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  className="w-20 h-9 text-sm"
+                  value={coverageDays ?? defaultCoverage}
+                  onChange={e => setCoverageDays(e.target.value ? Number(e.target.value) : null)}
+                  placeholder="Auto"
+                />
+                <span className="text-xs text-muted-foreground">
+                  = {Math.round((coverageDays ?? defaultCoverage) / 30)}mo
+                </span>
+              </div>
+              {coverageDays !== null && (
+                <button
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => setCoverageDays(null)}
+                >
+                  Reset
+                </button>
               )}
             </div>
 

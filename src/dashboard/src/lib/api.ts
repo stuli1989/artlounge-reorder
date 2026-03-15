@@ -145,6 +145,7 @@ export const updateSetting = (key: string, value: string) =>
 export const matchSkusForPo = (data: {
   sku_names: string[]
   lead_time?: number
+  coverage_days?: number
   buffer?: number
   from_date?: string
   to_date?: string
