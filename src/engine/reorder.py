@@ -69,11 +69,16 @@ def determine_reorder_status(
     supplier_lead_time: int,
     total_velocity: float,
     safety_buffer: float = 1.3,
+    coverage_period: int = 0,
 ) -> tuple[str, float | None]:
     """
     Determine reorder status and suggested order quantity.
 
-    Suggested qty subtracts current stock: velocity * lead_time * buffer - stock.
+    Order quantity covers (lead_time + coverage_period) * velocity * buffer,
+    minus current stock. coverage_period controls how many extra days of
+    demand to include beyond the lead time. Warning/critical thresholds
+    remain based on lead_time only (they decide WHEN to order, not HOW MUCH).
+
     Returns (status, suggested_qty).
     """
     if total_velocity <= 0:
@@ -81,7 +86,7 @@ def determine_reorder_status(
             return ("out_of_stock", None)
         return ("no_data", None)
 
-    raw_need = total_velocity * supplier_lead_time * safety_buffer
+    raw_need = total_velocity * (supplier_lead_time + coverage_period) * safety_buffer
     suggested_qty = max(0, round(raw_need - max(0, current_stock)))
     if suggested_qty == 0:
         suggested_qty = None
