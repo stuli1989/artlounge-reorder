@@ -2,7 +2,7 @@
 FROM node:20-alpine AS frontend
 WORKDIR /app/dashboard
 COPY src/dashboard/package.json src/dashboard/package-lock.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 COPY src/dashboard/ ./
 # Empty VITE_API_URL = same-origin (frontend served by FastAPI)
 ENV VITE_API_URL=
