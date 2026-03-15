@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import Joyride, { type CallBackProps, STATUS, EVENTS, ACTIONS } from 'react-joyride'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { TOUR_STEPS, STEP_ROUTE_MAP } from '@/lib/tour-steps'
 
 const TOUR_STORAGE_KEY = 'tourCompleted'
@@ -38,22 +38,24 @@ export default function GuidedTour({ run, onFinish }: GuidedTourProps) {
   const [stepIndex, setStepIndex] = useState(0)
   const [isReady, setIsReady] = useState(true)
   const navigate = useNavigate()
-  const location = useLocation()
 
+  // After stepIndex changes, wait for the target element to appear in the DOM
   useEffect(() => {
-    if (!run || !isReady) return
+    if (!run) return
     const step = TOUR_STEPS[stepIndex]
-    if (!step || step.target === 'body') return
+    if (!step || step.target === 'body') {
+      setIsReady(true)
+      return
+    }
     const target = step.target as string
     setIsReady(false)
-    waitForTarget(target).then(() => {
+    waitForTarget(target, 8000).then(() => {
       setIsReady(true)
     })
-  }, [stepIndex, location.pathname, run])
+  }, [stepIndex, run])
 
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Clean up pending navigation timer on unmount
   useEffect(() => {
     return () => {
       if (navTimerRef.current) clearTimeout(navTimerRef.current)
@@ -73,12 +75,15 @@ export default function GuidedTour({ run, onFinish }: GuidedTourProps) {
       const currentRoute = getRouteForStep(index)
       const nextRoute = getRouteForStep(nextIndex)
       if (nextRoute && nextRoute !== currentRoute) {
+        // Navigate to the new route, then advance step after a delay
+        // to let the lazy chunk load + API data fetch + render
         setIsReady(false)
         navigate(nextRoute)
         navTimerRef.current = setTimeout(() => {
           navTimerRef.current = null
           setStepIndex(nextIndex)
-        }, 300)
+          // waitForTarget will run via the useEffect above when stepIndex changes
+        }, 1000)
       } else {
         setStepIndex(nextIndex)
       }

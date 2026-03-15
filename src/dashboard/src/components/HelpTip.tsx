@@ -13,6 +13,7 @@ export default function HelpTip({ tip, helpAnchor }: HelpTipProps) {
       <PopoverTrigger
         className="inline-flex items-center justify-center h-5 w-5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
         aria-label="More info"
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
         <Info className="h-4 w-4" />
       </PopoverTrigger>
