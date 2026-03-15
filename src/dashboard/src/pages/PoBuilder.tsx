@@ -194,6 +194,40 @@ export default function PoBuilder() {
   const totalItems = includedRows.length
   const totalQty = includedRows.reduce((sum, r) => sum + r.order_qty, 0)
 
+  // Timeline calculations
+  const fmtDate = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  const fmtMonths = (days: number) => days >= 30 ? `${Math.round(days / 30)}mo` : `${days}d`
+
+  const timeline = useMemo(() => {
+    const effectiveLeadTime = leadTime
+
+    // Expected arrival date
+    const arrivalDate = new Date()
+    arrivalDate.setDate(arrivalDate.getDate() + effectiveLeadTime)
+
+    // Expected stock at arrival (for all included items combined)
+    const totalVelocity = includedRows.reduce((s, r) => s + r.total_velocity, 0)
+    const stockAtArrival = Math.max(0,
+      includedRows.reduce((s, r) => s + r.current_stock, 0) - totalVelocity * effectiveLeadTime
+    ) + totalQty
+
+    // Days this stock lasts after arrival
+    const daysAfterArrival = totalVelocity > 0 ? Math.round(stockAtArrival / totalVelocity) : null
+
+    // Next reorder date (when warning would trigger)
+    const warningBuffer = Math.max(30, Math.floor(effectiveLeadTime * 0.5))
+    const warningThreshold = effectiveLeadTime + warningBuffer
+    const daysUntilNextReorder = daysAfterArrival !== null ? Math.max(0, daysAfterArrival - warningThreshold) : null
+    const nextReorderDate = daysUntilNextReorder !== null ? new Date() : null
+    if (nextReorderDate && daysUntilNextReorder !== null) {
+      nextReorderDate.setDate(nextReorderDate.getDate() + effectiveLeadTime + daysUntilNextReorder)
+    }
+
+    return { arrivalDate, daysAfterArrival, nextReorderDate, daysUntilNextReorder, effectiveLeadTime }
+  }, [includedRows, totalQty, leadTime])
+
+  const { arrivalDate, daysAfterArrival, nextReorderDate, daysUntilNextReorder, effectiveLeadTime } = timeline
+
   const hazardousIncluded = useMemo(() => rows.filter(r => r.included && r.is_hazardous), [rows])
   const hasHazardousConflict = leadTimeType === 'air' && hazardousIncluded.length > 0
 
@@ -237,7 +271,7 @@ export default function PoBuilder() {
   if (isMobile) {
     return (
       <TooltipProvider>
-        <div className="px-4 py-4 space-y-4">
+        <div className="px-4 py-4 space-y-4 pb-20">
           {/* Header */}
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate(categoryName ? `/brands/${categoryName}/skus` : '/brands')}>
@@ -359,6 +393,36 @@ export default function PoBuilder() {
             )}
           </Card>
 
+          {/* Timeline banner */}
+          {totalItems > 0 && (
+            <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
+              <CardContent className="py-3 px-4">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <div className="text-muted-foreground">Arrives</div>
+                    <div className="font-semibold">{fmtDate(arrivalDate)}</div>
+                  </div>
+                  {daysAfterArrival !== null && (
+                    <div>
+                      <div className="text-muted-foreground">Stock lasts</div>
+                      <div className="font-semibold">{fmtMonths(daysAfterArrival)} after arrival</div>
+                    </div>
+                  )}
+                  {nextReorderDate && (
+                    <div>
+                      <div className="text-muted-foreground">Next reorder by</div>
+                      <div className="font-semibold text-amber-700">{fmtDate(nextReorderDate)}</div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-muted-foreground">Total order</div>
+                    <div className="font-semibold">{totalQty.toLocaleString()} units</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Hazardous warning */}
           {hasHazardousConflict && (
             <Alert className="border-amber-300 bg-amber-50">
@@ -459,7 +523,7 @@ export default function PoBuilder() {
                   <p className="font-medium text-sm">{editingRow.stock_item_name}</p>
                   <p className="text-xs text-muted-foreground">{editingRow.part_no || 'No part number'}</p>
                 </div>
-                <div className="grid grid-cols-3 gap-3 text-center text-xs">
+                <div className="grid grid-cols-2 gap-3 text-center text-xs">
                   <div>
                     <div className="text-muted-foreground">Stock</div>
                     <div className="font-bold">{editingRow.current_stock}</div>
@@ -473,6 +537,10 @@ export default function PoBuilder() {
                     <div className="font-bold">
                       {editingRow.days_to_stockout === null ? 'N/A' : editingRow.days_to_stockout === 0 ? 'OUT' : `${editingRow.days_to_stockout}d`}
                     </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Arrives</div>
+                    <div className="font-bold">{fmtDate(arrivalDate)}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -653,6 +721,43 @@ export default function PoBuilder() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Timeline banner */}
+      {totalItems > 0 && (
+        <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-600 font-medium">Order today</span>
+                  <span className="text-muted-foreground">&rarr;</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Arrives: </span>
+                  <span className="font-semibold">{fmtDate(arrivalDate)}</span>
+                  <span className="text-muted-foreground text-xs ml-1">({effectiveLeadTime}d)</span>
+                </div>
+                {daysAfterArrival !== null && (
+                  <div>
+                    <span className="text-muted-foreground">Stock lasts: </span>
+                    <span className="font-semibold">{fmtMonths(daysAfterArrival)}</span>
+                    <span className="text-muted-foreground text-xs ml-1">after arrival</span>
+                  </div>
+                )}
+                {nextReorderDate && daysUntilNextReorder !== null && (
+                  <div>
+                    <span className="text-muted-foreground">Next reorder: </span>
+                    <span className="font-semibold text-amber-700">{fmtDate(nextReorderDate)}</span>
+                  </div>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {totalItems} items &middot; {totalQty.toLocaleString()} units
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Hazardous warning */}
       {hasHazardousConflict && (
