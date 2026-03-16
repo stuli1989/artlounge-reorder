@@ -200,7 +200,7 @@ export default function Help() {
     { term: 'Buffer', definition: 'Extra stock days beyond lead time, scaled by ABC class.', anchor: 'lead-time-buffer' },
     { term: 'Channel', definition: 'Demand track: wholesale, online, or store.', anchor: 'three-channels' },
     { term: 'Coverage Period', definition: 'Days of stock an order provides after arrival. Auto-calculated from lead time or set per supplier. Adjustable per-PO.', anchor: 'lead-time-buffer' },
-    { term: 'Critical', definition: 'Days left < lead time + buffer. Order now.', anchor: 'stockout-projection' },
+    { term: 'Critical', definition: 'Days left \u2264 lead time. Order now — stock won\'t last until arrival.', anchor: 'stockout-projection' },
     { term: 'Days Left', definition: 'Stock / velocity = time until stockout.', anchor: 'stockout-projection' },
     { term: 'Dead Stock', definition: 'No sales for longer than the threshold (default 30 days).', anchor: 'page-dead-stock' },
     { term: 'Lead Time', definition: 'Days from order to delivery. Set per supplier.', anchor: 'lead-time-buffer' },
@@ -502,7 +502,7 @@ export default function Help() {
                   <div className="flex-1 h-3 rounded-full bg-red-100 relative overflow-hidden">
                     <div className="absolute inset-y-0 left-0 w-[80%] bg-red-500 rounded-full" />
                   </div>
-                  <span className="text-sm text-muted-foreground w-[280px] shrink-0">Top 80% revenue — highest priority, buffer 1.5x</span>
+                  <span className="text-sm text-muted-foreground w-[280px] shrink-0">Top 80% revenue — highest priority, largest buffer</span>
                 </div>
                 {/* B tier */}
                 <div className="flex items-center gap-3">
@@ -510,7 +510,7 @@ export default function Help() {
                   <div className="flex-1 h-3 rounded-full bg-amber-100 relative overflow-hidden">
                     <div className="absolute inset-y-0 left-0 w-[55%] bg-amber-500 rounded-full" />
                   </div>
-                  <span className="text-sm text-muted-foreground w-[280px] shrink-0">Next 15% revenue — moderate priority, buffer 1.0x</span>
+                  <span className="text-sm text-muted-foreground w-[280px] shrink-0">Next 15% revenue — moderate priority, medium buffer</span>
                 </div>
                 {/* C tier */}
                 <div className="flex items-center gap-3">
@@ -518,7 +518,7 @@ export default function Help() {
                   <div className="flex-1 h-3 rounded-full bg-gray-100 relative overflow-hidden">
                     <div className="absolute inset-y-0 left-0 w-[25%] bg-gray-400 rounded-full" />
                   </div>
-                  <span className="text-sm text-muted-foreground w-[280px] shrink-0">Bottom 5% + zero — minimal priority, buffer 0.5x</span>
+                  <span className="text-sm text-muted-foreground w-[280px] shrink-0">Bottom 5% + zero — minimal priority, smallest buffer</span>
                 </div>
               </div>
             </section>
@@ -568,15 +568,15 @@ export default function Help() {
               <div className="grid grid-cols-1 gap-2">
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-red-50/50 border border-red-100">
                   <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Critical</Badge>
-                  <span className="text-sm text-muted-foreground">Order now. Stock will not last until next shipment arrives.</span>
+                  <span className="text-sm text-muted-foreground">Days left &le; lead time. Stock won't last until shipment arrives.</span>
                 </div>
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-amber-50/50 border border-amber-100">
                   <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Warning</Badge>
-                  <span className="text-sm text-muted-foreground">Plan your order soon. Approaching reorder threshold.</span>
+                  <span className="text-sm text-muted-foreground">Days left &le; lead time + warning buffer. Plan your order now.</span>
                 </div>
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-green-50/50 border border-green-100">
                   <Badge className="bg-green-100 text-green-700 hover:bg-green-100">OK</Badge>
-                  <span className="text-sm text-muted-foreground">Comfortable runway. No action needed right now.</span>
+                  <span className="text-sm text-muted-foreground">Days left &gt; lead time + warning buffer. No rush.</span>
                 </div>
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200">
                   <Badge className="bg-slate-700 text-white hover:bg-slate-700">Out of Stock</Badge>
