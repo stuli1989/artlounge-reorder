@@ -7,6 +7,9 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from api.database import get_db
 
@@ -44,8 +47,18 @@ app.add_middleware(
 # GZip compression — SKU list responses compress ~85% (150KB → 15KB)
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
+# Rate limiting for login endpoint
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(status_code=429, content={"detail": "Too many login attempts. Try again in a minute."})
+
+
 # Import and register route modules
-from api.routes import brands, skus, po, parties, sync_status, suppliers, overrides, settings
+from api.routes import brands, skus, po, parties, sync_status, suppliers, overrides, settings, auth_routes, users
 
 app.include_router(brands.router, prefix="/api")
 app.include_router(skus.router, prefix="/api")
@@ -55,6 +68,8 @@ app.include_router(sync_status.router, prefix="/api")
 app.include_router(suppliers.router, prefix="/api")
 app.include_router(overrides.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
+app.include_router(auth_routes.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
 
 
 # Global exception handler — hide tracebacks from clients
