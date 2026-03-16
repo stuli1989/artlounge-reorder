@@ -1,6 +1,7 @@
 """Party classification API endpoints."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from api.auth import get_current_user, require_role
 from api.database import get_db
 
 router = APIRouter(tags=["parties"])
@@ -14,7 +15,7 @@ class ClassifyRequest(BaseModel):
 
 
 @router.get("/parties/unclassified")
-def list_unclassified():
+def list_unclassified(user: dict = Depends(get_current_user)):
     """List parties needing channel classification."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -32,7 +33,7 @@ def list_unclassified():
 
 
 @router.post("/parties/classify")
-def classify_party(req: ClassifyRequest):
+def classify_party(req: ClassifyRequest, user: dict = Depends(require_role("purchaser"))):
     """Classify a party's channel and update its transactions."""
     if req.channel not in VALID_CHANNELS:
         raise HTTPException(400, f"Invalid channel '{req.channel}'. Must be one of: {', '.join(sorted(VALID_CHANNELS))}")

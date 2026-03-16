@@ -1,7 +1,8 @@
 """Supplier CRUD API endpoints."""
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel
 from api.database import get_db
+from api.auth import get_current_user, require_role
 from engine.recalculate_buffers import recalculate_all_buffers
 
 router = APIRouter(tags=["suppliers"])
@@ -34,7 +35,7 @@ class SupplierUpdate(BaseModel):
 
 
 @router.get("/suppliers")
-def list_suppliers():
+def list_suppliers(user: dict = Depends(get_current_user)):
     """List all suppliers."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -50,7 +51,7 @@ def _recalc_buffers():
 
 
 @router.post("/suppliers")
-def create_supplier(req: SupplierCreate, background_tasks: BackgroundTasks):
+def create_supplier(req: SupplierCreate, background_tasks: BackgroundTasks, user: dict = Depends(require_role("admin"))):
     """Add a new supplier."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -73,7 +74,7 @@ def create_supplier(req: SupplierCreate, background_tasks: BackgroundTasks):
 
 
 @router.put("/suppliers/{supplier_id}")
-def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: BackgroundTasks):
+def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: BackgroundTasks, user: dict = Depends(require_role("admin"))):
     """Update an existing supplier."""
     ALLOWED_SUPPLIER_COLUMNS = {
         "name", "tally_party", "lead_time_sea", "lead_time_air",
@@ -114,7 +115,7 @@ def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: Bac
 
 
 @router.delete("/suppliers/{supplier_id}")
-def delete_supplier(supplier_id: int):
+def delete_supplier(supplier_id: int, user: dict = Depends(require_role("admin"))):
     """Delete a supplier (only if not referenced)."""
     with get_db() as conn:
         with conn.cursor() as cur:

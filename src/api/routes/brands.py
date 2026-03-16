@@ -1,5 +1,6 @@
 """Brand overview API endpoints."""
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from api.auth import get_current_user
 from api.database import get_db
 from api.routes.skus import _escape_ilike
 
@@ -7,7 +8,7 @@ router = APIRouter(tags=["brands"])
 
 
 @router.get("/brands")
-def list_brands(search: str = Query(None)):
+def list_brands(search: str = Query(None), user: dict = Depends(get_current_user)):
     """List all brand metrics, sorted by urgency."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -43,7 +44,7 @@ def _brands_summary_query(cur) -> dict:
 
 
 @router.get("/brands/summary")
-def brands_summary(cur=None):
+def brands_summary(cur=None, user: dict = Depends(get_current_user)):
     """Aggregate summary stats for dashboard header cards.
 
     If ``cur`` is provided, use it instead of opening a new connection.
@@ -56,7 +57,7 @@ def brands_summary(cur=None):
 
 
 @router.get("/dashboard-summary")
-def dashboard_summary():
+def dashboard_summary(user: dict = Depends(get_current_user)):
     """Cross-cutting summary for the command center home page."""
     with get_db() as conn:
         with conn.cursor() as cur:

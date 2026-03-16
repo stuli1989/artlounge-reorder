@@ -1,8 +1,9 @@
 """Override CRUD API endpoints."""
 import json
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from api.database import get_db
+from api.auth import get_current_user, require_role
 from engine.effective_values import OVERRIDE_FIELD_TO_COLUMN
 
 router = APIRouter(tags=["overrides"])
@@ -64,7 +65,7 @@ def _snapshot_computed_value(cur, stock_item_name: str, field_name: str) -> floa
 
 
 @router.post("/overrides")
-def create_override(req: OverrideCreate):
+def create_override(req: OverrideCreate, user: dict = Depends(require_role("purchaser"))):
     """Create a new override. Deactivates any prior active override for the same field."""
     if req.field_name not in VALID_FIELDS:
         raise HTTPException(400, f"Invalid field_name. Must be one of: {', '.join(sorted(VALID_FIELDS))}")
@@ -131,6 +132,7 @@ def create_override(req: OverrideCreate):
 def list_overrides(
     is_stale: bool | None = Query(None),
     stock_item_name: str | None = Query(None),
+    user: dict = Depends(get_current_user),
 ):
     """List active overrides with current computed values from sku_metrics."""
     conditions = ["o.is_active = TRUE"]
@@ -165,7 +167,7 @@ def list_overrides(
 
 
 @router.get("/overrides/{override_id}")
-def get_override(override_id: int):
+def get_override(override_id: int, user: dict = Depends(get_current_user)):
     """Get a single override with its audit log."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -187,7 +189,7 @@ def get_override(override_id: int):
 
 
 @router.delete("/overrides/{override_id}")
-def deactivate_override(override_id: int, req: OverrideDeactivate):
+def deactivate_override(override_id: int, req: OverrideDeactivate, user: dict = Depends(require_role("purchaser"))):
     """Soft-deactivate an override."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -211,7 +213,7 @@ def deactivate_override(override_id: int, req: OverrideDeactivate):
 
 
 @router.post("/overrides/{override_id}/review")
-def review_override(override_id: int, req: OverrideReview):
+def review_override(override_id: int, req: OverrideReview, user: dict = Depends(require_role("purchaser"))):
     """Handle a stale override — keep (rebase) or remove (deactivate)."""
     if req.action not in ("keep", "remove"):
         raise HTTPException(400, "action must be 'keep' or 'remove'")

@@ -3,7 +3,8 @@ import threading
 import time
 from datetime import date, timedelta
 from typing import Literal
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from api.auth import get_current_user, require_role
 from pydantic import BaseModel
 from api.database import get_db
 from api.sql_fragments import OVERRIDE_AGG_SUBQUERY
@@ -76,6 +77,7 @@ def list_skus(
     paginated: bool = Query(False, description="Return paginated envelope for large tables"),
     limit: int = Query(100, ge=1, le=500, description="Page size when paginated=true"),
     offset: int = Query(0, ge=0, description="Page offset when paginated=true"),
+    user: dict = Depends(get_current_user),
 ):
     """List SKU metrics for a brand with filtering and sorting."""
     custom_range = from_date is not None or to_date is not None
@@ -299,6 +301,7 @@ def list_critical_skus(
     velocity_type: str = Query("flat", description="flat or wma"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
+    user: dict = Depends(get_current_user),
 ):
     """Cross-brand critical/warning SKU list, ordered by days_to_stockout ASC."""
     conditions = ["COALESCE(si.is_active, TRUE) = TRUE"]
@@ -357,7 +360,7 @@ class HazardousUpdate(BaseModel):
 
 
 @router.patch("/skus/{stock_item_name}/hazardous")
-def toggle_hazardous(stock_item_name: str, req: HazardousUpdate):
+def toggle_hazardous(stock_item_name: str, req: HazardousUpdate, user: dict = Depends(require_role("purchaser"))):
     """Toggle hazardous flag on a stock item."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -377,7 +380,7 @@ class ReorderIntentUpdate(BaseModel):
 
 
 @router.patch("/skus/{stock_item_name}/reorder-intent")
-def update_reorder_intent(stock_item_name: str, req: ReorderIntentUpdate):
+def update_reorder_intent(stock_item_name: str, req: ReorderIntentUpdate, user: dict = Depends(require_role("purchaser"))):
     """Update reorder intent classification on a stock item."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -398,7 +401,7 @@ class XyzBufferUpdate(BaseModel):
 
 
 @router.patch("/skus/{stock_item_name}/xyz-buffer")
-def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate):
+def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate, user: dict = Depends(require_role("purchaser"))):
     """Toggle per-item XYZ buffer preference and recompute metrics instantly."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -499,6 +502,7 @@ def get_positions(
     stock_item_name: str,
     from_date: str = Query(None),
     to_date: str = Query(None),
+    user: dict = Depends(get_current_user),
 ):
     """Daily stock position data for charting."""
     if from_date:
@@ -542,6 +546,7 @@ def get_transactions(
     category_name: str,
     stock_item_name: str,
     limit: int = Query(50, ge=1, le=500),
+    user: dict = Depends(get_current_user),
 ):
     """Transaction history for a specific SKU."""
     with get_db() as conn:
@@ -585,6 +590,7 @@ def get_breakdown(
     stock_item_name: str,
     from_date: str = Query(None),
     to_date: str = Query(None),
+    user: dict = Depends(get_current_user),
 ):
     """Full calculation breakdown for a single SKU — ground-up transparency."""
     # Resolve date range

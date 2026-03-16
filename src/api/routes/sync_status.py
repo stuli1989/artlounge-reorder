@@ -1,13 +1,14 @@
 """Sync status API endpoint."""
 from datetime import datetime, timezone
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from api.auth import get_current_user
 from api.database import get_db
 
 router = APIRouter(tags=["sync"])
 
 
 @router.get("/sync/status")
-def sync_status():
+def sync_status(user: dict = Depends(get_current_user)):
     """Return last sync info and data freshness."""
     with get_db() as conn:
         with conn.cursor() as cur:

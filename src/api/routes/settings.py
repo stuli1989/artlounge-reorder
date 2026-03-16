@@ -1,7 +1,8 @@
 """App settings API endpoints."""
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel
 from api.database import get_db
+from api.auth import get_current_user, require_role
 from engine.recalculate_buffers import recalculate_all_buffers
 
 router = APIRouter(tags=["settings"])
@@ -32,7 +33,7 @@ def _recalc_buffers():
 
 
 @router.get("/settings")
-def get_settings():
+def get_settings(user: dict = Depends(get_current_user)):
     """Return all app_settings as a {key: value} dict."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -42,7 +43,7 @@ def get_settings():
 
 
 @router.put("/settings/{key}")
-def update_setting(key: str, body: SettingUpdate, background_tasks: BackgroundTasks):
+def update_setting(key: str, body: SettingUpdate, background_tasks: BackgroundTasks, user: dict = Depends(require_role("admin"))):
     """Update a single setting by key. Buffer changes trigger automatic recalculation."""
     if key not in VALID_SETTINGS_KEYS:
         raise HTTPException(status_code=400, detail=f"Unknown setting key: {key}")

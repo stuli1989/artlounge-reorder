@@ -1,12 +1,13 @@
 """Purchase Order data and Excel export endpoints."""
 import io
 from datetime import date
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side
 
+from api.auth import get_current_user, require_role
 from api.database import get_db
 from api.sql_fragments import OVERRIDE_AGG_SUBQUERY
 from engine.effective_values import compute_effective_values, compute_effective_status
@@ -132,6 +133,7 @@ def po_data(
     include_ok: bool = Query(False),
     from_date: str = Query(None, description="Analysis period start (YYYY-MM-DD)"),
     to_date: str = Query(None, description="Analysis period end (YYYY-MM-DD)"),
+    user: dict = Depends(get_current_user),
 ):
     """SKUs needing reorder with suggested quantities."""
     custom_range = from_date is not None or to_date is not None
@@ -302,7 +304,7 @@ def _match_sku_names(cur, input_names: list[str]) -> list[MatchedSku]:
 
 
 @router.post("/po-data/match")
-def match_and_build_po(req: SkuMatchRequest):
+def match_and_build_po(req: SkuMatchRequest, user: dict = Depends(require_role("purchaser"))):
     """Match SKU names and return PO data for matched items."""
     if len(req.sku_names) > 500:
         raise HTTPException(400, f"Too many SKU names ({len(req.sku_names)}). Maximum is 500.")
@@ -375,7 +377,7 @@ def match_and_build_po(req: SkuMatchRequest):
 
 
 @router.post("/export/po")
-def export_po(req: PoExportRequest):
+def export_po(req: PoExportRequest, user: dict = Depends(require_role("purchaser"))):
     """Generate and download an Excel purchase order."""
     # Auto-fill supplier name from brand_metrics if not provided
     supplier_name = req.supplier_name
