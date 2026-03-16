@@ -424,3 +424,28 @@ export interface LoginResponse {
   token: string
   user: AuthUser
 }
+
+// ── Universal Search ──
+
+export interface SearchBrandResult {
+  category_name: string
+  total_skus: number
+  critical_skus: number
+}
+
+export interface SearchSkuResult {
+  stock_item_name: string
+  part_no: string | null
+  category_name: string
+  reorder_status: ReorderStatus
+  current_stock: number
+}
+
+export interface SearchResults {
+  brands: SearchBrandResult[]
+  brand_count: number
+  skus: SearchSkuResult[]
+  sku_count: number
+  scoped_skus?: SearchSkuResult[]
+  scoped_sku_count?: number
+}

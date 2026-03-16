@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse, CriticalSkusResponse, AuthUser, LoginResponse } from './types'
+import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse, CriticalSkusResponse, AuthUser, LoginResponse, SearchResults } from './types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
@@ -199,5 +199,8 @@ export const updateUser = (id: number, data: { role?: string; is_active?: boolea
 
 export const resetUserPassword = (id: number, newPassword: string) =>
   api.put(`/api/users/${id}/reset-password`, { new_password: newPassword }).then(r => r.data)
+
+export const fetchSearch = (q: string, scope?: string): Promise<SearchResults> =>
+  api.get('/api/search', { params: { q, scope } }).then(r => r.data)
 
 export default api
