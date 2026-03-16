@@ -314,20 +314,19 @@ export default function SkuDetail() {
   const decodedName = decodeURIComponent(categoryName || '')
 
   const [searchParams, setSearchParams] = useSearchParams()
-  const highlightName = searchParams.get('highlight')
+  const [activeSearch, setActiveSearch] = useState<string | null>(null)
 
-  // Clear highlight from URL after initial load
+  // On mount: capture highlight param into local state, then clean the URL
   useEffect(() => {
-    if (highlightName) {
-      const timeout = window.setTimeout(() => {
-        setSearchParams(prev => {
-          prev.delete('highlight')
-          return prev
-        }, { replace: true })
-      }, 2000)
-      return () => window.clearTimeout(timeout)
+    const hl = searchParams.get('highlight')
+    if (hl) {
+      setActiveSearch(hl)
+      setSearchParams(prev => {
+        prev.delete('highlight')
+        return prev
+      }, { replace: true })
     }
-  }, [highlightName, setSearchParams])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [statusFilter, setStatusFilter] = useState('all')
   const [page, setPage] = useState(0)
@@ -405,7 +404,7 @@ export default function SkuDetail() {
   const brandLeadTime = brands?.find(b => b.category_name === decodedName)?.supplier_lead_time ?? undefined
 
   const { data: skuPage, isLoading, isFetching, isError, refetch } = useQuery({
-    queryKey: ['skus', decodedName, statusFilter, highlightName, analysisRange?.from, analysisRange?.to, page, pageSize, abcFilter, hideInactive, velocityType, xyzFilter, hazardousFilter, deadStockFilter, intentFilter],
+    queryKey: ['skus', decodedName, statusFilter, activeSearch, analysisRange?.from, analysisRange?.to, page, pageSize, abcFilter, hideInactive, velocityType, xyzFilter, hazardousFilter, deadStockFilter, intentFilter],
     queryFn: () => {
       const params: Record<string, string> = {}
       if (statusFilter === 'critical') params.status = 'critical'
@@ -415,7 +414,7 @@ export default function SkuDetail() {
       if (hazardousFilter) params.hazardous = 'true'
       if (intentFilter === 'must_stock') params.reorder_intent = 'must_stock'
       else if (intentFilter === 'do_not_reorder') params.reorder_intent = 'do_not_reorder'
-      if (highlightName) params.search = highlightName
+      if (activeSearch) params.search = activeSearch
       if (analysisRange) {
         if (analysisRange.from) params.from_date = analysisRange.from
         if (analysisRange.to) params.to_date = analysisRange.to
@@ -546,6 +545,12 @@ export default function SkuDetail() {
           </div>
           <FilterButton activeCount={mobileFilterCount} onClick={() => setMobileFilterOpen(true)} />
         </div>
+        {activeSearch && (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Showing results for: <strong>{activeSearch}</strong></span>
+            <button className="text-primary underline text-xs" onClick={() => setActiveSearch(null)}>Clear</button>
+          </div>
+        )}
 
         {/* Status pill tabs — horizontal scroll */}
         <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4">
@@ -845,6 +850,12 @@ export default function SkuDetail() {
         </div>
 
         {/* Filters — always visible */}
+        {activeSearch && (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Showing results for: <strong>{activeSearch}</strong></span>
+            <button className="text-primary underline text-xs" onClick={() => setActiveSearch(null)}>Clear</button>
+          </div>
+        )}
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex-1 max-w-sm">
             <UniversalSearch scope={decodedName} />
