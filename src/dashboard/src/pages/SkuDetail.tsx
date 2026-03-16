@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, memo, Fragment } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef, memo, Fragment } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSkusPage, fetchBrands, fetchSettings } from '@/lib/api'
@@ -316,17 +316,25 @@ export default function SkuDetail() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeSearch, setActiveSearch] = useState<string | null>(null)
 
-  // On mount: capture highlight param into local state, then clean the URL
+  // Capture highlight param into local state whenever URL changes, then clean URL
+  // Runs on mount AND when navigating to same route with new highlight (same-brand SKU click)
+  const highlightParam = searchParams.get('highlight')
+  const prevCategoryRef = useRef(categoryName)
   useEffect(() => {
-    const hl = searchParams.get('highlight')
-    if (hl) {
-      setActiveSearch(hl)
+    if (highlightParam) {
+      setActiveSearch(highlightParam)
+      setPage(0)
       setSearchParams(prev => {
         prev.delete('highlight')
         return prev
       }, { replace: true })
+    } else if (prevCategoryRef.current !== categoryName) {
+      // Navigated to a different brand without highlight — clear stale search
+      setActiveSearch(null)
+      setPage(0)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    prevCategoryRef.current = categoryName
+  }, [highlightParam, categoryName, setSearchParams])
 
   const [statusFilter, setStatusFilter] = useState('all')
   const [page, setPage] = useState(0)
