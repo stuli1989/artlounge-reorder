@@ -91,11 +91,23 @@ def reconstruct_daily_positions(
             else:
                 day_outward += t["quantity"]
 
-            # Demand tracking: only for real demand channels, not returns/adjustments
-            is_return = voucher_type in ("Credit Note", "Debit Note")
+            # Demand tracking: net demand (sales minus returns)
+            is_credit_note = voucher_type == "Credit Note"
+            is_debit_note = voucher_type == "Debit Note"
             is_adjustment = channel == "ignore"
 
-            if not t["is_inward"] and not is_return and not is_adjustment:
+            if is_adjustment:
+                pass  # Physical Stock adjustments don't affect demand
+            elif is_credit_note and t["is_inward"]:
+                # Credit Note = customer return — subtract from demand
+                if channel == "wholesale":
+                    day_wholesale_out -= t["quantity"]
+                elif channel == "online":
+                    day_online_out -= t["quantity"]
+                elif channel == "store":
+                    day_store_out -= t["quantity"]
+            elif not t["is_inward"] and not is_debit_note:
+                # Normal outward sale — add to demand
                 if channel == "wholesale":
                     day_wholesale_out += t["quantity"]
                 elif channel == "online":
