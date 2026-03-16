@@ -10,11 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import StatusBadge from '@/components/StatusBadge'
 import ReorderIntentSelector from '@/components/ReorderIntentSelector'
+import UniversalSearch from '@/components/UniversalSearch'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import StockTimeline from '@/components/StockTimeline'
 import CalculationBreakdown from '@/components/CalculationBreakdown'
 import AbcBadge from '@/components/AbcBadge'
-import { ArrowLeft, Snowflake, ChevronDown, ChevronRight, Search, ClipboardList } from 'lucide-react'
+import { ArrowLeft, Snowflake, ChevronDown, ChevronRight, ClipboardList } from 'lucide-react'
 import { vel } from '@/lib/formatters'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
@@ -27,7 +28,6 @@ export default function DeadStock() {
   const isMobile = useIsMobile()
 
   const [activeTab, setActiveTab] = useState<'dead' | 'slow'>('dead')
-  const [search, setSearch] = useState('')
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [thresholdInput, setThresholdInput] = useState('')
   const [slowThresholdInput, setSlowThresholdInput] = useState('')
@@ -60,12 +60,11 @@ export default function DeadStock() {
 
   // Load SKUs based on active tab
   const { data: skus, isLoading } = useQuery({
-    queryKey: ['skus', decodedName, activeTab, deadThreshold, slowThresholdDaily, search],
+    queryKey: ['skus', decodedName, activeTab, deadThreshold, slowThresholdDaily],
     queryFn: () => {
       const params: Record<string, string> = {}
       if (activeTab === 'dead') params.dead_stock = 'true'
       else params.slow_mover = 'true'
-      if (search) params.search = search
       return fetchSkus(decodedName, params)
     },
     enabled: !!decodedName,
@@ -252,14 +251,8 @@ export default function DeadStock() {
             </div>
 
             {/* Search */}
-            <div className="relative mt-3">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search SKUs..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-9 h-10"
-              />
+            <div className="mt-3">
+              <UniversalSearch scope={decodedName} />
             </div>
 
             {/* Dead Stock Tab Content */}
@@ -450,14 +443,8 @@ export default function DeadStock() {
           </div>
 
           {/* Search */}
-          <div className="relative max-w-sm mt-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search SKUs..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-9"
-            />
+          <div className="max-w-sm mt-4">
+            <UniversalSearch scope={decodedName} />
           </div>
 
           {/* Dead Stock Tab Content */}
