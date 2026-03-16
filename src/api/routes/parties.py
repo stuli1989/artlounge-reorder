@@ -14,6 +14,33 @@ class ClassifyRequest(BaseModel):
     channel: str
 
 
+@router.get("/parties")
+def list_all_parties(channel: str = None, search: str = None, user: dict = Depends(get_current_user)):
+    """List all parties with their current channel and transaction count."""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            sql = """
+                SELECT p.tally_name, p.tally_parent, p.channel, p.created_at,
+                       p.classified_at, COUNT(t.id) AS transaction_count
+                FROM parties p
+                LEFT JOIN transactions t ON t.party_name = p.tally_name
+            """
+            conditions, params = [], []
+            if channel:
+                conditions.append("p.channel = %s")
+                params.append(channel)
+            if search:
+                conditions.append("p.tally_name ILIKE %s")
+                params.append(f"%{search}%")
+            if conditions:
+                sql += " WHERE " + " AND ".join(conditions)
+            sql += " GROUP BY p.id, p.tally_name, p.tally_parent, p.channel, p.created_at, p.classified_at"
+            sql += " ORDER BY transaction_count DESC"
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
 @router.get("/parties/unclassified")
 def list_unclassified(user: dict = Depends(get_current_user)):
     """List parties needing channel classification."""

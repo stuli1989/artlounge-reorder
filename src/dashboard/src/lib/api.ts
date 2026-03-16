@@ -117,6 +117,9 @@ export const fetchSyncStatus = (): Promise<SyncStatus> =>
 export const fetchUnclassifiedParties = (): Promise<Party[]> =>
   api.get('/api/parties/unclassified').then(r => r.data)
 
+export const fetchAllParties = (params?: { channel?: string; search?: string }): Promise<(Party & { channel: string; classified_at: string | null })[]> =>
+  api.get('/api/parties', { params }).then(r => r.data)
+
 export const classifyParty = (tallyName: string, channel: string) =>
   api.post('/api/parties/classify', { tally_name: tallyName, channel }).then(r => r.data)
 
