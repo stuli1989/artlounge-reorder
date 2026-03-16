@@ -7,7 +7,6 @@ import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAl
 import HelpMenu from '@/components/HelpMenu'
 import { useAuth } from '@/contexts/AuthContext'
 import GuidedTour, { isTourCompleted, resetTour } from '@/components/GuidedTour'
-import HelpTip from '@/components/HelpTip'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import MobileLayout from '@/components/mobile/MobileLayout'
 
@@ -77,71 +76,76 @@ export default function Layout() {
     ]] : []),
   ]
 
+  const syncLabel = sync?.last_sync_completed
+    ? new Date(sync.last_sync_completed).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+    : null
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-lg font-semibold">Art Lounge — Stock Intelligence</h1>
-            <nav className="flex items-center gap-1">
-              {navGroups.map((group, gi) => (
-                <div key={gi} className="flex items-center gap-1">
-                  {gi > 0 && (
-                    <div className="h-5 w-px bg-slate-300 mx-1" />
-                  )}
-                  {group.map(({ path, label, icon: Icon, exact }) => {
-                    const isActive = exact
-                      ? location.pathname === path
-                      : location.pathname.startsWith(path)
-                    return (
-                      <Link
-                        key={path}
-                        to={path}
-                        className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${
-                          isActive
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                        }`}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {label}
-                      </Link>
-                    )
-                  })}
-                </div>
-              ))}
-            </nav>
-          </div>
+        {/* Top bar: branding + status + user */}
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
+          <Link to="/" className="text-sm font-semibold hover:opacity-80 transition-opacity">
+            Art Lounge <span className="font-normal text-muted-foreground">Stock Intelligence</span>
+          </Link>
 
-          {/* Sync Status */}
           <div className="flex items-center gap-3">
-          {sync && (
-            <div data-tour="sync-indicator" className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className={`h-2 w-2 rounded-full ${freshnessColors[sync.freshness]}`} />
-              {sync.last_sync_completed
-                ? `Synced ${new Date(sync.last_sync_completed).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
-                : 'Never synced'}
-              <HelpTip tip="Last successful data sync from Tally. Runs nightly." helpAnchor="getting-started" />
+            {sync && (
+              <div data-tour="sync-indicator" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className={`h-1.5 w-1.5 rounded-full ${freshnessColors[sync.freshness]}`} />
+                {syncLabel ? `Synced ${syncLabel}` : 'Never synced'}
+              </div>
+            )}
+            <div data-tour="help-menu">
+              <HelpMenu onReplayTour={handleReplayTour} />
             </div>
-          )}
-          <div data-tour="help-menu">
-            <HelpMenu onReplayTour={handleReplayTour} />
+            {user && (
+              <div className="flex items-center gap-1.5 text-xs border-l pl-3">
+                <span className="font-medium">{user.username}</span>
+                <span className="text-muted-foreground capitalize">({user.role})</span>
+                <button
+                  onClick={logout}
+                  className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors ml-0.5"
+                  title="Sign out"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
-          {user && (
-            <div className="flex items-center gap-2 text-sm border-l pl-3 ml-1">
-              <span className="font-medium">{user.username}</span>
-              <span className="text-xs text-muted-foreground capitalize">({user.role})</span>
-              <button
-                onClick={logout}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                title="Sign out"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-          </div>
+        </div>
+
+        {/* Nav bar */}
+        <div className="max-w-7xl mx-auto px-4 pb-2">
+          <nav className="flex items-center gap-0.5">
+            {navGroups.map((group, gi) => (
+              <div key={gi} className="flex items-center gap-0.5">
+                {gi > 0 && (
+                  <div className="h-4 w-px bg-border mx-1.5" />
+                )}
+                {group.map(({ path, label, icon: Icon, exact }) => {
+                  const isActive = exact
+                    ? location.pathname === path
+                    : location.pathname.startsWith(path)
+                  return (
+                    <Link
+                      key={path}
+                      to={path}
+                      className={`px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5 transition-colors ${
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </Link>
+                  )
+                })}
+              </div>
+            ))}
+          </nav>
         </div>
       </header>
 
