@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { fetchBrands, fetchBrandSummary, fetchSkusPage } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +10,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import AbcBadge from '@/components/AbcBadge'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
-import { Search, ArrowUpDown, LayoutGrid, TableProperties } from 'lucide-react'
+import UniversalSearch from '@/components/UniversalSearch'
+import { ArrowUpDown, LayoutGrid, TableProperties } from 'lucide-react'
 import { daysColor } from '@/lib/formatters'
 import HelpTip from '@/components/HelpTip'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -31,18 +31,11 @@ export default function BrandOverview() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [criticalOnly, setCriticalOnly] = useState(false)
   const [sortCol, setSortCol] = useState<string>('critical_skus')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact')
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false)
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => clearTimeout(timer)
-  }, [search])
 
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleBrandHover = useCallback((categoryName: string) => {
@@ -68,8 +61,8 @@ export default function BrandOverview() {
   })
 
   const { data: brands, isLoading, isError, refetch } = useQuery({
-    queryKey: ['brands', debouncedSearch],
-    queryFn: () => fetchBrands(debouncedSearch || undefined),
+    queryKey: ['brands'],
+    queryFn: () => fetchBrands(),
   })
 
   const filteredBrands = useMemo(() =>
@@ -125,14 +118,8 @@ export default function BrandOverview() {
 
         {/* Search + Filter button */}
         <div className="flex items-center gap-2" data-tour="brand-filters">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search brands..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-9 h-10"
-            />
+          <div className="flex-1">
+            <UniversalSearch placeholder="Search brands, SKUs..." />
           </div>
           <FilterButton activeCount={mobileFilterCount} onClick={() => setFilterDrawerOpen(true)} />
         </div>
@@ -247,14 +234,8 @@ export default function BrandOverview() {
 
       {/* Filters */}
       <div className="flex items-center gap-4" data-tour="brand-filters">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search brands..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex-1 max-w-sm">
+          <UniversalSearch placeholder="Search brands, SKUs..." />
         </div>
         <div className="flex items-center gap-2">
           <Checkbox
