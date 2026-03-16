@@ -1,10 +1,9 @@
 import { useState, useMemo, useEffect, useCallback, memo, Fragment } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSkusPage, fetchBrands, fetchSettings } from '@/lib/api'
 import type { SkuCounts, SkuMetrics } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -19,11 +18,12 @@ import AbcBadge from '@/components/AbcBadge'
 import VelocityToggle from '@/components/VelocityToggle'
 import TrendIndicator from '@/components/TrendIndicator'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
-import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Search, Pencil, AlertTriangle, StickyNote, Calendar, Snowflake, Filter, ArrowUpDown } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, FileSpreadsheet, Pencil, AlertTriangle, StickyNote, Calendar, Snowflake, Filter, ArrowUpDown } from 'lucide-react'
 import { vel, daysColor } from '@/lib/formatters'
 import HelpTip from '@/components/HelpTip'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
+import UniversalSearch from '@/components/UniversalSearch'
 import { FilterButton, FilterChips, FilterDrawer } from '@/components/mobile/FilterDrawer'
 import type { FilterChip } from '@/components/mobile/FilterDrawer'
 import { MobileSortSheet } from '@/components/mobile/MobileSortSheet'
@@ -313,9 +313,23 @@ export default function SkuDetail() {
   const isMobile = useIsMobile()
   const decodedName = decodeURIComponent(categoryName || '')
 
+  const [searchParams, setSearchParams] = useSearchParams()
+  const highlightName = searchParams.get('highlight')
+
+  // Clear highlight from URL after initial load
+  useEffect(() => {
+    if (highlightName) {
+      const timeout = window.setTimeout(() => {
+        setSearchParams(prev => {
+          prev.delete('highlight')
+          return prev
+        }, { replace: true })
+      }, 2000)
+      return () => window.clearTimeout(timeout)
+    }
+  }, [highlightName, setSearchParams])
+
   const [statusFilter, setStatusFilter] = useState('all')
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(100)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
@@ -379,13 +393,6 @@ export default function SkuDetail() {
     return getPresetRange(rangePreset)
   }, [rangePreset, customFrom, customTo])
 
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      setDebouncedSearch(search.trim())
-    }, 300)
-    return () => window.clearTimeout(handle)
-  }, [search])
-
   const handleToggleRow = useCallback((name: string) => {
     setExpandedRow(prev => prev === name ? null : name)
   }, [])
@@ -398,7 +405,7 @@ export default function SkuDetail() {
   const brandLeadTime = brands?.find(b => b.category_name === decodedName)?.supplier_lead_time ?? undefined
 
   const { data: skuPage, isLoading, isFetching, isError, refetch } = useQuery({
-    queryKey: ['skus', decodedName, statusFilter, debouncedSearch, analysisRange?.from, analysisRange?.to, page, pageSize, abcFilter, hideInactive, velocityType, xyzFilter, hazardousFilter, deadStockFilter, intentFilter],
+    queryKey: ['skus', decodedName, statusFilter, highlightName, analysisRange?.from, analysisRange?.to, page, pageSize, abcFilter, hideInactive, velocityType, xyzFilter, hazardousFilter, deadStockFilter, intentFilter],
     queryFn: () => {
       const params: Record<string, string> = {}
       if (statusFilter === 'critical') params.status = 'critical'
@@ -408,7 +415,7 @@ export default function SkuDetail() {
       if (hazardousFilter) params.hazardous = 'true'
       if (intentFilter === 'must_stock') params.reorder_intent = 'must_stock'
       else if (intentFilter === 'do_not_reorder') params.reorder_intent = 'do_not_reorder'
-      if (debouncedSearch) params.search = debouncedSearch
+      if (highlightName) params.search = highlightName
       if (analysisRange) {
         if (analysisRange.from) params.from_date = analysisRange.from
         if (analysisRange.to) params.to_date = analysisRange.to
@@ -534,17 +541,8 @@ export default function SkuDetail() {
 
         {/* Search + Filter button */}
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search SKUs..."
-              value={search}
-              onChange={e => {
-                setSearch(e.target.value)
-                setPage(0)
-              }}
-              className="pl-9 h-10"
-            />
+          <div className="flex-1">
+            <UniversalSearch scope={decodedName} />
           </div>
           <FilterButton activeCount={mobileFilterCount} onClick={() => setMobileFilterOpen(true)} />
         </div>
@@ -848,18 +846,8 @@ export default function SkuDetail() {
 
         {/* Filters — always visible */}
         <div className="flex items-center gap-4 flex-wrap">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search SKUs..."
-              value={search}
-              onChange={e => {
-                setSearch(e.target.value)
-                setPage(0)
-                setExpandedRow(null)
-              }}
-              className="pl-9"
-            />
+          <div className="flex-1 max-w-sm">
+            <UniversalSearch scope={decodedName} />
           </div>
           <Select value={statusFilter} onValueChange={v => {
             if (!v) return
