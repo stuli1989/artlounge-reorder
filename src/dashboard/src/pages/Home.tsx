@@ -1,49 +1,24 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { useState, useRef, useEffect } from 'react'
-import { fetchDashboardSummary, fetchBrands } from '@/lib/api'
-// types inferred from API functions
-import { Input } from '@/components/ui/input'
+import { fetchDashboardSummary } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import HelpTip from '@/components/HelpTip'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
+import UniversalSearch from '@/components/UniversalSearch'
 
 export default function Home() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isMobile = useIsMobile()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showDropdown, setShowDropdown] = useState(false)
-  const searchRef = useRef<HTMLDivElement>(null)
 
   const { data: s, isLoading, isError } = useQuery({
     queryKey: ['dashboardSummary'],
     queryFn: fetchDashboardSummary,
   })
-
-  const { data: brands } = useQuery({
-    queryKey: ['brands'],
-    queryFn: () => fetchBrands(),
-  })
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const filteredBrands = (brands ?? []).filter(b =>
-    b.category_name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
 
   if (isError) {
     return (
@@ -84,45 +59,9 @@ export default function Home() {
 
   return (
     <div className={isMobile ? 'px-4 py-4 space-y-5' : 'space-y-8'}>
-      {/* Section 1: Brand Search */}
-      <section>
-        <div ref={searchRef} className="relative" data-tour="brand-search">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Jump to brand... (type to search)"
-            className={isMobile ? 'pl-10 h-10 text-sm' : 'pl-10 h-11 text-base'}
-            value={searchQuery}
-            onChange={e => {
-              setSearchQuery(e.target.value)
-              setShowDropdown(e.target.value.length > 0)
-            }}
-            onFocus={() => {
-              if (searchQuery.length > 0) setShowDropdown(true)
-            }}
-          />
-          {showDropdown && searchQuery.length > 0 && (
-            <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-lg max-h-64 overflow-y-auto">
-              {filteredBrands.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-muted-foreground">No brands found</div>
-              ) : (
-                filteredBrands.slice(0, 20).map(b => (
-                  <button
-                    key={b.category_name}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-muted cursor-pointer flex items-center justify-between"
-                    onClick={() => {
-                      navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`)
-                      setShowDropdown(false)
-                      setSearchQuery('')
-                    }}
-                  >
-                    <span>{b.category_name}</span>
-                    <span className="text-xs text-muted-foreground">{b.total_skus} SKUs</span>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
+      {/* Section 1: Universal Search */}
+      <section data-tour="brand-search">
+        <UniversalSearch />
       </section>
 
       {/* Section 2: Action Cards */}
