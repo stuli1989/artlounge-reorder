@@ -92,6 +92,7 @@ def auto_classify_all_parties(db_conn) -> dict:
         cur.execute("""
             SELECT tally_name, tally_parent FROM parties
             WHERE channel = 'unclassified'
+              AND (is_manual IS NOT TRUE)
         """)
         unclassified = cur.fetchall()
 

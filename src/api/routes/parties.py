@@ -61,15 +61,15 @@ def list_unclassified(user: dict = Depends(get_current_user)):
 
 @router.post("/parties/classify")
 def classify_party(req: ClassifyRequest, user: dict = Depends(require_role("purchaser"))):
-    """Classify a party's channel and update its transactions."""
+    """Classify a party's channel, update transactions, and recompute affected SKU metrics."""
     if req.channel not in VALID_CHANNELS:
         raise HTTPException(400, f"Invalid channel '{req.channel}'. Must be one of: {', '.join(sorted(VALID_CHANNELS))}")
 
     with get_db() as conn:
         with conn.cursor() as cur:
-            # Update party
+            # Update party with is_manual flag
             cur.execute("""
-                UPDATE parties SET channel = %s, classified_at = NOW()
+                UPDATE parties SET channel = %s, classified_at = NOW(), is_manual = TRUE
                 WHERE tally_name = %s
             """, (req.channel, req.tally_name))
 
@@ -85,5 +85,14 @@ def classify_party(req: ClassifyRequest, user: dict = Depends(require_role("purc
 
         conn.commit()
 
-    return {"success": True, "party": req.tally_name, "channel": req.channel,
-            "transactions_updated": txn_updated}
+        # Trigger targeted recompute for affected SKUs
+        from engine.targeted_recompute import recompute_skus_for_party
+        recompute_result = recompute_skus_for_party(conn, req.tally_name)
+
+    return {
+        "success": True,
+        "party": req.tally_name,
+        "channel": req.channel,
+        "transactions_updated": txn_updated,
+        **recompute_result,
+    }
