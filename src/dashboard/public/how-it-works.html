@@ -276,13 +276,7 @@ p strong { color: var(--text-primary); font-weight: 600; }
   to { opacity: 1; }
 }
 .reveal {
-  opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.7s var(--ease-smooth), transform 0.7s var(--ease-smooth);
-}
-.reveal.visible {
   opacity: 1;
-  transform: translateY(0);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2850,18 +2844,7 @@ new_stock         = <span class="string">468 units = 234 days = ~7.8 months!</sp
      SCRIPTS
      ═══════════════════════════════════════════════════ -->
 <script>
-// ── Scroll-based reveal animation ──
-const observer = new IntersectionObserver(
-  (entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-      }
-    });
-  },
-  { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-);
-document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+// Scroll-reveal removed — all sections visible immediately
 
 // ── Nav active state ──
 const sections = document.querySelectorAll('section[id]');
