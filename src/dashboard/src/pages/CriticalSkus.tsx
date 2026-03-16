@@ -5,7 +5,6 @@ import { fetchCriticalSkus, fetchSettings } from '@/lib/api'
 import type { CriticalItem } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -13,7 +12,8 @@ import StatusBadge from '@/components/StatusBadge'
 import SkuSecondaryLine from '@/components/SkuSecondaryLine'
 import VelocityToggle from '@/components/VelocityToggle'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
-import { Search, ChevronDown, ChevronRight } from 'lucide-react'
+import UniversalSearch from '@/components/UniversalSearch'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { vel, daysDisplay } from '@/lib/formatters'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
@@ -199,7 +199,6 @@ export default function CriticalSkus() {
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'critical,warning')
   const [abcFilter, setAbcFilter] = useState<string>(searchParams.get('abc_class') || '')
   const [velocityType, setVelocityType] = useState<'flat' | 'wma'>('flat')
-  const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false)
   const pageSize = 500
@@ -235,22 +234,14 @@ export default function CriticalSkus() {
   const items = data?.items || []
   const total = data?.total ?? 0
 
-  // Client-side search filter
-  const filtered = search
-    ? items.filter(i =>
-        i.stock_item_name?.toLowerCase().includes(search.toLowerCase()) ||
-        i.category_name?.toLowerCase().includes(search.toLowerCase())
-      )
-    : items
-
   // Split into tiers
   const tiers = useMemo(() => {
     const groups: Record<string, CriticalItem[]> = { immediate: [], urgent: [], watch: [] }
-    for (const item of filtered) {
+    for (const item of items) {
       groups[tierOf(item)].push(item)
     }
     return groups
-  }, [filtered])
+  }, [items])
 
   const activeFilterCount = (statusFilter !== 'critical,warning' ? 1 : 0) + (abcFilter ? 1 : 0)
 
@@ -264,14 +255,8 @@ export default function CriticalSkus() {
 
           {/* Search + Filter */}
           <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search SKUs or brands..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-9 h-10"
-              />
+            <div className="flex-1">
+              <UniversalSearch placeholder="Search SKUs or brands..." />
             </div>
             <FilterButton activeCount={activeFilterCount} onClick={() => setFilterDrawerOpen(true)} />
           </div>
@@ -293,7 +278,7 @@ export default function CriticalSkus() {
                 />
               ))}
 
-              {filtered.length === 0 && (
+              {items.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   No critical SKUs found
                 </div>
@@ -375,14 +360,8 @@ export default function CriticalSkus() {
 
         {/* Filters */}
         <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search SKUs or brands..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-9"
-            />
+          <div className="flex-1 max-w-sm">
+            <UniversalSearch placeholder="Search SKUs or brands..." />
           </div>
           <Select value={statusFilter} onValueChange={v => { if (v) { setStatusFilter(v); setPage(0) } }}>
             <SelectTrigger className="w-[200px]">
