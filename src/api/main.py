@@ -58,7 +58,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 
 # Import and register route modules
-from api.routes import brands, skus, po, parties, sync_status, suppliers, overrides, settings, auth_routes, users
+from api.routes import brands, skus, po, parties, sync_status, suppliers, overrides, settings, auth_routes, users, search
 
 app.include_router(brands.router, prefix="/api")
 app.include_router(skus.router, prefix="/api")
@@ -70,6 +70,7 @@ app.include_router(overrides.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
+app.include_router(search.router, prefix="/api")
 
 
 # Global exception handler — hide tracebacks from clients
