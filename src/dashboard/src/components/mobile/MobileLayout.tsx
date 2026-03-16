@@ -116,7 +116,7 @@ export default function MobileLayout({ tourRunning, setTourRunning, sync, staleO
   ]
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-dvh bg-background flex flex-col overflow-hidden">
       {/* Compact Header */}
       <header className="border-b bg-card px-3 py-2.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
