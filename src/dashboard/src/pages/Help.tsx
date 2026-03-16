@@ -206,7 +206,7 @@ export default function Help() {
     { term: 'Lead Time', definition: 'Days from order to delivery. Set per supplier.', anchor: 'lead-time-buffer' },
     { term: 'Override', definition: 'Manual adjustment to velocity or stock. Requires a reason.', anchor: 'overrides' },
     { term: 'Party', definition: 'Customer or supplier name from Tally.', anchor: 'channel-classification' },
-    { term: 'Reorder Qty', definition: '(velocity x coverage) - current stock.', anchor: 'reorder-quantity' },
+    { term: 'Reorder Qty', definition: '(velocity x coverage x buffer) - stock at arrival. Only covers post-arrival demand.', anchor: 'reorder-quantity' },
     { term: 'Staleness', definition: 'Override is stale when system data has drifted.', anchor: 'overrides' },
     { term: 'Velocity', definition: 'Units sold per day, excluding out-of-stock days.', anchor: 'velocity' },
     { term: 'WMA', definition: 'Weighted Moving Average. More weight on recent sales.', anchor: 'velocity' },
@@ -595,21 +595,39 @@ export default function Help() {
 
               <Card>
                 <CardContent className="py-2">
-                  <div className="flex items-center justify-center gap-1 flex-wrap py-3">
-                    <FormulaOp>(</FormulaOp>
-                    <FormulaBox className="bg-emerald-50 text-emerald-700">Velocity</FormulaBox>
-                    <FormulaOp>x</FormulaOp>
-                    <FormulaBox className="bg-purple-50 text-purple-700">Total Coverage</FormulaBox>
-                    <FormulaOp>x</FormulaOp>
-                    <FormulaBox className="bg-amber-50 text-amber-700">Safety Buffer</FormulaBox>
-                    <FormulaOp>)</FormulaOp>
-                    <FormulaOp>-</FormulaOp>
-                    <FormulaBox className="bg-blue-50 text-blue-700">Current Stock</FormulaBox>
-                    <FormulaOp>=</FormulaOp>
-                    <FormulaBox className="bg-red-50 text-red-700 font-semibold">Order Qty</FormulaBox>
+                  <div className="space-y-3 py-3">
+                    {/* Step 1 */}
+                    <div className="flex items-center justify-center gap-1 flex-wrap">
+                      <FormulaBox className="bg-blue-50 text-blue-700">Current Stock</FormulaBox>
+                      <FormulaOp>-</FormulaOp>
+                      <FormulaOp>(</FormulaOp>
+                      <FormulaBox className="bg-emerald-50 text-emerald-700">Velocity</FormulaBox>
+                      <FormulaOp>x</FormulaOp>
+                      <FormulaBox className="bg-cyan-50 text-cyan-700">Lead Time</FormulaBox>
+                      <FormulaOp>x</FormulaOp>
+                      <FormulaBox className="bg-amber-50 text-amber-700">Buffer</FormulaBox>
+                      <FormulaOp>)</FormulaOp>
+                      <FormulaOp>=</FormulaOp>
+                      <FormulaBox className="bg-slate-100 text-slate-700">Stock at Arrival</FormulaBox>
+                      <span className="text-xs text-muted-foreground ml-1">(min 0)</span>
+                    </div>
+                    {/* Step 2 */}
+                    <div className="flex items-center justify-center gap-1 flex-wrap">
+                      <FormulaOp>(</FormulaOp>
+                      <FormulaBox className="bg-emerald-50 text-emerald-700">Velocity</FormulaBox>
+                      <FormulaOp>x</FormulaOp>
+                      <FormulaBox className="bg-purple-50 text-purple-700">Coverage Period</FormulaBox>
+                      <FormulaOp>x</FormulaOp>
+                      <FormulaBox className="bg-amber-50 text-amber-700">Buffer</FormulaBox>
+                      <FormulaOp>)</FormulaOp>
+                      <FormulaOp>-</FormulaOp>
+                      <FormulaBox className="bg-slate-100 text-slate-700">Stock at Arrival</FormulaBox>
+                      <FormulaOp>=</FormulaOp>
+                      <FormulaBox className="bg-red-50 text-red-700 font-semibold">Order Qty</FormulaBox>
+                    </div>
                   </div>
                   <p className="text-xs text-center text-muted-foreground pb-2">
-                    How much to order so stock lasts through lead time plus the coverage period. Adjustable per-PO in the PO Builder.
+                    First estimates how much stock remains when the shipment arrives, then orders enough to cover the coverage period from that point. Items already out of stock only order for coverage — the lead time doesn't inflate the quantity.
                   </p>
                 </CardContent>
               </Card>

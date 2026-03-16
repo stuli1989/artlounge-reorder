@@ -1121,31 +1121,55 @@ function updateStep6() {
   el('s6-safety-disp').textContent = state.safety.toFixed(2);
   var safePct = ((state.safety - 1) * 100).toFixed(0);
 
-  // Calculate both options
-  var seaLtd = +(v * state.sea).toFixed(1);
-  var airLtd = +(v * state.air).toFixed(1);
-  var seaQty = Math.round(v * state.sea * state.safety);
-  var airQty = Math.round(v * state.air * state.safety);
-  var seaSafety = +(seaLtd * (state.safety - 1)).toFixed(1);
-  var airSafety = +(airLtd * (state.safety - 1)).toFixed(1);
+  // Coverage period auto-calculation
+  var seaCoverage = Math.floor(365 / Math.min(Math.max(1, Math.floor(365 / state.sea)), 6));
+  var airCoverage = Math.floor(365 / Math.min(Math.max(1, Math.floor(365 / state.air)), 6));
+
+  // Stock at arrival (capped at 0)
+  var seaStockAtArrival = Math.max(0, s.stock - v * state.sea * state.safety);
+  var airStockAtArrival = Math.max(0, s.stock - v * state.air * state.safety);
+
+  // Order for coverage period after arrival
+  var seaOrderForCoverage = v * seaCoverage * state.safety;
+  var airOrderForCoverage = v * airCoverage * state.safety;
+
+  var seaQty = Math.max(0, Math.round(seaOrderForCoverage - seaStockAtArrival));
+  var airQty = Math.max(0, Math.round(airOrderForCoverage - airStockAtArrival));
 
   var isOOS = s.stock <= 0;
   var dts = isOOS ? 0 : s.stock / v;
 
   el('s6-lead').innerHTML = isOOS
-    ? 'Even though <strong>' + s.short + '</strong> is out of stock, we still calculate order quantity from its historical velocity (' + v.toFixed(2) + '/day). The question is: <strong>ship or air?</strong>'
-    : 'For <strong>' + s.short + '</strong> selling at ' + v.toFixed(2) + '/day with ' + s.stock + ' units left, the order size depends entirely on <strong>which shipping mode you choose</strong>.';
+    ? 'Even though <strong>' + s.short + '</strong> is out of stock, we still calculate order quantity from its historical velocity (' + v.toFixed(2) + '/day). The formula estimates how much stock is consumed during shipping, then orders enough to cover a <strong>coverage period</strong> after arrival.'
+    : 'For <strong>' + s.short + '</strong> selling at ' + v.toFixed(2) + '/day with ' + s.stock + ' units left, the formula first estimates stock remaining when the shipment arrives, then orders enough to cover a <strong>coverage period</strong> after arrival.';
 
   // Formula
   el('s6-formula').innerHTML =
+    '<div style="text-align:center;width:100%">' +
+    '<div style="margin-bottom:10px;font-size:13px;font-weight:600;color:#6b7280;">Step 1: Stock at Arrival</div>' +
+    '<div class="math-row">' +
+    '<div class="math-box"><div class="math-val">' + s.stock + '</div><div class="math-label">Current<br>stock</div></div>' +
+    '<div class="math-op">&minus;</div>' +
     '<div class="math-box"><div class="math-val">' + v.toFixed(2) + '</div><div class="math-label">Velocity<br>(units/day)</div></div>' +
     '<div class="math-op">&times;</div>' +
     '<div class="math-box"><div class="math-val">?</div><div class="math-label">Lead time<br>(days)</div></div>' +
     '<div class="math-op">&times;</div>' +
-    '<div class="math-box"><div class="math-val">' + state.safety.toFixed(2) + '</div><div class="math-label">Safety<br>(+' + safePct + '%)</div></div>' +
+    '<div class="math-box"><div class="math-val">' + state.safety.toFixed(2) + '</div><div class="math-label">Buffer</div></div>' +
+    '</div>' +
+    '<div style="margin:14px 0 10px;font-size:13px;font-weight:600;color:#6b7280;">Step 2: Order Quantity</div>' +
+    '<div class="math-row">' +
+    '<div class="math-box"><div class="math-val">' + v.toFixed(2) + '</div><div class="math-label">Velocity<br>(units/day)</div></div>' +
+    '<div class="math-op">&times;</div>' +
+    '<div class="math-box"><div class="math-val">?</div><div class="math-label">Coverage<br>(days)</div></div>' +
+    '<div class="math-op">&times;</div>' +
+    '<div class="math-box"><div class="math-val">' + state.safety.toFixed(2) + '</div><div class="math-label">Buffer</div></div>' +
+    '<div class="math-op">&minus;</div>' +
+    '<div class="math-box"><div class="math-val">?</div><div class="math-label">Stock at<br>arrival</div></div>' +
     '<div class="math-op">=</div>' +
-    '<div class="math-box result"><div class="math-val">?</div><div class="math-label">Order qty</div></div>';
-  el('s6-formula-note').textContent = 'The lead time is the only variable \u2014 everything else is the same. Let\u2019s compare:';
+    '<div class="math-box result"><div class="math-val">?</div><div class="math-label">Order qty</div></div>' +
+    '</div>' +
+    '</div>';
+  el('s6-formula-note').textContent = 'The formula accounts for stock consumed during shipping, then orders enough to cover the coverage period after arrival. Let\u2019s compare:';
 
   // Determine recommendation
   var rec; // 'sea', 'air', or 'urgent'
@@ -1167,24 +1191,28 @@ function updateStep6() {
     '<div class="sac-card sac-sea' + seaRec + '">' +
       (seaRec ? '<div class="sac-inner">' : '') +
       '<div class="sac-mode">By Sea</div>' +
-      '<div class="sac-days">' + state.sea + ' days (~' + Math.round(state.sea / 30) + ' months)</div>' +
+      '<div class="sac-days">' + state.sea + ' days lead &rarr; ' + seaCoverage + ' days coverage (~' + Math.round(seaCoverage / 30) + ' mo)</div>' +
       '<div class="sac-qty">' + seaQty + '</div>' +
       '<div class="sac-qty-label">units to order</div>' +
       '<div class="sac-breakdown">' +
-        v.toFixed(2) + ' &times; ' + state.sea + ' = ' + seaLtd + ' base demand<br>' +
-        '+ ' + seaSafety + ' safety buffer (' + safePct + '%)' +
+        'Stock at arrival: max(0, ' + s.stock + ' &minus; ' + v.toFixed(2) + ' &times; ' + state.sea + ' &times; ' + state.safety.toFixed(2) + ') = <strong>' + Math.round(seaStockAtArrival) + '</strong><br>' +
+        'Coverage: ' + seaCoverage + ' days (~' + Math.round(seaCoverage / 30) + ' months)<br>' +
+        'Order for coverage: ' + v.toFixed(2) + ' &times; ' + seaCoverage + ' &times; ' + state.safety.toFixed(2) + ' = ' + Math.round(seaOrderForCoverage) + '<br>' +
+        'Minus stock at arrival: ' + Math.round(seaOrderForCoverage) + ' &minus; ' + Math.round(seaStockAtArrival) + ' = <strong>' + seaQty + '</strong>' +
       '</div>' +
       (seaRec ? '</div>' : '') +
     '</div>' +
     '<div class="sac-card sac-air' + airRec + '">' +
       (airRec ? '<div class="sac-inner">' : '') +
       '<div class="sac-mode">By Air</div>' +
-      '<div class="sac-days">' + state.air + ' days (~' + Math.round(state.air / 30) + ' months)</div>' +
+      '<div class="sac-days">' + state.air + ' days lead &rarr; ' + airCoverage + ' days coverage (~' + Math.round(airCoverage / 30) + ' mo)</div>' +
       '<div class="sac-qty">' + airQty + '</div>' +
       '<div class="sac-qty-label">units to order</div>' +
       '<div class="sac-breakdown">' +
-        v.toFixed(2) + ' &times; ' + state.air + ' = ' + airLtd + ' base demand<br>' +
-        '+ ' + airSafety + ' safety buffer (' + safePct + '%)' +
+        'Stock at arrival: max(0, ' + s.stock + ' &minus; ' + v.toFixed(2) + ' &times; ' + state.air + ' &times; ' + state.safety.toFixed(2) + ') = <strong>' + Math.round(airStockAtArrival) + '</strong><br>' +
+        'Coverage: ' + airCoverage + ' days (~' + Math.round(airCoverage / 30) + ' months)<br>' +
+        'Order for coverage: ' + v.toFixed(2) + ' &times; ' + airCoverage + ' &times; ' + state.safety.toFixed(2) + ' = ' + Math.round(airOrderForCoverage) + '<br>' +
+        'Minus stock at arrival: ' + Math.round(airOrderForCoverage) + ' &minus; ' + Math.round(airStockAtArrival) + ' = <strong>' + airQty + '</strong>' +
       '</div>' +
       (airRec ? '</div>' : '') +
     '</div>';
@@ -1261,7 +1289,7 @@ function renderSummary() {
     (s.stock <= 0 ? 'OUT OF STOCK (0 days). Velocity from active days: ' + v.toFixed(2) + '/day.' : 'Stock \u00f7 Velocity = ' + (s.stock / v).toFixed(1) + ' days.'),
     'Sea: ' + state.sea + 'd, Air: ' + state.air + 'd. Ship mode: ' + shipMode + ' (' + getLT() + 'd).',
     'CRITICAL \u2264 ' + getLT() + 'd, WARNING \u2264 ' + (getLT() + state.wbuffer) + 'd, OK > ' + (getLT() + state.wbuffer) + 'd.',
-    'Sea: ' + v.toFixed(2) + ' \u00d7 ' + state.sea + ' \u00d7 ' + state.safety.toFixed(2) + 'x = ' + Math.round(v * state.sea * state.safety) + ' units. Air: ' + v.toFixed(2) + ' \u00d7 ' + state.air + ' \u00d7 ' + state.safety.toFixed(2) + 'x = ' + Math.round(v * state.air * state.safety) + ' units.',
+    (function() { var seaCov = Math.floor(365 / Math.min(Math.max(1, Math.floor(365 / state.sea)), 6)); var airCov = Math.floor(365 / Math.min(Math.max(1, Math.floor(365 / state.air)), 6)); var seaSA = Math.max(0, s.stock - v * state.sea * state.safety); var airSA = Math.max(0, s.stock - v * state.air * state.safety); var seaQ = Math.max(0, Math.round(v * seaCov * state.safety - seaSA)); var airQ = Math.max(0, Math.round(v * airCov * state.safety - airSA)); return 'Sea: coverage ' + seaCov + 'd, stock@arrival ' + Math.round(seaSA) + ', order ' + seaQ + ' units. Air: coverage ' + airCov + 'd, stock@arrival ' + Math.round(airSA) + ', order ' + airQ + ' units.'; })(),
     'Dead stock: >' + state.deaddays + 'd no sale. Slow mover: <' + state.slowvel.toFixed(2) + '/day.'
   ];
   var h = '';
@@ -1280,8 +1308,14 @@ function renderSummary() {
   if (!any) spec += 'No changes requested. All steps approved as-is.\n\n';
   spec += 'CURRENT CONFIGURATION\n---------------------\n';
   spec += 'Shipping mode:        ' + shipMode + '\n';
-  spec += 'Sea lead time:        ' + state.sea + ' days \u2192 order ' + Math.round(v * state.sea * state.safety) + ' units\n';
-  spec += 'Air lead time:        ' + state.air + ' days \u2192 order ' + Math.round(v * state.air * state.safety) + ' units\n';
+  var specSeaCov = Math.floor(365 / Math.min(Math.max(1, Math.floor(365 / state.sea)), 6));
+  var specAirCov = Math.floor(365 / Math.min(Math.max(1, Math.floor(365 / state.air)), 6));
+  var specSeaSA = Math.max(0, s.stock - v * state.sea * state.safety);
+  var specAirSA = Math.max(0, s.stock - v * state.air * state.safety);
+  var specSeaQty = Math.max(0, Math.round(v * specSeaCov * state.safety - specSeaSA));
+  var specAirQty = Math.max(0, Math.round(v * specAirCov * state.safety - specAirSA));
+  spec += 'Sea lead time:        ' + state.sea + ' days, coverage ' + specSeaCov + 'd \u2192 order ' + specSeaQty + ' units\n';
+  spec += 'Air lead time:        ' + state.air + ' days, coverage ' + specAirCov + 'd \u2192 order ' + specAirQty + ' units\n';
   spec += 'Warning buffer:       ' + state.wbuffer + ' days\n';
   spec += 'Safety multiplier:    ' + state.safety.toFixed(2) + 'x (' + ((state.safety - 1) * 100).toFixed(0) + '% buffer)\n';
   spec += 'Dead stock threshold: ' + state.deaddays + ' days\n';

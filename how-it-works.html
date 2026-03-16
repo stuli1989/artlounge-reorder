@@ -1969,36 +1969,36 @@ footer .logo-mark {
         <div style="padding:1rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card)">
           <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
             <span class="priority-marker">2</span>
-            <span style="font-weight:600;color:var(--text-primary)">Multiply by lead time</span>
+            <span style="font-weight:600;color:var(--text-primary)">Estimate stock when the order arrives</span>
           </div>
           <div class="formula" style="margin:0.75rem 0 0.5rem;padding:1rem;background:var(--bg-main)">
-            <div class="formula-expr" style="font-size:1rem"><span class="num">2.5</span> <span class="op">&times;</span> <span class="var">120 days</span> <span class="op">=</span> <span class="num">300</span> <span style="color:var(--text-muted);font-size:0.8rem">units</span></div>
+            <div class="formula-expr" style="font-size:1rem"><span class="num">150</span> <span class="op">-</span> (<span class="num">2.5</span> <span class="op">&times;</span> <span class="var">120 days</span>) <span class="op">=</span> <span class="num">150 - 300</span> <span class="op">=</span> <span class="num">-150</span> <span class="op">&rarr;</span> <span class="num" style="color:var(--accent-coral)">0</span> <span style="color:var(--text-muted);font-size:0.8rem">units at arrival</span></div>
           </div>
-          <p style="font-size:0.82rem;margin:0;color:var(--text-muted)">"During the 120 days I wait for the shipment, I'll sell 300 units. That's the bare minimum I need."</p>
+          <p style="font-size:0.82rem;margin:0;color:var(--text-muted)">"I have 150 units, but I'll sell 300 during the 120-day wait. I'll run out 60 days before the ship arrives. Stock at arrival: 0 (can't go negative)."</p>
         </div>
 
         <!-- Layer 3 -->
         <div style="padding:1rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card)">
           <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
             <span class="priority-marker">3</span>
-            <span style="font-weight:600;color:var(--text-primary)">Multiply by safety buffer</span>
+            <span style="font-weight:600;color:var(--text-primary)">How much stock do I want after arrival?</span>
           </div>
           <div class="formula" style="margin:0.75rem 0 0.5rem;padding:1rem;background:var(--bg-main)">
-            <div class="formula-expr" style="font-size:1rem"><span class="num">300</span> <span class="op">&times;</span> <span class="var">1.3</span> <span class="op">=</span> <span class="num">390</span> <span style="color:var(--text-muted);font-size:0.8rem">units</span></div>
+            <div class="formula-expr" style="font-size:1rem"><span class="num">2.5</span> <span class="op">&times;</span> <span class="var">180 days</span> <span class="op">=</span> <span class="num">450</span> <span style="color:var(--text-muted);font-size:0.8rem">units</span></div>
           </div>
-          <p style="font-size:0.82rem;margin:0;color:var(--text-muted)">"But demand fluctuates. This product is ABC=A (high value) and XYZ=Y (moderate variability), so I add a 30% cushion: 300 &times; 1.3 = 390."</p>
+          <p style="font-size:0.82rem;margin:0;color:var(--text-muted)">"I want 6 months (180 days) of stock after the shipment lands. At 2.5 units/day, that's 450 units."</p>
         </div>
 
         <!-- Layer 4 -->
         <div style="padding:1rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-card)">
           <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
             <span class="priority-marker">4</span>
-            <span style="font-weight:600;color:var(--text-primary)">Subtract what you already have</span>
+            <span style="font-weight:600;color:var(--text-primary)">Apply safety buffer and subtract stock at arrival</span>
           </div>
           <div class="formula" style="margin:0.75rem 0 0.5rem;padding:1rem;background:var(--bg-main)">
-            <div class="formula-expr" style="font-size:1rem"><span class="num">390</span> <span class="op">-</span> <span class="var">150 in stock</span> <span class="op">=</span> <span class="num" style="color:var(--accent-gold);font-size:1.3rem">240</span> <span style="color:var(--accent-gold);font-size:0.8rem">units to order</span></div>
+            <div class="formula-expr" style="font-size:1rem"><span class="num">450</span> <span class="op">&times;</span> <span class="var">1.3</span> <span class="op">-</span> <span class="var">0</span> <span class="op">=</span> <span class="num" style="color:var(--accent-gold);font-size:1.3rem">585</span> <span style="color:var(--accent-gold);font-size:0.8rem">units to order</span></div>
           </div>
-          <p style="font-size:0.82rem;margin:0;color:var(--text-muted)">"I need 390 total, but I already have 150 in the warehouse. So I only need to order the difference: 240."</p>
+          <p style="font-size:0.82rem;margin:0;color:var(--text-muted)">"30% cushion for demand spikes and shipping delays: 450 &times; 1.3 = 585. Stock at arrival was 0, so nothing to subtract. Order 585 units."</p>
         </div>
       </div>
     </div>
@@ -2006,14 +2006,19 @@ footer .logo-mark {
 
   <div class="formula" style="border:2px solid var(--accent-gold);background:rgba(240,165,0,0.04)">
     <div style="font-size:0.72rem;color:var(--accent-gold);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.75rem;font-weight:600">The Complete Formula</div>
-    <div class="formula-expr" style="font-size:1.15rem">
-      <span class="var">order_qty</span> <span class="op">=</span> (<span class="var">velocity</span> <span class="op">&times;</span> <span class="var">lead_time</span> <span class="op">&times;</span> <span class="var">buffer</span>) <span class="op">-</span> <span class="var">current_stock</span>
+    <div class="formula-expr" style="font-size:1rem">
+      <span class="var">stock_at_arrival</span> <span class="op">=</span> max(<span class="num">0</span>, <span class="var">current_stock</span> <span class="op">-</span> <span class="var">velocity</span> <span class="op">&times;</span> <span class="var">lead_time</span>)
+    </div>
+    <div class="formula-expr" style="font-size:1.15rem;margin-top:0.5rem">
+      <span class="var">order_qty</span> <span class="op">=</span> <span class="var">velocity</span> <span class="op">&times;</span> <span class="var">coverage_period</span> <span class="op">&times;</span> <span class="var">buffer</span> <span class="op">-</span> <span class="var">stock_at_arrival</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;margin-top:1rem;text-align:left;max-width:500px;margin-left:auto;margin-right:auto">
       <div style="font-size:0.78rem;color:var(--text-muted)"><span style="color:var(--accent-teal)">velocity</span> &mdash; how fast it sells</div>
       <div style="font-size:0.78rem;color:var(--text-muted)"><span style="color:var(--accent-teal)">lead_time</span> &mdash; how long until shipment arrives</div>
+      <div style="font-size:0.78rem;color:var(--text-muted)"><span style="color:var(--accent-teal)">coverage_period</span> &mdash; days of stock wanted after arrival</div>
       <div style="font-size:0.78rem;color:var(--text-muted)"><span style="color:var(--accent-teal)">buffer</span> &mdash; insurance for uncertainty</div>
       <div style="font-size:0.78rem;color:var(--text-muted)"><span style="color:var(--accent-teal)">current_stock</span> &mdash; what you already have</div>
+      <div style="font-size:0.78rem;color:var(--text-muted)"><span style="color:var(--accent-teal)">stock_at_arrival</span> &mdash; stock left when shipment lands (min 0)</div>
     </div>
   </div>
 
@@ -2303,6 +2308,7 @@ footer .logo-mark {
 <span class="keyword">current_stock</span>     = <span class="number">80</span> units
 <span class="keyword">velocity</span>          = <span class="number">1.8</span> units/day
 <span class="keyword">lead_time</span>         = <span class="number">150</span> days (sea freight from Italy)
+<span class="keyword">coverage_period</span>   = <span class="number">182</span> days (auto-calculated: 365 &divide; 2 orders/yr)
 <span class="keyword">ABC class</span>         = <span class="string">A</span>  (top revenue earner)
 <span class="keyword">XYZ class</span>         = <span class="string">Z</span>  (CV = 1.4, very erratic)
 <span class="keyword">safety_buffer</span>     = <span class="number">1.5</span>x  (AZ = maximum protection)
@@ -2310,11 +2316,12 @@ footer .logo-mark {
 <span class="comment">// How many days of stock?</span>
 days_to_stockout  = <span class="number">80</span> / <span class="number">1.8</span>  = <span class="string">44 days</span>
 
-<span class="comment">// How much do I need total?</span>
-raw_need          = <span class="number">1.8</span> &times; <span class="number">150</span> &times; <span class="number">1.5</span>  = <span class="string">405 units</span>
+<span class="comment">// Step 1: Stock when order arrives?</span>
+demand_during_lead = <span class="number">1.8</span> &times; <span class="number">150</span> = <span class="string">270 units</span>
+stock_at_arrival   = max(<span class="number">0</span>, <span class="number">80</span> - <span class="number">270</span>) = <span class="string">0 units</span>  <span class="comment">← runs out 106 days before arrival</span>
 
-<span class="comment">// How much to order?</span>
-suggested_qty     = <span class="number">405</span> - <span class="number">80</span>  = <span class="string">325 units</span>
+<span class="comment">// Step 2: How much to order for coverage period?</span>
+order_qty = <span class="number">1.8</span> &times; <span class="number">182</span> &times; <span class="number">1.5</span> - <span class="number">0</span> = <span class="string">491 units</span>
 
 <span class="comment">// How urgent?</span>
 <span class="comment">// 44 days of stock, but lead time is 150 days</span>
@@ -2324,10 +2331,11 @@ status = <span class="string">"critical"</span> 🔴
 <span class="comment">// Translation:</span>
 <span class="comment">// "You'll be out of stock in 44 days. The new order</span>
 <span class="comment">//  takes 150 days. You'll have a 106-day gap with</span>
-<span class="comment">//  ZERO stock. Order 325 units immediately.</span>
-<span class="comment">//  The 1.5x buffer adds 135 extra units because this</span>
-<span class="comment">//  product's demand is so unpredictable that a single</span>
-<span class="comment">//  school order could consume 50+ units at once."</span>
+<span class="comment">//  ZERO stock. Order 491 units immediately.</span>
+<span class="comment">//  After arrival you'll have ~6 months of stock.</span>
+<span class="comment">//  The 1.5x buffer adds extra because this product's</span>
+<span class="comment">//  demand is so unpredictable that a single school</span>
+<span class="comment">//  order could consume 50+ units at once."</span>
       </div>
     </div>
   </div>
@@ -2342,6 +2350,7 @@ status = <span class="string">"critical"</span> 🔴
 <span class="keyword">current_stock</span>     = <span class="number">200</span> units
 <span class="keyword">velocity</span>          = <span class="number">0.5</span> units/day
 <span class="keyword">lead_time</span>         = <span class="number">90</span> days (sea freight from Japan)
+<span class="keyword">coverage_period</span>   = <span class="number">91</span> days (auto-calculated: 365 &divide; 4 orders/yr)
 <span class="keyword">ABC class</span>         = <span class="string">C</span>  (bottom 5% of revenue)
 <span class="keyword">XYZ class</span>         = <span class="string">X</span>  (CV = 0.3, very stable)
 <span class="keyword">safety_buffer</span>     = <span class="number">1.1</span>x  (CX = minimum protection)
@@ -2349,11 +2358,12 @@ status = <span class="string">"critical"</span> 🔴
 <span class="comment">// How many days of stock?</span>
 days_to_stockout  = <span class="number">200</span> / <span class="number">0.5</span>  = <span class="string">400 days</span>
 
-<span class="comment">// How much do I need total?</span>
-raw_need          = <span class="number">0.5</span> &times; <span class="number">90</span> &times; <span class="number">1.1</span>  = <span class="string">50 units</span>
+<span class="comment">// Step 1: Stock when order arrives?</span>
+demand_during_lead = <span class="number">0.5</span> &times; <span class="number">90</span> = <span class="string">45 units</span>
+stock_at_arrival   = max(<span class="number">0</span>, <span class="number">200</span> - <span class="number">45</span>) = <span class="string">155 units</span>  <span class="comment">← plenty left</span>
 
-<span class="comment">// How much to order?</span>
-suggested_qty     = <span class="number">50</span> - <span class="number">200</span>  = <span class="string">-150 → 0 (no order needed)</span>
+<span class="comment">// Step 2: How much to order for coverage period?</span>
+order_qty = <span class="number">0.5</span> &times; <span class="number">91</span> &times; <span class="number">1.1</span> - <span class="number">155</span> = <span class="number">50</span> - <span class="number">155</span> = <span class="string">-105 → 0 (no order needed)</span>
 
 <span class="comment">// How urgent?</span>
 <span class="comment">// 400 days of stock, lead time is only 90 days</span>
@@ -2362,6 +2372,8 @@ status = <span class="string">"ok"</span> ✅
 
 <span class="comment">// Translation:</span>
 <span class="comment">// "You have over a year of stock. No order needed.</span>
+<span class="comment">//  Even after 90 days you'll still have 155 units —</span>
+<span class="comment">//  far more than the 50 needed for coverage period.</span>
 <span class="comment">//  Only a 1.1x buffer because this product sells</span>
 <span class="comment">//  steadily (you can trust the average) and even</span>
 <span class="comment">//  if you did run out, it's only 5% of revenue."</span>
@@ -2452,29 +2464,33 @@ new_stock         = <span class="string">72 units = 36 days of stock</span>
     </div>
   </div>
 
-  <p>The problem is clear: the formula uses <code>lead_time</code> for two different things:</p>
+  <p>The problem was clear: the old formula used <code>lead_time</code> for two different things:</p>
 
   <div class="card-grid" style="margin:1.5rem 0">
     <div class="card" style="border-top:3px solid var(--accent-green)">
-      <div style="font-size:0.7rem;color:var(--accent-green);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:0.5rem">What lead time SHOULD control</div>
-      <p style="font-size:0.88rem;margin:0"><strong>WHEN to order</strong> (the warning/critical thresholds). This part works correctly. The alert system is solid.</p>
+      <div style="font-size:0.7rem;color:var(--accent-green);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:0.5rem">What lead time controls</div>
+      <p style="font-size:0.88rem;margin:0"><strong>WHEN to order</strong> (the warning/critical thresholds). This part always worked correctly. The alert system is solid.</p>
     </div>
-    <div class="card" style="border-top:3px solid var(--accent-coral)">
-      <div style="font-size:0.7rem;color:var(--accent-coral);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:0.5rem">What's missing</div>
-      <p style="font-size:0.88rem;margin:0"><strong>HOW MUCH to order.</strong> The quantity should be based on "how many months of stock do I want after the shipment arrives?" — a separate <em>coverage period</em> parameter.</p>
+    <div class="card" style="border-top:3px solid var(--accent-teal)">
+      <div style="font-size:0.7rem;color:var(--accent-teal);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:0.5rem">What was missing (now fixed)</div>
+      <p style="font-size:0.88rem;margin:0"><strong>HOW MUCH to order.</strong> The quantity is now based on "how many months of stock do I want after the shipment arrives?" using a separate <em>coverage period</em> parameter, and stock at arrival is capped at 0 to avoid over-ordering for out-of-stock items.</p>
     </div>
   </div>
 
-  <h3 style="margin-top:2rem;font-size:1.1rem">What the formula should look like</h3>
+  <h3 style="margin-top:2rem;font-size:1.1rem">The formula</h3>
 
   <div class="formula" style="border:2px solid var(--accent-teal);background:rgba(78,205,196,0.04)">
-    <div style="font-size:0.72rem;color:var(--accent-teal);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.75rem;font-weight:600">Corrected Formula (Proposed Fix)</div>
-    <div class="formula-expr" style="font-size:1rem">
-      <span class="var">order_qty</span> <span class="op">=</span> <span class="var">velocity</span> <span class="op">&times;</span> (<span class="var">lead_time</span> <span class="op">+</span> <span style="color:var(--accent-teal)">coverage_period</span>) <span class="op">&times;</span> <span class="var">buffer</span> <span class="op">-</span> <span class="var">current_stock</span>
+    <div style="font-size:0.72rem;color:var(--accent-teal);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.75rem;font-weight:600">The Formula</div>
+    <div class="formula-expr" style="font-size:0.95rem">
+      <span class="var">stock_at_arrival</span> <span class="op">=</span> max(<span class="num">0</span>, <span class="var">current_stock</span> <span class="op">-</span> <span class="var">velocity</span> <span class="op">&times;</span> <span class="var">lead_time</span>)
+    </div>
+    <div class="formula-expr" style="font-size:1rem;margin-top:0.5rem">
+      <span class="var">order_qty</span> <span class="op">=</span> <span class="var">velocity</span> <span class="op">&times;</span> <span style="color:var(--accent-teal)">coverage_period</span> <span class="op">&times;</span> <span class="var">buffer</span> <span class="op">-</span> <span class="var">stock_at_arrival</span>
     </div>
     <div style="margin-top:0.75rem;display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;text-align:left;max-width:500px;margin-left:auto;margin-right:auto">
       <div style="font-size:0.78rem;color:var(--text-muted)"><span style="color:var(--accent-teal)">lead_time</span> &mdash; days until shipment arrives</div>
       <div style="font-size:0.78rem;color:var(--accent-teal);font-weight:600">coverage_period &mdash; days of stock AFTER arrival</div>
+      <div style="font-size:0.78rem;color:var(--text-muted)"><span style="color:var(--accent-teal)">stock_at_arrival</span> &mdash; estimated stock when shipment lands (min 0)</div>
     </div>
   </div>
 
@@ -2486,23 +2502,25 @@ new_stock         = <span class="string">72 units = 36 days of stock</span>
       <div class="code-block" style="font-size:0.82rem;line-height:2.1">
 <span class="keyword">velocity</span>          = <span class="number">2</span> units/day
 <span class="keyword">lead_time</span>         = <span class="number">120</span> days
-<span class="keyword">coverage_period</span>   = <span class="number">180</span> days  <span class="comment">← NEW: "I want 6 months of stock after arrival"</span>
+<span class="keyword">coverage_period</span>   = <span class="number">180</span> days  <span class="comment">"I want 6 months of stock after arrival"</span>
 <span class="keyword">buffer</span>            = <span class="number">1.3</span>x
 <span class="keyword">current_stock</span>     = <span class="number">240</span> units
 
-<span class="comment">// Total demand to cover:</span>
-total_days    = <span class="number">120</span> + <span class="number">180</span> = <span class="string">300 days</span>
-raw_need      = <span class="number">2</span> &times; <span class="number">300</span> &times; <span class="number">1.3</span> = <span class="string">780 units</span>
-suggested_qty = <span class="number">780</span> - <span class="number">240</span> = <span class="string">540 units</span>
+<span class="comment">// Step 1: Stock when the order arrives?</span>
+demand_during_lead = <span class="number">2</span> &times; <span class="number">120</span> = <span class="string">240 units</span>
+stock_at_arrival   = max(<span class="number">0</span>, <span class="number">240</span> - <span class="number">240</span>) = <span class="string">0 units</span>  <span class="comment">← just ran out</span>
+
+<span class="comment">// Step 2: Order for coverage period, minus stock at arrival</span>
+order_qty = <span class="number">2</span> &times; <span class="number">180</span> &times; <span class="number">1.3</span> - <span class="number">0</span> = <span class="string">468 units</span>
 
 <span class="comment">// What happens 120 days later:</span>
-stock_at_arrival  = <span class="number">240</span> - <span class="number">240</span> = <span class="string">0 units</span>
-shipment_arrives  = +<span class="number">540</span> units
-new_stock         = <span class="string">540 units = 270 days = ~9 months!</span> ✅
+stock_at_arrival  = <span class="string">0 units</span>
+shipment_arrives  = +<span class="number">468</span> units
+new_stock         = <span class="string">468 units = 234 days = ~7.8 months!</span> ✅
 
 <span class="comment">// Now you won't need to order again for months.</span>
-<span class="comment">// The next Warning would come at 180 days of stock,</span>
-<span class="comment">// which is about 3 months from now. Comfortable.</span>
+<span class="comment">// The next Warning would come at ~180 days of stock,</span>
+<span class="comment">// which is about 2 months from now. Comfortable.</span>
       </div>
     </div>
   </div>
@@ -2544,11 +2562,11 @@ new_stock         = <span class="string">540 units = 270 days = ~9 months!</span
     </tbody>
   </table>
 
-  <p>The coverage period should be <strong>configurable per supplier</strong> in the Supplier Management page, just like lead time already is. Different brands have different ordering rhythms.</p>
+  <p>The coverage period is <strong>configurable per supplier</strong> in the Supplier Management page, just like lead time. Different brands have different ordering rhythms.</p>
 
   <div class="callout" style="background:rgba(167,139,250,0.06);border-left-color:var(--accent-purple)">
     <div class="callout-title" style="color:var(--accent-purple)">Why this exercise matters</div>
-    <p>This gap was found by walking through the reorder formula from first principles and asking "does this actually make sense for how we buy?" The system correctly tells you <em>when</em> to order. It just doesn't correctly tell you <em>how much</em> &mdash; because it doesn't know how many months of stock each order should cover. This is a high-priority fix.</p>
+    <p>This gap was found by walking through the reorder formula from first principles and asking "does this actually make sense for how we buy?" The original formula over-ordered for items that would stock out before arrival &mdash; it tried to compensate for stock depletion during lead time, but you can't deplete stock you don't have. The fix: estimate stock at arrival (capped at 0), then order only for the coverage period. For items with plenty of stock, the math works out the same. For out-of-stock items, it avoids ordering an extra lead-time's worth of unnecessary units.</p>
   </div>
 </section>
 

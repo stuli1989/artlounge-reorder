@@ -866,7 +866,7 @@ export default function PoBuilder() {
                 <TableHead className="text-right">Stock</TableHead>
                 <TableHead className="text-right">Vel /mo</TableHead>
                 <TableHead className="text-right">Days Left</TableHead>
-                <TableHead className="text-right">Suggested <HelpTip tip="Recommended order: enough to cover lead time + buffer at current velocity, minus current stock." helpAnchor="reorder-quantity" /></TableHead>
+                <TableHead className="text-right">Suggested <HelpTip tip="Recommended order: enough to cover the coverage period after arrival, accounting for stock consumed during lead time." helpAnchor="reorder-quantity" /></TableHead>
                 <TableHead className="text-right w-[100px]">Order Qty</TableHead>
                 <TableHead className="w-[140px]">Notes</TableHead>
               </TableRow>

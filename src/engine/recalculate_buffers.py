@@ -9,7 +9,7 @@ from collections import defaultdict
 import psycopg2.extras
 
 from engine.classification import compute_safety_buffer
-from engine.reorder import calculate_days_to_stockout, determine_reorder_status, must_stock_fallback_qty, DEFAULT_LEAD_TIME
+from engine.reorder import calculate_days_to_stockout, compute_coverage_days, determine_reorder_status, must_stock_fallback_qty, DEFAULT_LEAD_TIME
 from engine.aggregation import compute_brand_metrics
 from engine.pipeline import batch_upsert_brand_metrics
 
@@ -50,7 +50,7 @@ def recalculate_all_buffers(db_conn):
         cur.execute("""
             SELECT sc.tally_name AS category_name,
                    s.name, s.lead_time_default, s.lead_time_sea, s.lead_time_air,
-                   s.buffer_override
+                   s.buffer_override, s.typical_order_months
             FROM stock_categories sc
             JOIN suppliers s ON UPPER(s.name) = UPPER(sc.tally_name)
         """)
@@ -61,6 +61,7 @@ def recalculate_all_buffers(db_conn):
                 "lead_time_sea": row["lead_time_sea"],
                 "lead_time_air": row["lead_time_air"],
                 "buffer_override": float(row["buffer_override"]) if row["buffer_override"] is not None else None,
+                "typical_order_months": row["typical_order_months"],
             }
 
     today = date.today()
@@ -96,10 +97,14 @@ def recalculate_all_buffers(db_conn):
         current_stock = _to_float(row["current_stock"])
         total_vel = _to_float(row["total_velocity"])
         lead_time = supplier["lead_time_default"] if supplier else DEFAULT_LEAD_TIME
+        coverage = compute_coverage_days(
+            lead_time, supplier.get("typical_order_months") if supplier else None
+        )
         days_to_stockout = calculate_days_to_stockout(current_stock, total_vel)
 
         status, suggested_qty = determine_reorder_status(
-            current_stock, days_to_stockout, lead_time, total_vel, safety_buffer=buf
+            current_stock, days_to_stockout, lead_time, total_vel,
+            safety_buffer=buf, coverage_period=coverage,
         )
 
         # Apply reorder intent overrides
@@ -107,7 +112,7 @@ def recalculate_all_buffers(db_conn):
         if intent == "must_stock" and status in ("no_data", "out_of_stock"):
             status = "critical"
             if suggested_qty is None:
-                suggested_qty = must_stock_fallback_qty(lead_time)
+                suggested_qty = must_stock_fallback_qty(lead_time + coverage)
         elif intent == "do_not_reorder":
             status = "no_data"
             suggested_qty = None

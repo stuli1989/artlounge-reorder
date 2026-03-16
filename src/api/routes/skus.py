@@ -444,16 +444,27 @@ def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate):
             bm = cur.fetchone()
             lead_time = bm["supplier_lead_time"] if bm and bm["supplier_lead_time"] else DEFAULT_LEAD_TIME
 
+            # Look up coverage period for this brand's supplier
+            cur.execute(
+                "SELECT typical_order_months FROM suppliers WHERE UPPER(name) = UPPER(%s)",
+                (sm["category_name"],),
+            )
+            srow = cur.fetchone()
+            coverage = compute_coverage_days(
+                lead_time, srow["typical_order_months"] if srow else None
+            )
+
             days_to_so = calculate_days_to_stockout(current_stock, total_vel)
             status, suggested_qty = determine_reorder_status(
-                current_stock, days_to_so, lead_time, total_vel, safety_buffer=new_buffer
+                current_stock, days_to_so, lead_time, total_vel,
+                safety_buffer=new_buffer, coverage_period=coverage,
             )
 
             # Apply intent override
             if item_intent == "must_stock" and status in ("no_data", "out_of_stock"):
                 status = "critical"
                 if suggested_qty is None:
-                    suggested_qty = must_stock_fallback_qty(lead_time)
+                    suggested_qty = must_stock_fallback_qty(lead_time + coverage)
             elif item_intent == "do_not_reorder":
                 status = "no_data"
                 suggested_qty = None
@@ -849,12 +860,15 @@ def get_breakdown(
     threshold_warning = lead_time + warning_buffer
 
     if eff_total_vel > 0:
-        raw_val = round(eff_total_vel * total_coverage * buffer_multiplier, 1)
+        demand_during_lead = round(eff_total_vel * lead_time * buffer_multiplier, 1)
+        stock_at_arrival = max(0, round(eff_stock - demand_during_lead, 1))
+        order_for_coverage = round(eff_total_vel * coverage_days * buffer_multiplier, 1)
         reorder_formula = (
-            f"{eff_total_vel} units/day x {total_coverage} days "
-            f"({lead_time}d lead + {coverage_days}d coverage) "
-            f"x {buffer_multiplier} safety buffer = {raw_val} "
-            f"-> {suggested_qty} units"
+            f"Stock at arrival: max(0, {eff_stock} - {eff_total_vel}/day x "
+            f"{lead_time}d lead x {buffer_multiplier} buffer) = {stock_at_arrival} units. "
+            f"Order for {coverage_days}d coverage: {eff_total_vel}/day x {coverage_days}d x "
+            f"{buffer_multiplier} buffer = {order_for_coverage} - {stock_at_arrival} "
+            f"= {suggested_qty} units"
         )
     else:
         reorder_formula = "No demand data — suggested quantity cannot be calculated"

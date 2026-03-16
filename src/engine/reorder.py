@@ -74,10 +74,21 @@ def determine_reorder_status(
     """
     Determine reorder status and suggested order quantity.
 
-    Order quantity covers (lead_time + coverage_period) * velocity * buffer,
-    minus current stock. coverage_period controls how many extra days of
-    demand to include beyond the lead time. Warning/critical thresholds
-    remain based on lead_time only (they decide WHEN to order, not HOW MUCH).
+    Order quantity = enough to cover the coverage_period after the shipment
+    arrives, accounting for stock consumed during lead time.  Items that will
+    stock out before arrival don't get inflated by the lead_time term —
+    you can't deplete stock you don't have.
+
+    Formula:
+        stock_at_arrival = max(0, current_stock - velocity * lead_time * buffer)
+        order_qty        = max(0, velocity * coverage_period * buffer - stock_at_arrival)
+
+    When stock > demand-during-lead, this is algebraically identical to the
+    old formula: velocity * (lead_time + coverage_period) * buffer - stock.
+    When stock will deplete before arrival, it caps at velocity * coverage * buffer.
+
+    Warning/critical thresholds remain based on lead_time only
+    (they decide WHEN to order, not HOW MUCH).
 
     Returns (status, suggested_qty).
     """
@@ -86,13 +97,18 @@ def determine_reorder_status(
             return ("out_of_stock", None)
         return ("no_data", None)
 
-    raw_need = total_velocity * (supplier_lead_time + coverage_period) * safety_buffer
-    suggested_qty = max(0, round(raw_need - max(0, current_stock)))
+    # Estimate stock remaining when the order arrives (can't go below 0)
+    demand_during_lead = total_velocity * supplier_lead_time * safety_buffer
+    stock_at_arrival = max(0, current_stock - demand_during_lead)
+
+    # Order enough for coverage_period after arrival, minus leftover stock
+    order_for_coverage = total_velocity * coverage_period * safety_buffer
+    suggested_qty = max(0, round(order_for_coverage - stock_at_arrival))
     if suggested_qty == 0:
         suggested_qty = None
 
     if current_stock <= 0:
-        return ("out_of_stock", round(raw_need))
+        return ("out_of_stock", round(order_for_coverage) or None)
 
     if days_to_stockout is None:
         return ("no_data", None)
@@ -101,9 +117,9 @@ def determine_reorder_status(
     warning_buffer = max(30, int(supplier_lead_time * 0.5))
 
     if days_to_stockout <= supplier_lead_time:
-        return ("critical", suggested_qty or round(raw_need))
+        return ("critical", suggested_qty or round(order_for_coverage) or None)
     elif days_to_stockout <= supplier_lead_time + warning_buffer:
-        return ("warning", suggested_qty or round(raw_need))
+        return ("warning", suggested_qty or round(order_for_coverage) or None)
     else:
         return ("ok", suggested_qty)
 

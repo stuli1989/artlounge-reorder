@@ -85,8 +85,10 @@ def _compute_po_items(
         sku_buffer = float(d.get("safety_buffer") or 1.3)
         effective_buffer = buffer if buffer is not None else sku_buffer
         if vals["eff_total"] > 0:
-            raw_need = vals["eff_total"] * (lead_time + coverage_period) * effective_buffer
-            suggested = max(0, round(raw_need - max(0, vals["eff_stock"])))
+            demand_during_lead = vals["eff_total"] * lead_time * effective_buffer
+            stock_at_arrival = max(0, vals["eff_stock"] - demand_during_lead)
+            order_for_coverage = vals["eff_total"] * coverage_period * effective_buffer
+            suggested = max(0, round(order_for_coverage - stock_at_arrival))
             if suggested == 0:
                 suggested = None
         elif d.get("reorder_intent") == "must_stock":
