@@ -402,7 +402,7 @@ export default function CriticalSkus() {
               />
             ))}
 
-            {filtered.length === 0 && (
+            {items.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 No critical SKUs found
               </div>
