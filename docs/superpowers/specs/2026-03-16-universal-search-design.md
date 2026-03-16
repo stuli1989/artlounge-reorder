@@ -67,7 +67,7 @@ Add `fetchSearch(q: string, scope?: string)` to `src/dashboard/src/lib/api.ts`, 
 
 ### `<UniversalSearch />` component
 
-A single reusable React component replacing every existing search input.
+A single reusable React component replacing every existing search input. Uses `useIsMobile()` hook internally to adapt between desktop and mobile presentations.
 
 **Props:**
 - `scope?: string` — optional brand name for scoped searching (passed on SKU pages)
@@ -77,7 +77,7 @@ A single reusable React component replacing every existing search input.
 - Debounced input (300ms, existing pattern)
 - Minimum 2 characters to trigger API call
 - React Query for caching search results (stale responses handled automatically)
-- Click outside closes dropdown (existing pattern)
+- Click/tap outside closes results (existing pattern)
 
 **Dropdown sections (grouped with headers):**
 
@@ -89,17 +89,29 @@ A single reusable React component replacing every existing search input.
    - Each row: SKU name, part number (if exists), brand name, status badge
 
 **States:**
-- **Loading:** Small spinner inside dropdown while API request is in flight
+- **Loading:** Small spinner inside results area while API request is in flight
 - **No results:** "No brands or SKUs match '{query}'" message
 - **Error:** "Search failed — try again" message (no retry loop)
-- **Empty input:** Dropdown hidden
+- **Empty input:** Results area hidden
 
-**Keyboard navigation:**
-- Arrow up/down to navigate results (input retains focus, dropdown is a listbox)
-- Enter to select highlighted result
-- Escape to close dropdown and clear
+### Desktop behavior (>= 768px)
 
-**Navigation on select:**
+- Results appear in an **absolute-positioned dropdown** below the search input (existing pattern from Home.tsx)
+- Keyboard navigation: arrow up/down to navigate results (input retains focus, dropdown is a listbox), Enter to select, Escape to close
+
+### Mobile behavior (< 768px)
+
+- Search input stays inline on the page (same position as current search inputs)
+- On focus + typing, results appear in a **BottomSheet** (existing component, matches FilterDrawer/MobileSortSheet patterns)
+  - BottomSheet has drag handle, max-height 85vh, overflow-y-auto
+  - Respects safe-area-inset-bottom for notched devices
+  - Search input is duplicated inside the BottomSheet header so the user can continue typing while viewing results
+  - Tapping a result navigates and closes the sheet
+- Touch-friendly: all result rows have min 44px tap target height
+- No keyboard navigation on mobile (touch-only)
+- No hover states — use `active:bg-muted/50` for tap feedback (existing pattern from MobileListRow)
+
+**Navigation on select (both desktop and mobile):**
 - Brand result → `/brands/{categoryName}/skus`
 - SKU result → `/brands/{categoryName}/skus?highlight={exact_sku_name}` — navigates to the brand's SKU page and highlights/scrolls to that specific SKU row. The `highlight` param triggers an exact-match lookup + scroll, separate from the search filter.
 
