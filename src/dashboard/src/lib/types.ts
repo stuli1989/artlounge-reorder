@@ -411,3 +411,16 @@ export interface CriticalSkusResponse {
   items: CriticalItem[]
   total: number
 }
+
+export type UserRole = 'admin' | 'purchaser' | 'viewer'
+
+export interface AuthUser {
+  id: number
+  username: string
+  role: UserRole
+}
+
+export interface LoginResponse {
+  token: string
+  user: AuthUser
+}

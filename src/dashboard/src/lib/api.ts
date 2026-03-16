@@ -1,9 +1,31 @@
 import axios from 'axios'
-import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse, CriticalSkusResponse } from './types'
+import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse, CriticalSkusResponse, AuthUser, LoginResponse } from './types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
 })
+
+// ── Auth token interceptor ──
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token')
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
+  },
+)
 
 export const fetchBrands = (search?: string): Promise<BrandMetrics[]> =>
   api.get('/api/brands', { params: { search } }).then(r => r.data)
@@ -151,5 +173,28 @@ export const matchSkusForPo = (data: {
   to_date?: string
 }): Promise<SkuMatchResponse> =>
   api.post('/api/po-data/match', data).then(r => r.data)
+
+// ── Auth ──
+export const login = (username: string, password: string): Promise<LoginResponse> =>
+  api.post('/api/auth/login', { username, password }).then(r => r.data)
+
+export const fetchMe = (): Promise<AuthUser> =>
+  api.get('/api/auth/me').then(r => r.data)
+
+export const changePassword = (currentPassword: string, newPassword: string) =>
+  api.put('/api/auth/change-password', { current_password: currentPassword, new_password: newPassword }).then(r => r.data)
+
+// ── Users (admin) ──
+export const fetchUsers = () =>
+  api.get('/api/users').then(r => r.data)
+
+export const createUser = (data: { username: string; password: string; role: string }) =>
+  api.post('/api/users', data).then(r => r.data)
+
+export const updateUser = (id: number, data: { role?: string; is_active?: boolean }) =>
+  api.put(`/api/users/${id}`, data).then(r => r.data)
+
+export const resetUserPassword = (id: number, newPassword: string) =>
+  api.put(`/api/users/${id}/reset-password`, { new_password: newPassword }).then(r => r.data)
 
 export default api

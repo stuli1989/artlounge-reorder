@@ -14,6 +14,8 @@ import {
   Skull,
   Menu,
   X,
+  LogOut,
+  UserCog,
 } from 'lucide-react'
 import {
   Sheet,
@@ -24,6 +26,7 @@ import {
 import GuidedTour, { resetTour } from '@/components/GuidedTour'
 import HelpMenu from '@/components/HelpMenu'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
 
 const freshnessColors: Record<string, string> = {
   fresh: 'bg-green-500',
@@ -40,6 +43,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/suppliers': 'Suppliers',
   '/overrides': 'Overrides',
   '/settings': 'Settings',
+  '/users': 'Users',
   '/help': 'Help Guide',
 }
 
@@ -59,24 +63,7 @@ const BOTTOM_TABS = [
   { path: '/po', label: 'PO', icon: ClipboardList, exact: false },
 ]
 
-const DRAWER_GROUPS = [
-  {
-    title: 'Data Management',
-    items: [
-      { path: '/parties', label: 'Parties', icon: Users },
-      { path: '/suppliers', label: 'Suppliers', icon: Truck },
-      { path: '/overrides', label: 'Overrides', icon: Pencil },
-      { path: '/brands?filter=dead-stock', label: 'Dead Stock', icon: Skull },
-    ],
-  },
-  {
-    title: 'System',
-    items: [
-      { path: '/settings', label: 'Settings', icon: Settings },
-      { path: '/help', label: 'Help Guide', icon: BookOpen },
-    ],
-  },
-]
+// Drawer groups are now built dynamically inside the component (role-aware)
 
 interface MobileLayoutProps {
   tourRunning: boolean
@@ -88,6 +75,7 @@ interface MobileLayoutProps {
 export default function MobileLayout({ tourRunning, setTourRunning, sync, staleOverrides }: MobileLayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [warningDismissed, setWarningDismissed] = useState(false)
 
@@ -102,6 +90,30 @@ export default function MobileLayout({ tourRunning, setTourRunning, sync, staleO
   const showWarning = !warningDismissed && (unclassifiedCount > 0 || staleCount > 0)
 
   const pageTitle = getPageTitle(location.pathname)
+
+  const bottomTabs = BOTTOM_TABS.filter(t => !(t.path === '/po' && user?.role === 'viewer'))
+
+  const drawerGroups = [
+    ...(user?.role !== 'viewer' ? [{
+      title: 'Data Management',
+      items: [
+        { path: '/parties', label: 'Parties', icon: Users },
+        { path: '/suppliers', label: 'Suppliers', icon: Truck },
+        { path: '/overrides', label: 'Overrides', icon: Pencil },
+        { path: '/brands?filter=dead-stock', label: 'Dead Stock', icon: Skull },
+      ],
+    }] : []),
+    {
+      title: 'System',
+      items: [
+        ...(user?.role === 'admin' ? [
+          { path: '/settings', label: 'Settings', icon: Settings },
+          { path: '/users', label: 'Users', icon: UserCog },
+        ] : []),
+        { path: '/help', label: 'Help Guide', icon: BookOpen },
+      ],
+    },
+  ]
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -172,7 +184,7 @@ export default function MobileLayout({ tourRunning, setTourRunning, sync, staleO
       {/* Bottom Tab Bar */}
       <nav className="border-t bg-card shrink-0 pb-[env(safe-area-inset-bottom)]" data-tour-mobile="bottom-tabs">
         <div className="flex items-center justify-around">
-          {BOTTOM_TABS.map(({ path, label, icon: Icon, exact }) => {
+          {bottomTabs.map(({ path, label, icon: Icon, exact }) => {
             const isActive = exact
               ? location.pathname === path
               : location.pathname.startsWith(path)
@@ -202,7 +214,7 @@ export default function MobileLayout({ tourRunning, setTourRunning, sync, staleO
             <SheetTitle className="text-sm">Art Lounge</SheetTitle>
           </SheetHeader>
           <div className="py-2">
-            {DRAWER_GROUPS.map((group) => (
+            {drawerGroups.map((group) => (
               <div key={group.title} className="mb-2">
                 <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {group.title}
@@ -229,6 +241,22 @@ export default function MobileLayout({ tourRunning, setTourRunning, sync, staleO
                 })}
               </div>
             ))}
+          </div>
+          {/* User section */}
+          <div className="absolute bottom-0 left-0 right-0 border-t bg-card px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">{user?.username}</p>
+                <p className="text-[10px] text-muted-foreground capitalize">{user?.role}</p>
+              </div>
+              <button
+                onClick={() => { logout(); setDrawerOpen(false) }}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-md hover:bg-muted transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sign out
+              </button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>

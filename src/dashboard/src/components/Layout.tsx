@@ -3,8 +3,9 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSyncStatus, fetchOverrides } from '@/lib/api'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAlert, ClipboardList, Settings } from 'lucide-react'
+import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAlert, ClipboardList, Settings, LogOut, UserCog } from 'lucide-react'
 import HelpMenu from '@/components/HelpMenu'
+import { useAuth } from '@/contexts/AuthContext'
 import GuidedTour, { isTourCompleted, resetTour } from '@/components/GuidedTour'
 import HelpTip from '@/components/HelpTip'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -20,6 +21,7 @@ export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+  const { user, logout } = useAuth()
   const [tourRunning, setTourRunning] = useState(() => !isTourCompleted())
 
   const handleReplayTour = () => {
@@ -58,23 +60,21 @@ export default function Layout() {
   }
 
   const navGroups = [
-    // Primary actions — daily workflow
     [
       { path: '/', label: 'Home', icon: LayoutDashboard, exact: true },
       { path: '/brands', label: 'Brands', icon: Package, exact: true },
       { path: '/critical', label: 'Critical', icon: ShieldAlert },
-      { path: '/po', label: 'Build PO', icon: ClipboardList },
+      ...(user?.role !== 'viewer' ? [{ path: '/po', label: 'Build PO', icon: ClipboardList }] : []),
     ],
-    // Data management — setup and maintenance
-    [
+    ...(user?.role !== 'viewer' ? [[
       { path: '/parties', label: 'Parties', icon: Users },
       { path: '/suppliers', label: 'Suppliers', icon: Truck },
       { path: '/overrides', label: 'Overrides', icon: Pencil },
-    ],
-    // Settings — global configuration
-    [
+    ]] : []),
+    ...(user?.role === 'admin' ? [[
       { path: '/settings', label: 'Settings', icon: Settings },
-    ],
+      { path: '/users', label: 'Users', icon: UserCog },
+    ]] : []),
   ]
 
   return (
@@ -128,6 +128,19 @@ export default function Layout() {
           <div data-tour="help-menu">
             <HelpMenu onReplayTour={handleReplayTour} />
           </div>
+          {user && (
+            <div className="flex items-center gap-2 text-sm border-l pl-3 ml-1">
+              <span className="font-medium">{user.username}</span>
+              <span className="text-xs text-muted-foreground capitalize">({user.role})</span>
+              <button
+                onClick={logout}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           </div>
         </div>
       </header>
