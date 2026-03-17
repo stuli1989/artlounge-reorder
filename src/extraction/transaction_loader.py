@@ -55,7 +55,7 @@ def load_transactions(db_conn, parsed_vouchers: list[dict], channel_cache: dict 
             "txn_date": _parse_tally_date(v["date"]),
             "party_name": v["party"],
             "voucher_type": v["voucher_type"],
-            "voucher_number": v["voucher_number"],
+            "voucher_number": v["voucher_number"] or "",
             "stock_item_name": v["stock_item"],
             "quantity": v["quantity"],
             "is_inward": v["is_inward"],

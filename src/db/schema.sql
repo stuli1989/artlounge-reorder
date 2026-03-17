@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     txn_date            DATE NOT NULL,
     party_name          TEXT NOT NULL,
     voucher_type        TEXT NOT NULL,
-    voucher_number      TEXT,
+    voucher_number      TEXT NOT NULL DEFAULT '',
     stock_item_name     TEXT NOT NULL,
     quantity            NUMERIC NOT NULL,
     is_inward           BOOLEAN NOT NULL,
@@ -105,9 +105,10 @@ CREATE TABLE IF NOT EXISTS transactions (
         'supplier', 'wholesale', 'online', 'store', 'internal', 'ignore', 'unclassified'
     ))
 );
--- Dedup index uses COALESCE to handle NULL voucher_number (NULL != NULL in UNIQUE)
-CREATE UNIQUE INDEX IF NOT EXISTS uq_transactions_dedup
-    ON transactions(txn_date, COALESCE(voucher_number, ''), stock_item_name, quantity, is_inward, rate);
+-- Dedup constraint: voucher_number is NOT NULL DEFAULT '' so plain UNIQUE works
+ALTER TABLE transactions
+    ADD CONSTRAINT uq_transactions_dedup
+    UNIQUE (txn_date, voucher_number, stock_item_name, quantity, is_inward, rate);
 CREATE INDEX IF NOT EXISTS idx_txn_date ON transactions(txn_date);
 CREATE INDEX IF NOT EXISTS idx_txn_stock_item ON transactions(stock_item_name);
 CREATE INDEX IF NOT EXISTS idx_txn_party ON transactions(party_name);
