@@ -11,6 +11,9 @@ BUFFER_KEYS = {"use_xyz_buffer"} | {
     f"buffer_{abc}{xyz}" for abc in "abc" for xyz in "xyz"
 } | {f"buffer_{abc}" for abc in "abc"}
 
+# Keys that affect brand rollup counts (dead stock / slow mover classification)
+RECALC_KEYS = BUFFER_KEYS | {"dead_stock_threshold_days", "slow_mover_velocity_threshold"}
+
 VALID_SETTINGS_KEYS = {
     "dead_stock_threshold_days",
     "slow_mover_velocity_threshold",
@@ -63,8 +66,8 @@ def update_setting(key: str, body: SettingUpdate, background_tasks: BackgroundTa
     from api.routes.skus import _invalidate_settings_cache
     _invalidate_settings_cache()
 
-    # Trigger buffer recalculation in the background when buffer settings change
-    if key in BUFFER_KEYS:
+    # Trigger recalculation in the background when buffer/threshold settings change
+    if key in RECALC_KEYS:
         background_tasks.add_task(_recalc_buffers)
 
     return dict(row)

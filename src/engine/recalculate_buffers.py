@@ -44,6 +44,13 @@ def recalculate_all_buffers(db_conn):
         row = cur.fetchone()
         use_xyz_global = row["value"].lower() == "true" if row else False
 
+    # Fetch dead stock / slow mover thresholds
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT key, value FROM app_settings WHERE key IN ('dead_stock_threshold_days', 'slow_mover_velocity_threshold')")
+        threshold_settings = {row["key"]: row["value"] for row in cur.fetchall()}
+    dead_stock_threshold = int(threshold_settings.get("dead_stock_threshold_days", "30"))
+    slow_mover_threshold = float(threshold_settings.get("slow_mover_velocity_threshold", "0.1"))
+
     # ── Fetch supplier lead times ──
     supplier_map = {}
     with db_conn.cursor() as cur:
@@ -173,7 +180,12 @@ def recalculate_all_buffers(db_conn):
     for cat_name in all_categories:
         sku_rows = by_category.get(cat_name, [])
         supplier = supplier_map.get(cat_name)
-        brand_data = compute_brand_metrics(cat_name, sku_rows, supplier, today=today)
+        brand_data = compute_brand_metrics(
+            cat_name, sku_rows, supplier,
+            dead_stock_threshold=dead_stock_threshold,
+            slow_mover_threshold=slow_mover_threshold,
+            today=today,
+        )
         brand_batch.append(brand_data)
 
     batch_upsert_brand_metrics(db_conn, brand_batch)
