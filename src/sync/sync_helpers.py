@@ -81,14 +81,14 @@ def validate_extraction_counts(db_conn, new_counts: dict) -> list[str]:
     # Critical: categories dropped to 0
     if prev_cats > 0 and new_cats == 0:
         raise ValueError(
-            f"Categories dropped from {prev_cats} to 0 — aborting sync. "
+            f"Categories dropped from {prev_cats} to 0 -- aborting sync. "
             "Tally may not be responding correctly."
         )
 
     # Critical: items dropped >10%
     if prev_items > 0 and new_items < prev_items * 0.9:
         raise ValueError(
-            f"Items dropped >10%: {prev_items} → {new_items} — aborting sync. "
+            f"Items dropped >10%: {prev_items} -> {new_items} -- aborting sync. "
             "Check Tally data integrity."
         )
 
@@ -96,7 +96,7 @@ def validate_extraction_counts(db_conn, new_counts: dict) -> list[str]:
     new_txns = new_counts.get("transactions", 0)
     if prev_txns > 0 and new_txns < prev_txns:
         warnings.append(
-            f"Transaction count dropped: {prev_txns} → {new_txns}. "
+            f"Transaction count dropped: {prev_txns} -> {new_txns}. "
             "This could indicate a Tally issue."
         )
 
