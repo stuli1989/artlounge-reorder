@@ -416,7 +416,7 @@ def fetch_all_transactions(db_conn) -> dict[str, list[dict]]:
     with db_conn.cursor() as cur:
         cur.execute("""
             SELECT stock_item_name, txn_date AS date, quantity, is_inward,
-                   channel, voucher_type, party_name, amount
+                   channel, voucher_type, party_name, amount, phys_stock_diff
             FROM transactions
             ORDER BY stock_item_name, txn_date, id
         """)
@@ -424,6 +424,8 @@ def fetch_all_transactions(db_conn) -> dict[str, list[dict]]:
         for row in cur.fetchall():
             d = dict(zip(cols, row))
             d["quantity"] = float(d["quantity"])
+            if d.get("phys_stock_diff") is not None:
+                d["phys_stock_diff"] = float(d["phys_stock_diff"])
             item_name = d.pop("stock_item_name")
             result[item_name].append(d)
     return dict(result)

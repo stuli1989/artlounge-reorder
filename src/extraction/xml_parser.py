@@ -164,6 +164,20 @@ def parse_vouchers(xml_bytes: bytes) -> list[dict]:
             rate = abs(parse_tally_rate(ie.findtext("RATE")))
             amount = abs(parse_tally_amount(ie.findtext("AMOUNT")))
 
+            # For Physical Stock: extract BATCHPHYSDIFF (actual adjustment)
+            # Sum across all batch allocations for this entry
+            phys_diff = None
+            if voucher_type == "Physical Stock":
+                total_diff = 0.0
+                has_diff = False
+                for ba in ie.findall(".//BATCHALLOCATIONS.LIST"):
+                    bdiff_str = (ba.findtext("BATCHPHYSDIFF") or "").strip()
+                    if bdiff_str:
+                        total_diff += parse_tally_quantity(bdiff_str)
+                        has_diff = True
+                if has_diff:
+                    phys_diff = total_diff
+
             results.append({
                 "date": vdate,
                 "party": party,
@@ -175,6 +189,7 @@ def parse_vouchers(xml_bytes: bytes) -> list[dict]:
                 "rate": rate,
                 "amount": amount,
                 "tally_master_id": master_id or None,
+                "phys_stock_diff": phys_diff,
             })
 
     return results

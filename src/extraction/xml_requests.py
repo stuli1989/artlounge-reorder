@@ -134,6 +134,8 @@ def inventory_vouchers_request() -> str:
             <FETCH>AllInventoryEntries.ActualQty</FETCH>
             <FETCH>AllInventoryEntries.Rate</FETCH>
             <FETCH>AllInventoryEntries.Amount</FETCH>
+            <FETCH>AllInventoryEntries.IsDeemedPositive</FETCH>
+            <FETCH>AllInventoryEntries.BatchAllocations.BatchPhysDiff</FETCH>
           </COLLECTION>
         </TDLMESSAGE>
       </TDL>

@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     channel             TEXT,
     tally_master_id     TEXT,
     tally_alter_id      TEXT,
+    phys_stock_diff     NUMERIC,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT valid_txn_channel CHECK (channel IN (
         'supplier', 'wholesale', 'online', 'store', 'internal', 'ignore', 'unclassified'

@@ -1,19 +1,16 @@
 """
-Daily stock position reconstruction using DUAL-ANCHOR method.
+Daily stock position reconstruction using FORWARD method from Tally opening.
 
-Two parallel reconstructions run in a single pass:
-
-1. Backward (closing-anchored): implied_opening = closing - sum(inward) + sum(outward).
-   Used for stored opening_qty/closing_qty — internally consistent with transactions.
-
-2. Forward (opening-anchored): starts from Tally's authoritative opening_balance.
-   Used ONLY for is_in_stock determination — gives the most accurate estimate of
-   whether stock was actually available, since Tally may include stock from company
-   mergers that have no corresponding vouchers in our extraction.
+Walks forward from Tally's opening balance, applying each transaction:
+- Sales (wholesale/online/store): decrease stock, count as demand
+- Purchases (supplier/internal): increase stock, not demand
+- Physical Stock: use BATCHPHYSDIFF (actual adjustment) when available,
+  otherwise SET-TO the physical count (ACTUALQTY)
+- Credit Note: inward for balance, not demand
+- Debit Note: outward for balance, not demand
 
 is_in_stock semantics:
-  A day is "in stock" if forward_closing > 0 OR if real demand (wholesale/online/store
-  sales) occurred that day.
+  A day is "in stock" if closing balance > 0 OR if real demand occurred that day.
 """
 from datetime import date, timedelta
 from collections import defaultdict
@@ -30,45 +27,45 @@ def reconstruct_daily_positions(
     tally_opening: float | None = None,
 ) -> list[dict]:
     """
-    Reconstruct daily stock positions by anchoring on closing_balance (from Tally)
-    and replaying transactions to compute historical positions.
+    Reconstruct daily stock positions by walking forward from Tally's opening
+    balance, applying transactions day-by-day.
 
-    Channel rules:
-    - wholesale/online/store outward -> counted as demand
-    - supplier inward -> stock in, not demand
-    - internal -> SKIP entirely (doesn't affect balance)
-    - ignore (Physical Stock) -> affects balance, NOT demand
-    - Credit Note -> inward for balance, NOT demand
-    - Debit Note -> outward for balance, NOT demand
+    Physical Stock handling (hybrid):
+      - If phys_stock_diff is available: use as additive adjustment
+      - If phys_stock_diff is None: treat quantity as SET-TO (replace balance)
+
+    All transaction types affect balance (including internal).
+    Only wholesale/online/store sales count as demand.
     """
     # Group transactions by date
     txns_by_date = defaultdict(list)
     for t in transactions:
         txns_by_date[t["date"]].append(t)
 
-    # First pass: compute total inward and outward to find implied opening
-    total_inward = 0.0
-    total_outward = 0.0
-    for t in transactions:
-        if t.get("channel") == "internal":
-            continue
-        if t["is_inward"]:
-            total_inward += t["quantity"]
-        else:
-            total_outward += t["quantity"]
+    # Use Tally's opening if available, otherwise compute implied opening
+    if tally_opening is not None:
+        forward_opening = tally_opening
+    else:
+        # Fallback: compute from closing and all transactions
+        total_inward = 0.0
+        total_outward = 0.0
+        total_phys_diff = 0.0
+        for t in transactions:
+            if t.get("voucher_type") == "Physical Stock":
+                psd = t.get("phys_stock_diff")
+                if psd is not None:
+                    total_phys_diff += psd
+                # For SET-TO entries without diff, we can't compute backward
+                # reliably — just skip and accept a gap
+            elif t["is_inward"]:
+                total_inward += t["quantity"]
+            else:
+                total_outward += t["quantity"]
+        forward_opening = closing_balance - total_inward - total_phys_diff + total_outward
 
-    implied_opening = closing_balance - total_inward + total_outward
-
-    # Forward anchor: Tally's authoritative opening balance.
-    # When available, gives a more accurate picture of actual stock levels
-    # for is_in_stock determination, since Tally may include stock from
-    # company mergers that have no corresponding vouchers in our data.
-    forward_opening = tally_opening if tally_opening is not None else implied_opening
-
-    # Second pass: walk forward from implied opening, recording daily positions
+    # Walk forward from opening, recording daily positions
     positions = []
-    running_balance = implied_opening       # backward: ensures closing matches Tally
-    forward_balance = forward_opening       # forward: ensures opening matches Tally
+    balance = forward_opening
     current = opening_date
 
     while current <= end_date:
@@ -82,23 +79,41 @@ def reconstruct_daily_positions(
             channel = t.get("channel", "unclassified")
             voucher_type = t.get("voucher_type", "")
 
-            # Skip internal transactions entirely
-            if channel == "internal":
+            # Physical Stock: hybrid handling
+            if voucher_type == "Physical Stock":
+                phys_diff = t.get("phys_stock_diff")
+                if phys_diff is not None:
+                    # BATCHPHYSDIFF available: use as adjustment
+                    if phys_diff >= 0:
+                        day_inward += phys_diff
+                    else:
+                        day_outward += abs(phys_diff)
+                    balance += phys_diff
+                else:
+                    # No diff data: SET-TO the physical count
+                    old_balance = balance
+                    balance = t["quantity"]
+                    diff = balance - old_balance
+                    if diff >= 0:
+                        day_inward += diff
+                    else:
+                        day_outward += abs(diff)
+                # Physical Stock never counts as demand — skip demand section
                 continue
 
+            # All other transactions: apply to balance
             if t["is_inward"]:
                 day_inward += t["quantity"]
+                balance += t["quantity"]
             else:
                 day_outward += t["quantity"]
+                balance -= t["quantity"]
 
-            # Demand tracking: net demand (sales minus returns)
+            # Demand tracking: only wholesale/online/store sales
             is_credit_note = voucher_type == "Credit Note"
             is_debit_note = voucher_type == "Debit Note"
-            is_adjustment = channel == "ignore"
 
-            if is_adjustment:
-                pass  # Physical Stock adjustments don't affect demand
-            elif is_credit_note and t["is_inward"]:
+            if is_credit_note and t["is_inward"]:
                 # Credit Note = customer return — subtract from demand
                 if channel == "wholesale":
                     day_wholesale_out -= t["quantity"]
@@ -116,13 +131,8 @@ def reconstruct_daily_positions(
                     day_store_out += t["quantity"]
 
         had_demand = (day_wholesale_out + day_online_out + day_store_out) > 0
-        opening_qty = running_balance
-        closing_qty = opening_qty + day_inward - day_outward
-        running_balance = closing_qty
-
-        # Forward reconstruction: tracks stock from Tally's opening
-        forward_closing = forward_balance + day_inward - day_outward
-        forward_balance = forward_closing
+        opening_qty = balance - day_inward + day_outward
+        closing_qty = balance
 
         positions.append({
             "stock_item_name": stock_item_name,
@@ -134,7 +144,7 @@ def reconstruct_daily_positions(
             "wholesale_out": day_wholesale_out,
             "online_out": day_online_out,
             "store_out": day_store_out,
-            "is_in_stock": forward_closing > 0 or had_demand,
+            "is_in_stock": closing_qty > 0 or had_demand,
         })
 
         current += timedelta(days=1)
@@ -171,7 +181,8 @@ def fetch_transactions_for_item(db_conn, stock_item_name: str) -> list[dict]:
     """Fetch all transactions for a given stock item, ordered by date."""
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT txn_date AS date, quantity, is_inward, channel, voucher_type, party_name
+            SELECT txn_date AS date, quantity, is_inward, channel, voucher_type,
+                   party_name, phys_stock_diff
             FROM transactions
             WHERE stock_item_name = %s
             ORDER BY txn_date, id
@@ -181,5 +192,7 @@ def fetch_transactions_for_item(db_conn, stock_item_name: str) -> list[dict]:
         for row in cur.fetchall():
             d = dict(zip(cols, row))
             d["quantity"] = float(d["quantity"])
+            if d.get("phys_stock_diff") is not None:
+                d["phys_stock_diff"] = float(d["phys_stock_diff"])
             rows.append(d)
         return rows
