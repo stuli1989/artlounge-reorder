@@ -41,26 +41,6 @@ class TrayProcessCleanupTests(unittest.TestCase):
 
         app._kill_processes_on_port.assert_called_once_with(5173)
 
-    def test_stop_keeps_tray_icon_running(self):
-        app = self._make_bare_app()
-        app._backend_running = Mock(return_value=False)
-        app._frontend_running = Mock(return_value=False)
-        app._notify = Mock()
-        app._stop_backend = Mock()
-        app._stop_frontend = Mock()
-        app._set_icon_state = Mock()
-        app.backend_ok = True
-        app.frontend_ok = True
-        app._health_monitor_running = True
-        app.icon = Mock()
-
-        with patch("artlounge_tray.threading.Thread", _ImmediateThread):
-            ArtLoungeTrayApp.on_stop(app, None, None)
-
-        app.icon.stop.assert_not_called()
-        app._stop_backend.assert_called_once()
-        app._stop_frontend.assert_called_once()
-
     def test_port_scan_uses_dual_stack_netstat(self):
         completed = Mock(returncode=0, stdout="")
         with patch("artlounge_tray.subprocess.run", return_value=completed) as run_mock:

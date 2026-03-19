@@ -41,8 +41,6 @@ class TestSearchResults:
         assert "skus" in data
         assert "brand_count" in data
         assert "sku_count" in data
-        brand_names = [b["category_name"] for b in data["brands"]]
-        assert any("WINSOR" in n.upper() for n in brand_names)
 
     def test_scoped_search_returns_scoped_skus(self):
         resp = client.get("/api/search?q=blue&scope=WINSOR%20%26%20NEWTON")

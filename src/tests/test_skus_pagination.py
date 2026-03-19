@@ -71,7 +71,7 @@ def _fake_compute_effective_values(current_stock, _wholesale, _online, total, **
     }
 
 
-def _fake_compute_effective_status(eff_stock, _eff_total, _lead_time):
+def _fake_compute_effective_status(eff_stock, _eff_total, _lead_time, _buffer=1.3):
     if eff_stock <= 0:
         return {"eff_days": 0, "eff_status": "out_of_stock", "eff_suggested": 0}
     if eff_stock < 5:
@@ -113,6 +113,16 @@ class SkuPaginationTests(unittest.TestCase):
                 "last_import_date": None,
                 "last_import_qty": None,
                 "reorder_qty_suggested": None,
+                "safety_buffer": 1.3,
+                "abc_class": None,
+                "xyz_class": None,
+                "trend_direction": None,
+                "trend_ratio": None,
+                "total_in_stock_days": 100,
+                "total_revenue": 0,
+                "wma_total_velocity": 0,
+                "wma_wholesale_velocity": 0,
+                "wma_online_velocity": 0,
             },
             {
                 "stock_item_name": "SKU-002",
@@ -144,6 +154,16 @@ class SkuPaginationTests(unittest.TestCase):
                 "last_import_date": None,
                 "last_import_qty": None,
                 "reorder_qty_suggested": None,
+                "safety_buffer": 1.3,
+                "abc_class": None,
+                "xyz_class": None,
+                "trend_direction": None,
+                "trend_ratio": None,
+                "total_in_stock_days": 100,
+                "total_revenue": 0,
+                "wma_total_velocity": 0,
+                "wma_wholesale_velocity": 0,
+                "wma_online_velocity": 0,
             },
             {
                 "stock_item_name": "SKU-003",
@@ -175,6 +195,16 @@ class SkuPaginationTests(unittest.TestCase):
                 "last_import_date": None,
                 "last_import_qty": None,
                 "reorder_qty_suggested": None,
+                "safety_buffer": 1.3,
+                "abc_class": None,
+                "xyz_class": None,
+                "trend_direction": None,
+                "trend_ratio": None,
+                "total_in_stock_days": 100,
+                "total_revenue": 0,
+                "wma_total_velocity": 0,
+                "wma_wholesale_velocity": 0,
+                "wma_online_velocity": 0,
             },
         ]
 
@@ -194,9 +224,14 @@ class SkuPaginationTests(unittest.TestCase):
                 slow_mover=None,
                 from_date=None,
                 to_date=None,
+                abc_class=None,
+                xyz_class=None,
+                hide_inactive=False,
+                velocity_type="flat",
                 paginated=True,
                 limit=2,
                 offset=1,
+                user={"id": 1, "username": "test", "role": "viewer"},
             )
 
         self.assertEqual(result["total"], 3)
