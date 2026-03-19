@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS suppliers (
     min_order_value     NUMERIC,
     typical_order_months INTEGER DEFAULT 6,
     buffer_override     NUMERIC,
+    backdate_physical_stock BOOLEAN DEFAULT NULL,
+    physical_stock_grace_days INTEGER DEFAULT NULL,
     notes               TEXT,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW()
@@ -204,6 +206,8 @@ CREATE TABLE IF NOT EXISTS app_settings (
 );
 INSERT INTO app_settings (key, value) VALUES ('dead_stock_threshold_days', '30') ON CONFLICT DO NOTHING;
 INSERT INTO app_settings (key, value) VALUES ('slow_mover_velocity_threshold', '0.1') ON CONFLICT DO NOTHING;
+INSERT INTO app_settings (key, value) VALUES ('backdate_physical_stock', 'false') ON CONFLICT DO NOTHING;
+INSERT INTO app_settings (key, value) VALUES ('physical_stock_grace_days', '90') ON CONFLICT DO NOTHING;
 
 -- ============================================================
 -- 10. sync_log — Sync audit trail
