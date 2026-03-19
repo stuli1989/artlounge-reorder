@@ -22,6 +22,7 @@ const SIDEBAR_SECTIONS = [
   { id: 'analysis-defaults', label: 'Analysis Defaults', icon: BarChart3 },
   { id: 'dead-stock', label: 'Dead Stock Thresholds', icon: Snowflake },
   { id: 'classification', label: 'Classification', icon: Tags },
+  { id: 'stock-adjustments', label: 'Stock Adjustments', icon: BarChart3 },
 ]
 
 export default function Settings() {
@@ -51,6 +52,8 @@ export default function Settings() {
   const [dateRange, setDateRange] = useState('')
   const [deadStockDays, setDeadStockDays] = useState('')
   const [slowMoverMonthly, setSlowMoverMonthly] = useState('')
+  const [backdatePhysStock, setBackdatePhysStock] = useState(false)
+  const [physStockGraceDays, setPhysStockGraceDays] = useState('')
 
   // Populate local state from fetched settings
   useEffect(() => {
@@ -67,6 +70,8 @@ export default function Settings() {
     } else {
       setSlowMoverMonthly('3.0')
     }
+    setBackdatePhysStock(settings?.backdate_physical_stock === 'true')
+    setPhysStockGraceDays(settings?.physical_stock_grace_days ?? '90')
   }, [settings])
 
   // --- Mutation ---
@@ -525,6 +530,56 @@ export default function Settings() {
     </CardContent>
   )
 
+  const renderStockAdjustments = () => (
+    <CardContent className="space-y-6">
+      {/* Backdate Physical Stock Toggle */}
+      <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center justify-between'} rounded-lg border p-4`}>
+        <div className="space-y-1">
+          <Label className="text-sm font-medium">Treat early Physical Stock as opening balance</Label>
+          <p className="text-xs text-muted-foreground">
+            When enabled, Physical Stock vouchers recorded within the grace period after FY start
+            are treated as opening balance adjustments rather than mid-year corrections.
+          </p>
+        </div>
+        <Switch
+          checked={backdatePhysStock}
+          onCheckedChange={(checked: boolean) => {
+            setBackdatePhysStock(checked)
+            save('backdate_physical_stock', String(checked))
+          }}
+        />
+      </div>
+
+      <Separator />
+
+      {/* Grace Period */}
+      <div className={`${isMobile ? 'space-y-2' : 'flex items-center justify-between'}`}>
+        <div className="space-y-1">
+          <Label className="text-sm font-medium">Grace Period</Label>
+          <p className="text-xs text-muted-foreground">
+            Number of days after FY start during which Physical Stock vouchers are considered opening balance.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            inputMode={isMobile ? 'decimal' : undefined}
+            min={1}
+            value={physStockGraceDays}
+            onChange={e => setPhysStockGraceDays(e.target.value)}
+            className="h-8 w-[80px]"
+          />
+          <span className="text-sm text-muted-foreground">days</span>
+          <SaveButton
+            settingKey="physical_stock_grace_days"
+            value={physStockGraceDays}
+            disabled={!physStockGraceDays || isNaN(parseInt(physStockGraceDays)) || parseInt(physStockGraceDays) < 1 || physStockGraceDays === (settings?.physical_stock_grace_days ?? '90')}
+          />
+        </div>
+      </div>
+    </CardContent>
+  )
+
   // Map section IDs to their render functions, titles, descriptions
   const sectionRenderers: Record<string, { render: () => React.ReactNode; title: string; desc: string }> = {
     'safety-buffers': { render: renderSafetyBuffers, title: 'Safety Buffers', desc: 'Control how much extra stock to recommend beyond lead-time demand.' },
@@ -532,6 +587,7 @@ export default function Settings() {
     'analysis-defaults': { render: renderAnalysisDefaults, title: 'Analysis Defaults', desc: 'Default velocity calculation method and date range.' },
     'dead-stock': { render: renderDeadStock, title: 'Dead Stock Thresholds', desc: 'Configure when items are flagged as dead stock or slow movers.' },
     'classification': { render: renderClassification, title: 'Classification', desc: 'ABC and XYZ classification thresholds.' },
+    'stock-adjustments': { render: renderStockAdjustments, title: 'Stock Adjustments', desc: 'Control how Physical Stock vouchers near FY start are handled.' },
   }
 
   // --- Mobile layout ---
@@ -681,6 +737,22 @@ export default function Settings() {
                 </CardDescription>
               </CardHeader>
               {renderClassification()}
+            </Card>
+          </section>
+
+          {/* ===== Stock Position Adjustments ===== */}
+          <section id="stock-adjustments">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Stock Adjustments
+                </CardTitle>
+                <CardDescription>
+                  Control how Physical Stock vouchers near FY start are handled.
+                </CardDescription>
+              </CardHeader>
+              {renderStockAdjustments()}
             </Card>
           </section>
 
