@@ -22,7 +22,11 @@ VALID_SETTINGS_KEYS = {
     "buffer_ax", "buffer_ay", "buffer_az",
     "buffer_bx", "buffer_by", "buffer_bz",
     "buffer_cx", "buffer_cy", "buffer_cz",
+    "backdate_physical_stock",
+    "physical_stock_grace_days",
 }
+
+PIPELINE_RECALC_KEYS = {"backdate_physical_stock", "physical_stock_grace_days"}
 
 
 class SettingUpdate(BaseModel):
@@ -33,6 +37,13 @@ def _recalc_buffers():
     """Background task: recalculate all safety buffers and reorder statuses."""
     with get_db() as conn:
         recalculate_all_buffers(conn)
+
+
+def _recalc_pipeline():
+    """Background task: full pipeline recompute (positions + velocity + buffers)."""
+    from engine.pipeline import run_computation_pipeline
+    with get_db() as conn:
+        run_computation_pipeline(conn)
 
 
 @router.get("/settings")
@@ -69,5 +80,8 @@ def update_setting(key: str, body: SettingUpdate, background_tasks: BackgroundTa
     # Trigger recalculation in the background when buffer/threshold settings change
     if key in RECALC_KEYS:
         background_tasks.add_task(_recalc_buffers)
+
+    if key in PIPELINE_RECALC_KEYS:
+        background_tasks.add_task(_recalc_pipeline)
 
     return dict(row)

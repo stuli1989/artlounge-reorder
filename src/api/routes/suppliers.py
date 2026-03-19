@@ -19,6 +19,8 @@ class SupplierCreate(BaseModel):
     typical_order_months: int | None = None
     notes: str = ""
     buffer_override: float | None = None
+    backdate_physical_stock: bool | None = None
+    physical_stock_grace_days: int | None = None
 
 
 class SupplierUpdate(BaseModel):
@@ -32,6 +34,8 @@ class SupplierUpdate(BaseModel):
     typical_order_months: int | None = None
     notes: str | None = None
     buffer_override: float | None = None
+    backdate_physical_stock: bool | None = None
+    physical_stock_grace_days: int | None = None
 
 
 @router.get("/suppliers")
@@ -58,12 +62,13 @@ def create_supplier(req: SupplierCreate, background_tasks: BackgroundTasks, user
             cur.execute("""
                 INSERT INTO suppliers (name, tally_party, lead_time_sea, lead_time_air,
                     lead_time_default, currency, min_order_value, typical_order_months,
-                    notes, buffer_override)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    notes, buffer_override, backdate_physical_stock, physical_stock_grace_days)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING *
             """, (req.name, req.tally_party, req.lead_time_sea, req.lead_time_air,
                   req.lead_time_default, req.currency, req.min_order_value,
-                  req.typical_order_months, req.notes, req.buffer_override))
+                  req.typical_order_months, req.notes, req.buffer_override,
+                  req.backdate_physical_stock, req.physical_stock_grace_days))
             row = cur.fetchone()
         conn.commit()
 
@@ -80,6 +85,7 @@ def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: Bac
         "name", "tally_party", "lead_time_sea", "lead_time_air",
         "lead_time_default", "currency", "min_order_value",
         "typical_order_months", "notes", "buffer_override",
+        "backdate_physical_stock", "physical_stock_grace_days",
     }
 
     # buffer_override can be explicitly set to None (to clear it), so include
@@ -88,6 +94,10 @@ def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: Bac
     updates = {k: v for k, v in req.model_dump().items() if v is not None and k in ALLOWED_SUPPLIER_COLUMNS}
     if "buffer_override" in sent_fields:
         updates["buffer_override"] = sent_fields["buffer_override"]
+    if "backdate_physical_stock" in sent_fields:
+        updates["backdate_physical_stock"] = sent_fields["backdate_physical_stock"]
+    if "physical_stock_grace_days" in sent_fields:
+        updates["physical_stock_grace_days"] = sent_fields["physical_stock_grace_days"]
     if not updates:
         raise HTTPException(400, "No valid fields to update")
 
