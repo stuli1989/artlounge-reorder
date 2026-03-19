@@ -166,6 +166,8 @@ export interface Supplier {
   typical_order_months: number | null
   notes: string
   buffer_override: number | null
+  backdate_physical_stock: boolean | null
+  physical_stock_grace_days: number | null
 }
 
 export interface OverrideInfo {
