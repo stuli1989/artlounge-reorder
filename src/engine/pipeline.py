@@ -38,6 +38,7 @@ from engine.classification import (
     fetch_classification_settings,
     fetch_use_xyz_global,
 )
+from engine.backdate_physical_stock import adjust_opening_for_physical_stock
 
 
 def identify_changed_items(db_conn) -> set[str]:
@@ -97,6 +98,30 @@ def run_computation_pipeline(db_conn, incremental=False):
     buffer_settings = fetch_buffer_settings(db_conn)
     use_xyz_global = fetch_use_xyz_global(db_conn)
 
+    # Pre-fetch backdate Physical Stock settings
+    backdate_enabled_global = _fetch_setting(db_conn, 'backdate_physical_stock', 'false', str) == 'true'
+    backdate_grace_days_global = _fetch_setting(db_conn, 'physical_stock_grace_days', 90, int)
+
+    # Pre-fetch per-supplier backdate overrides, joining through stock_categories
+    # for consistent keying (same join as fetch_all_supplier_mappings)
+    backdate_overrides = {}
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT sc.tally_name AS category_name,
+                   s.backdate_physical_stock, s.physical_stock_grace_days
+            FROM stock_categories sc
+            JOIN suppliers s ON UPPER(s.name) = UPPER(sc.tally_name)
+            WHERE s.backdate_physical_stock IS NOT NULL
+               OR s.physical_stock_grace_days IS NOT NULL
+        """)
+        for row in cur.fetchall():
+            backdate_overrides[row[0].upper()] = {
+                "enabled": row[1],
+                "grace_days": row[2],
+            }
+    if backdate_enabled_global:
+        print(f"  Backdate Physical Stock: ON (grace={backdate_grace_days_global}d, {len(backdate_overrides)} brand overrides)")
+
     # Pre-fetch ALL transactions in one query (avoids N+1)
     all_txns = fetch_all_transactions(db_conn)
     print(f"  Loaded transactions for {len(all_txns)} items in bulk.")
@@ -138,14 +163,30 @@ def run_computation_pipeline(db_conn, incremental=False):
             })
             continue
 
-        # Reconstruct daily positions using dual-anchor method
+        # Apply backdate Physical Stock preprocessing
+        category = item["category_name"].upper() if item.get("category_name") else ""
+        ovr = backdate_overrides.get(category, {})
+        bd_enabled = ovr.get("enabled") if ovr.get("enabled") is not None else backdate_enabled_global
+        bd_grace = ovr.get("grace_days") if ovr.get("grace_days") is not None else backdate_grace_days_global
+
+        effective_opening = item["opening_balance"]
+        effective_txns = txns
+        if bd_enabled:
+            effective_opening, effective_txns = adjust_opening_for_physical_stock(
+                opening_balance=item["opening_balance"] or 0,
+                transactions=txns,
+                fy_start=fy_start,
+                grace_days=bd_grace,
+            )
+
+        # Reconstruct daily positions
         positions = reconstruct_daily_positions(
             stock_item_name=item["tally_name"],
             closing_balance=current_stock,
             opening_date=fy_start,
-            transactions=txns,
+            transactions=effective_txns,
             end_date=today,
-            tally_opening=item["opening_balance"],
+            tally_opening=effective_opening,
         )
 
         # Save positions
