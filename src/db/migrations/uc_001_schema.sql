@@ -230,10 +230,13 @@ CREATE TABLE IF NOT EXISTS overrides (
     field_name          TEXT NOT NULL,
     override_value      TEXT NOT NULL,
     reason              TEXT,
+    note                TEXT,
     created_by          TEXT DEFAULT 'system',
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     expires_at          TIMESTAMPTZ,
     is_active           BOOLEAN DEFAULT TRUE,
+    is_stale            BOOLEAN DEFAULT FALSE,
+    hold_from_po        BOOLEAN DEFAULT FALSE,
     UNIQUE(stock_item_name, field_name, is_active)
 );
 CREATE INDEX IF NOT EXISTS idx_overrides_item ON overrides(stock_item_name);
