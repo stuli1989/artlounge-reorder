@@ -132,11 +132,8 @@ def store_snapshot_as_position(db_conn, snapshot_date, aggregated_inventory):
 
     rows = []
     for sku, data in aggregated_inventory.items():
-        available = (
-            (data.get("inventory", 0) or 0)
-            - (data.get("blocked", 0) or 0)
-            + (data.get("putaway", 0) or 0)
-        )
+        # UC's inventory field = available quantity (already excludes blocked)
+        available = (data.get("inventory", 0) or 0) + (data.get("putaway", 0) or 0)
         rows.append({
             "stock_item_name": sku,
             "position_date": snapshot_date,

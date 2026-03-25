@@ -55,7 +55,7 @@ def extract_sku_fields(uc_item):
         brand = UNKNOWN_BRAND
     return {
         "sku_code": uc_item.get("skuCode", ""),
-        "name": uc_item.get("name", uc_item.get("skuCode", "")),
+        "display_name": uc_item.get("name", ""),  # actual product name for display
         "category_code": brand.upper(),  # brand = our category (for grouping)
         "product_category": uc_item.get("categoryCode", ""),  # UC product category
         "brand": brand,
@@ -115,12 +115,14 @@ def _upsert_items(db_conn, items):
     if not items:
         return 0
     sql = """
-        INSERT INTO stock_items (name, sku_code, category_name, stock_group, brand,
+        INSERT INTO stock_items (name, sku_code, part_no, category_name, stock_group, brand,
                                  cost_price, mrp, ean, hsn_code, is_active)
-        VALUES (%(sku_code)s, %(sku_code)s, %(category_code)s, %(product_category)s,
-                %(brand)s, %(cost_price)s, %(mrp)s, %(ean)s, %(hsn_code)s, %(enabled)s)
+        VALUES (%(sku_code)s, %(sku_code)s, %(display_name)s, %(category_code)s,
+                %(product_category)s, %(brand)s, %(cost_price)s, %(mrp)s, %(ean)s,
+                %(hsn_code)s, %(enabled)s)
         ON CONFLICT (name) DO UPDATE SET
             sku_code = EXCLUDED.sku_code,
+            part_no = EXCLUDED.part_no,
             category_name = EXCLUDED.category_name,
             stock_group = EXCLUDED.stock_group,
             brand = EXCLUDED.brand,

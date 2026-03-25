@@ -342,7 +342,7 @@ CREATE TABLE IF NOT EXISTS daily_inventory_snapshots (
     open_purchase       INTEGER NOT NULL DEFAULT 0,
     bad_inventory       INTEGER NOT NULL DEFAULT 0,
     available_stock     INTEGER GENERATED ALWAYS AS
-        (inventory - inventory_blocked + putaway_pending) STORED,
+        (inventory + putaway_pending) STORED,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(snapshot_date, sku_code)
 );
