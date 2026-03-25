@@ -23,20 +23,20 @@ _TEXT_RANGES = [
 ]
 
 
-def _pick_text_range(since_date, end_date):
-    """Pick the smallest textRange preset that covers the requested window."""
-    days_needed = (end_date - since_date).days
-    for preset, days in _TEXT_RANGES:
-        if days >= days_needed:
-            return preset
-    return "LAST_90_DAYS"
+def _quarterly_windows(since_date, end_date):
+    """Yield (start, end) date tuples in ~90-day windows."""
+    current = since_date
+    while current < end_date:
+        window_end = min(current + timedelta(days=90), end_date)
+        yield current, window_end
+        current = window_end + timedelta(days=1)
 
 
 def pull_grns_since(client, since_date, end_date=None):
     """
     Pull GRN details created since last sync.
 
-    Uses createdBetween with textRange presets (UC API requirement).
+    Uses createdBetween with custom start/end dates in quarterly windows.
     Then fetches detail for each GRN code.
 
     Args:
@@ -51,39 +51,42 @@ def pull_grns_since(client, since_date, end_date=None):
         end_date = date.today()
 
     all_grns = []
-    text_range = _pick_text_range(since_date, end_date)
 
     for facility in client.facilities:
-        logger.info("  GRNs @ %s (range: %s)", facility, text_range)
+        for win_start, win_end in _quarterly_windows(since_date, end_date):
+            logger.info("  GRNs @ %s: %s to %s", facility, win_start, win_end)
 
-        body = {"createdBetween": {"textRange": text_range}}
-        try:
-            data = client._request(
-                "POST",
-                "/services/rest/v1/purchase/inflowReceipt/getInflowReceipts",
-                json=body,
-                facility=facility,
-            )
-        except Exception as e:
-            logger.warning("GRN list failed for %s: %s", facility, e)
-            continue
-
-        codes = data.get("inflowReceiptCodes", [])
-        logger.info("    Found %d GRN codes", len(codes))
-
-        for code in codes:
+            body = {"createdBetween": {
+                "start": win_start.isoformat(),
+                "end": win_end.isoformat(),
+            }}
             try:
-                detail = client._request(
+                data = client._request(
                     "POST",
-                    "/services/rest/v1/purchase/inflowReceipt/getInflowReceipt",
-                    json={"inflowReceiptCode": code},
+                    "/services/rest/v1/purchase/inflowReceipt/getInflowReceipts",
+                    json=body,
                     facility=facility,
                 )
-                grn = detail.get("inflowReceipt", detail)
-                grn["_facility"] = facility
-                all_grns.append(grn)
             except Exception as e:
-                logger.warning("Failed to fetch GRN detail %s: %s", code, e)
+                logger.warning("GRN list failed for %s: %s", facility, e)
+                continue
+
+            codes = data.get("inflowReceiptCodes", [])
+            logger.info("    Found %d GRN codes", len(codes))
+
+            for code in codes:
+                try:
+                    detail = client._request(
+                        "POST",
+                        "/services/rest/v1/purchase/inflowReceipt/getInflowReceipt",
+                        json={"inflowReceiptCode": code},
+                        facility=facility,
+                    )
+                    grn = detail.get("inflowReceipt", detail)
+                    grn["_facility"] = facility
+                    all_grns.append(grn)
+                except Exception as e:
+                    logger.warning("Failed to fetch GRN detail %s: %s", code, e)
 
     logger.info("Total GRNs fetched: %d", len(all_grns))
     return all_grns
