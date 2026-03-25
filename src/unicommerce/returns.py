@@ -44,12 +44,11 @@ def pull_returns_since(client, since_date, end_date=None):
 
     all_returns = []
 
-    for return_type in ["CUSTOMER_RETURN", "RTO"]:
-        type_label = "CIR" if return_type == "CUSTOMER_RETURN" else "RTO"
+    for return_type in ["CIR", "RTO"]:
         for facility in client.facilities:
             for window_start, window_end in date_windows(since_date, end_date):
                 logger.info("  Returns %s @ %s: %s to %s",
-                           type_label, facility, window_start, window_end)
+                           return_type, facility, window_start, window_end)
                 try:
                     data = client._request(
                         "POST",
@@ -62,25 +61,33 @@ def pull_returns_since(client, since_date, end_date=None):
                         facility=facility,
                     )
                 except Exception as e:
-                    logger.warning("Return search failed for %s/%s: %s", type_label, facility, e)
+                    logger.warning("Return search failed for %s/%s: %s", return_type, facility, e)
                     continue
 
-                return_orders = data.get("returnOrders", data.get("elements", []))
-                logger.info("    Found %d %s returns", len(return_orders), type_label)
+                return_orders = data.get("returnOrders", [])
+                logger.info("    Found %d %s returns", len(return_orders), return_type)
 
                 for ret in return_orders:
-                    code = ret.get("code") or ret.get("reversePickupCode", "")
+                    code = ret.get("code", "")
                     if not code:
                         continue
+                    # CIR: code IS the reversePickupCode
+                    # RTO: code IS the shipmentCode (not reversePickupCode)
+                    detail_body = (
+                        {"reversePickupCode": code}
+                        if return_type == "CIR"
+                        else {"shipmentCode": code}
+                    )
                     try:
                         detail = client._request(
                             "POST",
                             "/services/rest/v1/oms/return/get",
-                            json={"reversePickupCode": code},
+                            json=detail_body,
                             facility=facility,
                         )
-                        detail["_return_type"] = type_label
+                        detail["_return_type"] = return_type
                         detail["_facility"] = facility
+                        detail["_search_code"] = code
                         all_returns.append(detail)
                     except Exception as e:
                         logger.warning("Failed to fetch return detail %s: %s", code, e)
@@ -107,7 +114,7 @@ def transform_returns_to_transactions(returns):
         reverse_pickup_code = (
             ret.get("reversePickupCode")
             or ret_value.get("reversePickupCode")
-            or ""
+            or ret.get("_search_code", "")  # fallback for RTO
         )
         sale_order_code = ret_value.get("saleOrderCode", "")
 
@@ -169,7 +176,7 @@ def store_return_details(db_conn, returns):
         reverse_pickup_code = (
             ret.get("reversePickupCode")
             or ret_value.get("reversePickupCode")
-            or ""
+            or ret.get("_search_code", "")  # fallback for RTO
         )
         if not reverse_pickup_code:
             continue
@@ -182,8 +189,8 @@ def store_return_details(db_conn, returns):
             "sale_order_code": ret_value.get("saleOrderCode"),
             "facility_code": ret.get("_facility"),
             "channel": uc_channel,
-            "return_created_date": ret_value.get("returnCreatedDate"),
-            "return_completed_date": ret_value.get("returnCompletedDate"),
+            "return_created_date": _parse_uc_date(ret_value.get("returnCreatedDate")),
+            "return_completed_date": _parse_uc_date(ret_value.get("returnCompletedDate")),
             "invoice_code": ret_value.get("returnInvoiceCode"),
         })
 

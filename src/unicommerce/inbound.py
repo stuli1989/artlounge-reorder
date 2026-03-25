@@ -1,8 +1,8 @@
 """
 GRN/PO ingestion — pull Goods Receipt Notes from Unicommerce.
 
-Uses bounded date windows (never unbounded). Computes lead time from
-GRN received date - PO created date.
+Uses createdBetween with textRange presets for listing.
+Fetches detail per GRN code for SKU-level data and lead time computation.
 
 Maps to: transactions (inward, supplier), grn_receipts table.
 """
@@ -10,16 +10,34 @@ import logging
 from datetime import date, timedelta
 import psycopg2.extras
 
-from unicommerce.returns import date_windows, _parse_uc_date
+from unicommerce.returns import _parse_uc_date
 
 logger = logging.getLogger(__name__)
+
+# textRange presets available in UC API
+_TEXT_RANGES = [
+    ("LAST_7_DAYS", 7),
+    ("LAST_30_DAYS", 30),
+    ("LAST_60_DAYS", 60),
+    ("LAST_90_DAYS", 90),
+]
+
+
+def _pick_text_range(since_date, end_date):
+    """Pick the smallest textRange preset that covers the requested window."""
+    days_needed = (end_date - since_date).days
+    for preset, days in _TEXT_RANGES:
+        if days >= days_needed:
+            return preset
+    return "LAST_90_DAYS"
 
 
 def pull_grns_since(client, since_date, end_date=None):
     """
-    Pull GRN details changed since last sync.
+    Pull GRN details created since last sync.
 
-    Uses bounded date windows + pagination. Never calls with empty body.
+    Uses createdBetween with textRange presets (UC API requirement).
+    Then fetches detail for each GRN code.
 
     Args:
         client: UnicommerceClient
@@ -33,46 +51,46 @@ def pull_grns_since(client, since_date, end_date=None):
         end_date = date.today()
 
     all_grns = []
+    text_range = _pick_text_range(since_date, end_date)
 
     for facility in client.facilities:
-        for window_start, window_end in date_windows(since_date, end_date):
-            logger.info("  GRNs @ %s: %s to %s", facility, window_start, window_end)
+        logger.info("  GRNs @ %s (range: %s)", facility, text_range)
 
-            body = {
-                "updatedFrom": window_start.strftime("%Y-%m-%dT00:00:00"),
-                "updatedTo": window_end.strftime("%Y-%m-%dT23:59:59"),
-            }
+        body = {"createdBetween": {"textRange": text_range}}
+        try:
+            data = client._request(
+                "POST",
+                "/services/rest/v1/purchase/inflowReceipt/getInflowReceipts",
+                json=body,
+                facility=facility,
+            )
+        except Exception as e:
+            logger.warning("GRN list failed for %s: %s", facility, e)
+            continue
 
+        codes = data.get("inflowReceiptCodes", [])
+        logger.info("    Found %d GRN codes", len(codes))
+
+        for code in codes:
             try:
-                codes = list(client.iter_grn_codes(body=body, facility=facility))
+                detail = client._request(
+                    "POST",
+                    "/services/rest/v1/purchase/inflowReceipt/getInflowReceipt",
+                    json={"inflowReceiptCode": code},
+                    facility=facility,
+                )
+                grn = detail.get("inflowReceipt", detail)
+                grn["_facility"] = facility
+                all_grns.append(grn)
             except Exception as e:
-                logger.warning("GRN list failed for %s: %s", facility, e)
-                continue
-
-            logger.info("    Found %d GRN codes", len(codes))
-
-            for code in codes:
-                try:
-                    detail = client._request(
-                        "POST",
-                        "/services/rest/v1/purchase/inflowReceipt/getInflowReceipt",
-                        json={"inflowReceiptCode": code},
-                        facility=facility,
-                    )
-                    grn = detail.get("inflowReceipt", detail)
-                    grn["_facility"] = facility
-                    all_grns.append(grn)
-                except Exception as e:
-                    logger.warning("Failed to fetch GRN detail %s: %s", code, e)
+                logger.warning("Failed to fetch GRN detail %s: %s", code, e)
 
     logger.info("Total GRNs fetched: %d", len(all_grns))
     return all_grns
 
 
 def transform_grns_to_transactions(grns):
-    """
-    Convert GRN details to inward transaction rows (supplier channel).
-    """
+    """Convert GRN details to inward transaction rows (supplier channel)."""
     txns = []
 
     for grn in grns:
@@ -84,13 +102,13 @@ def transform_grns_to_transactions(grns):
             logger.warning("Skipping GRN %s: no date", code)
             continue
 
-        # Vendor info from PO linkage
         po = grn.get("purchaseOrder", {})
         vendor_name = po.get("vendorName", grn.get("vendorName", ""))
 
         items = grn.get("inflowReceiptItems", [])
         for item in items:
-            sku = item.get("itemTypeSKU", "")
+            # UC field is "itemSKU" (not "itemTypeSKU")
+            sku = item.get("itemSKU", "")
             if not sku:
                 continue
             qty = int(item.get("quantity", 0) or 0)
@@ -139,12 +157,10 @@ def store_grn_details(db_conn, grns):
         po_code = po.get("code")
         po_created = _parse_uc_date(po.get("created"))
 
-        # Compute lead time
         lead_days = None
         if received_date and po_created:
             lead_days = (received_date - po_created).days
 
-        # Sum quantities
         items = grn.get("inflowReceiptItems", [])
         total_qty = sum(int(i.get("quantity", 0) or 0) for i in items)
         total_rejected = sum(int(i.get("rejectedQuantity", 0) or 0) for i in items)
