@@ -10,7 +10,11 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from config.settings import FY_START_DATE
-from engine.stock_position import reconstruct_daily_positions, upsert_daily_positions
+from engine.stock_position import (
+    build_daily_positions_from_snapshots_and_txns,
+    upsert_daily_positions,
+    fetch_snapshot_dates_for_item,
+)
 from engine.velocity import (
     calculate_velocity,
     fetch_batch_wma_velocities,
@@ -22,7 +26,6 @@ from engine.reorder import (
     compute_coverage_days,
     detect_import_history,
     determine_reorder_status,
-    must_stock_fallback_qty,
     DEFAULT_LEAD_TIME,
 )
 from engine.pipeline import (
@@ -31,8 +34,8 @@ from engine.pipeline import (
     fetch_sku_metrics_for_category,
     compute_last_sale_date,
     compute_zero_activity_days,
-    _fetch_dead_stock_threshold,
-    _fetch_slow_mover_threshold,
+    _empty_metrics,
+    _fetch_setting,
 )
 from engine.aggregation import compute_brand_metrics
 from engine.classification import (
@@ -66,24 +69,18 @@ def find_affected_categories(db_conn, sku_names: list[str]) -> set[str]:
 
 
 def recompute_skus_for_party(db_conn, party_name: str) -> dict:
-    """
-    Recompute positions + metrics for all SKUs affected by a party reclassification.
-
-    Returns summary: {skus_recomputed, brands_recomputed, affected_skus}
-    """
+    """Recompute positions + metrics for all SKUs affected by a party reclassification."""
     today = date.today()
     fy_start = FY_START_DATE
 
-    # 1. Find affected SKUs
     sku_names = find_affected_skus(db_conn, party_name)
     if not sku_names:
         return {"skus_recomputed": 0, "brands_recomputed": 0, "affected_skus": []}
 
-    # 2. Load stock items for affected SKUs
     with db_conn.cursor() as cur:
         cur.execute("""
             SELECT name, category_name, opening_balance, closing_balance,
-                   reorder_intent, is_active, use_xyz_buffer
+                   reorder_intent, is_active
             FROM stock_items
             WHERE name = ANY(%s)
         """, (sku_names,))
@@ -95,12 +92,11 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
             d["closing_balance"] = float(d["closing_balance"] or 0)
             items.append(d)
 
-    # 3. Load transactions for affected SKUs
     all_txns = defaultdict(list)
     with db_conn.cursor() as cur:
         cur.execute("""
             SELECT stock_item_name, txn_date AS date, quantity, is_inward,
-                   channel, voucher_type, party_name, amount
+                   channel, voucher_type, party_name, amount, return_type
             FROM transactions
             WHERE stock_item_name = ANY(%s)
             ORDER BY stock_item_name, txn_date, id
@@ -112,7 +108,6 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
             item_name = d.pop("stock_item_name")
             all_txns[item_name].append(d)
 
-    # 4. Load supplier mappings for affected categories
     categories = find_affected_categories(db_conn, sku_names)
     supplier_map = {}
     if categories:
@@ -135,44 +130,49 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
                     "typical_order_months": row[6],
                 }
 
-    # 5. Pre-fetch settings
     buffer_settings = fetch_buffer_settings(db_conn)
     class_settings = fetch_classification_settings(db_conn)
     use_xyz_global = fetch_use_xyz_global(db_conn)
 
-    # 6. Recompute positions + velocity for each SKU
     metrics_batch = []
     for item in items:
-        txns = all_txns.get(item["name"], [])
-        current_stock = item["closing_balance"] or 0
+        sku_name = item["name"]
+        txns = all_txns.get(sku_name, [])
+
+        # Get current stock from latest snapshot
+        with db_conn.cursor() as cur:
+            cur.execute("""
+                SELECT available_stock FROM daily_inventory_snapshots
+                WHERE sku_code = %s ORDER BY snapshot_date DESC LIMIT 1
+            """, (sku_name,))
+            row = cur.fetchone()
+            current_stock = float(row[0]) if row else item["closing_balance"]
 
         if not txns:
-            metrics_batch.append(_empty_metrics(item, current_stock))
+            metrics_batch.append(_empty_metrics(sku_name, item["category_name"], current_stock))
             continue
 
-        # Reconstruct daily positions
-        positions = reconstruct_daily_positions(
-            stock_item_name=item["name"],
-            closing_balance=current_stock,
-            opening_date=fy_start,
+        snapshots = fetch_snapshot_dates_for_item(db_conn, sku_name)
+        positions = build_daily_positions_from_snapshots_and_txns(
+            stock_item_name=sku_name,
+            snapshot_by_date=snapshots,
             transactions=txns,
+            start_date=fy_start,
             end_date=today,
-            tally_opening=item["opening_balance"],
         )
         upsert_daily_positions(db_conn, positions)
 
-        # Flat velocity
-        velocity = calculate_velocity(item["name"], positions)
-
-        # Dead stock metrics
+        velocity = calculate_velocity(sku_name, positions)
         last_sale_date = compute_last_sale_date(txns)
-        opening_gap = (item["opening_balance"] or 0) - positions[0]["opening_qty"] if positions else 0.0
-        zero_activity_days = compute_zero_activity_days(positions, opening_gap)
+        zero_activity_days = compute_zero_activity_days(positions)
+        total_in_stock_days = velocity["total_in_stock_days"]
+        zero_activity_ratio = (
+            round(zero_activity_days / total_in_stock_days, 4)
+            if total_in_stock_days > 0 else None
+        )
 
-        # Import history
-        import_history = detect_import_history(item["name"], txns)
+        import_history = detect_import_history(sku_name, txns)
 
-        # Supplier lead time
         supplier = supplier_map.get(item["category_name"])
         lead_time = supplier["lead_time_default"] if supplier else DEFAULT_LEAD_TIME
         coverage = compute_coverage_days(
@@ -180,31 +180,20 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
             supplier["typical_order_months"] if supplier else None,
         )
 
-        # Days to stockout
         days_to_stockout = calculate_days_to_stockout(current_stock, velocity["total_velocity"])
 
-        # Reorder status (preliminary)
+        intent = item.get("reorder_intent", "normal")
         status, suggested_qty = determine_reorder_status(
             current_stock, days_to_stockout, lead_time, velocity["total_velocity"],
-            coverage_period=coverage,
+            coverage_period=coverage, reorder_intent=intent,
         )
-
-        # Intent override
-        intent = item.get("reorder_intent", "normal")
-        if intent == "must_stock" and status in ("no_data", "out_of_stock"):
-            status = "critical"
-            if suggested_qty is None:
-                suggested_qty = must_stock_fallback_qty(lead_time + coverage)
-        elif intent == "do_not_reorder":
-            status = "no_data"
-            suggested_qty = None
 
         stockout_date = None
         if days_to_stockout is not None and days_to_stockout > 0:
             stockout_date = today + timedelta(days=int(days_to_stockout))
 
         m = {
-            "stock_item_name": item["name"],
+            "stock_item_name": sku_name,
             "category_name": item["category_name"],
             "current_stock": current_stock,
             **velocity,
@@ -217,10 +206,13 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
             "reorder_qty_suggested": suggested_qty,
             "last_sale_date": last_sale_date,
             "total_zero_activity_days": zero_activity_days,
+            "zero_activity_ratio": zero_activity_ratio,
+            "open_purchase": 0,
+            "bad_inventory": 0,
         }
         metrics_batch.append(m)
 
-    # 7. WMA velocity + trend (read from just-written positions)
+    # WMA velocity + trend
     wma_window = int(class_settings.get("wma_window_days", 90))
     trend_up = class_settings.get("trend_up_threshold", 1.2)
     trend_down = class_settings.get("trend_down_threshold", 0.8)
@@ -249,7 +241,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
         m["trend_direction"] = direction
         m["trend_ratio"] = ratio
 
-    # 8. Safety buffer recomputation (preserve existing ABC/XYZ from DB)
+    # Safety buffer recomputation (preserve existing ABC/XYZ from DB)
     existing_class = {}
     with db_conn.cursor() as cur:
         cur.execute("""
@@ -273,19 +265,19 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
 
         abc = m["abc_class"]
         xyz = m["xyz_class"]
-        item_data = stock_items_by_name.get(m["stock_item_name"], {})
-        item_xyz_pref = item_data.get("use_xyz_buffer")
-        use_xyz = item_xyz_pref if item_xyz_pref is not None else use_xyz_global
-        buf = compute_safety_buffer(abc, xyz, buffer_settings, use_xyz=use_xyz)
-
         supplier = supplier_map.get(m["category_name"])
+        supplier_buf_override = None
         if supplier and supplier.get("buffer_override") is not None:
-            buf = supplier["buffer_override"]
+            supplier_buf_override = supplier["buffer_override"]
+        buf = compute_safety_buffer(abc, xyz, buffer_settings,
+                                     supplier_override=supplier_buf_override,
+                                     use_xyz=use_xyz_global)
         m["safety_buffer"] = buf
 
         # Final reorder status with safety buffer
         current_stock = m["current_stock"]
         total_vel = m["total_velocity"]
+        item_data = stock_items_by_name.get(m["stock_item_name"], {})
         lead_time = supplier["lead_time_default"] if supplier else DEFAULT_LEAD_TIME
         coverage = compute_coverage_days(
             lead_time,
@@ -293,19 +285,12 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
         )
         days_to_stockout = calculate_days_to_stockout(current_stock, total_vel)
 
+        intent = item_data.get("reorder_intent", "normal")
         status, suggested_qty = determine_reorder_status(
             current_stock, days_to_stockout, lead_time, total_vel,
             safety_buffer=buf, coverage_period=coverage,
+            reorder_intent=intent,
         )
-
-        intent = item_data.get("reorder_intent", "normal")
-        if intent == "must_stock" and status in ("no_data", "out_of_stock"):
-            status = "critical"
-            if suggested_qty is None:
-                suggested_qty = must_stock_fallback_qty(lead_time + coverage)
-        elif intent == "do_not_reorder":
-            status = "no_data"
-            suggested_qty = None
 
         m["days_to_stockout"] = days_to_stockout
         m["reorder_status"] = status
@@ -315,13 +300,11 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
         else:
             m["estimated_stockout_date"] = None
 
-    # 9. Batch upsert SKU metrics
     batch_upsert_sku_metrics(db_conn, metrics_batch)
     db_conn.commit()
 
-    # 10. Brand rollups for affected categories
-    dead_stock_threshold = _fetch_dead_stock_threshold(db_conn)
-    slow_mover_threshold = _fetch_slow_mover_threshold(db_conn)
+    dead_stock_threshold = _fetch_setting(db_conn, 'dead_stock_threshold_days', 90, int)
+    slow_mover_threshold = _fetch_setting(db_conn, 'slow_mover_velocity_threshold', 0.1, float)
     brand_batch = []
     for cat_name in categories:
         sku_metrics = fetch_sku_metrics_for_category(db_conn, cat_name)
@@ -340,21 +323,4 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
         "skus_recomputed": len(metrics_batch),
         "brands_recomputed": len(categories),
         "affected_skus": sku_names,
-    }
-
-
-def _empty_metrics(item: dict, current_stock: float) -> dict:
-    """Return zero-velocity metrics for an item with no transactions."""
-    return {
-        "stock_item_name": item["name"],
-        "category_name": item["category_name"],
-        "current_stock": current_stock,
-        "wholesale_velocity": 0, "online_velocity": 0, "total_velocity": 0,
-        "total_in_stock_days": 0,
-        "velocity_start_date": None, "velocity_end_date": None,
-        "days_to_stockout": None, "estimated_stockout_date": None,
-        "last_import_date": None, "last_import_qty": None, "last_import_supplier": None,
-        "reorder_status": "out_of_stock" if current_stock <= 0 else "no_data",
-        "reorder_qty_suggested": None,
-        "last_sale_date": None, "total_zero_activity_days": 0,
     }

@@ -202,7 +202,7 @@ def run_nightly_sync(db_conn, full=False, dry_run=False):
         # Step 8: Send notification
         try:
             from sync.email_notifier import send_sync_notification
-            send_sync_notification(success=True, stats=stats)
+            send_sync_notification("completed", stats)
         except Exception as e:
             logger.warning("Email notification failed: %s", e)
 
@@ -214,7 +214,7 @@ def run_nightly_sync(db_conn, full=False, dry_run=False):
 
         try:
             from sync.email_notifier import send_sync_notification
-            send_sync_notification(success=False, error=str(e))
+            send_sync_notification("failed", {}, error_message=str(e))
         except Exception:
             pass
 

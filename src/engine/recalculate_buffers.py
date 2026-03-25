@@ -94,12 +94,13 @@ def recalculate_all_buffers(db_conn):
         item_xyz_pref = row["item_xyz_pref"]
         use_xyz = item_xyz_pref if item_xyz_pref is not None else use_xyz_global
 
-        buf = compute_safety_buffer(abc, xyz, buffer_settings, use_xyz=use_xyz)
-
-        # Apply per-brand buffer override if set
         supplier = supplier_map.get(row["category_name"])
+        supplier_buf_override = None
         if supplier and supplier.get("buffer_override") is not None:
-            buf = supplier["buffer_override"]
+            supplier_buf_override = supplier["buffer_override"]
+        buf = compute_safety_buffer(abc, xyz, buffer_settings,
+                                     supplier_override=supplier_buf_override,
+                                     use_xyz=use_xyz)
 
         current_stock = _to_float(row["current_stock"])
         total_vel = _to_float(row["total_velocity"])
@@ -114,15 +115,13 @@ def recalculate_all_buffers(db_conn):
             safety_buffer=buf, coverage_period=coverage,
         )
 
-        # Apply reorder intent overrides
+        # Re-run with intent (determine_reorder_status handles it internally)
         intent = row["reorder_intent"] or "normal"
-        if intent == "must_stock" and status in ("no_data", "out_of_stock"):
-            status = "critical"
-            if suggested_qty is None:
-                suggested_qty = must_stock_fallback_qty(lead_time + coverage)
-        elif intent == "do_not_reorder":
-            status = "no_data"
-            suggested_qty = None
+        status, suggested_qty = determine_reorder_status(
+            current_stock, days_to_stockout, lead_time, total_vel,
+            safety_buffer=buf, coverage_period=coverage,
+            reorder_intent=intent,
+        )
 
         est_date = None
         if days_to_stockout is not None and days_to_stockout > 0:
@@ -173,7 +172,7 @@ def recalculate_all_buffers(db_conn):
 
     # Also fetch categories with no SKUs so they get zero-count rollups
     with db_conn.cursor() as cur:
-        cur.execute("SELECT name FROM stock_categories ORDER BY tally_name")
+        cur.execute("SELECT name FROM stock_categories ORDER BY name")
         all_categories = [row["name"] for row in cur.fetchall()]
 
     brand_batch = []

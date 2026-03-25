@@ -33,7 +33,7 @@ def pull_inventory_snapshot(client, db_conn):
     all_skus = get_all_sku_codes(db_conn)
     if not all_skus:
         logger.warning("No SKU codes in database — run catalog sync first")
-        return {}
+        return {}, {}
 
     logger.info("Pulling inventory snapshot for %d SKUs across %d facilities",
                 len(all_skus), len(client.facilities))

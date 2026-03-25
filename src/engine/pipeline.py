@@ -105,6 +105,10 @@ def run_computation_pipeline(db_conn, incremental=False):
     all_snapshots = fetch_all_snapshots(db_conn)
     print(f"  Loaded snapshots for {len(all_snapshots)} items.")
 
+    # Pre-fetch latest snapshot metadata (current stock, open_purchase, bad_inventory)
+    latest_snapshot_data = fetch_latest_snapshot_bulk(db_conn)
+    print(f"  Loaded latest snapshot data for {len(latest_snapshot_data)} items.")
+
     # Pre-compute supplier mapping per category
     supplier_map = fetch_all_supplier_mappings(db_conn)
     print(f"  Loaded supplier mappings for {len(supplier_map)} categories.")
@@ -119,8 +123,9 @@ def run_computation_pipeline(db_conn, incremental=False):
         txns = all_txns.get(sku_name, [])
         snapshots = all_snapshots.get(sku_name, {})
 
-        # Get current stock from latest snapshot
-        current_stock = _get_current_stock(db_conn, sku_name)
+        # Get current stock from pre-fetched latest snapshot
+        snap_data = latest_snapshot_data.get(sku_name, {})
+        current_stock = snap_data.get("available_stock", item.get("closing_balance", 0) or 0)
 
         if not txns and not snapshots:
             metrics_batch.append(_empty_metrics(sku_name, item["category_name"], current_stock))
@@ -176,9 +181,6 @@ def run_computation_pipeline(db_conn, incremental=False):
         if days_to_stockout is not None and days_to_stockout > 0:
             stockout_date = today + timedelta(days=int(days_to_stockout))
 
-        # UC-specific: open_purchase and bad_inventory from latest snapshot
-        latest_snapshot = _get_latest_snapshot_data(db_conn, sku_name)
-
         m = {
             "stock_item_name": sku_name,
             "category_name": item["category_name"],
@@ -194,8 +196,8 @@ def run_computation_pipeline(db_conn, incremental=False):
             "last_sale_date": last_sale_date,
             "total_zero_activity_days": zero_activity_days,
             "zero_activity_ratio": zero_activity_ratio,
-            "open_purchase": latest_snapshot.get("open_purchase", 0),
-            "bad_inventory": latest_snapshot.get("bad_inventory", 0),
+            "open_purchase": snap_data.get("open_purchase", 0),
+            "bad_inventory": snap_data.get("bad_inventory", 0),
         }
         metrics_batch.append(m)
 
@@ -207,7 +209,8 @@ def run_computation_pipeline(db_conn, incremental=False):
     # Add inactive items with minimal metrics
     for item in all_stock_items:
         if not item.get("is_active", True):
-            current_stock = _get_current_stock(db_conn, item["name"])
+            snap = latest_snapshot_data.get(item["name"], {})
+            current_stock = snap.get("available_stock", item.get("closing_balance", 0) or 0)
             metrics_batch.append(_empty_metrics(item["name"], item["category_name"], current_stock))
 
     db_conn.commit()
@@ -447,37 +450,27 @@ def fetch_sku_metrics_for_category(db_conn, category_name: str) -> list[dict]:
         return rows
 
 
-def _get_current_stock(db_conn, sku_name: str) -> float:
-    """Get current available stock from latest inventory snapshot."""
+def fetch_latest_snapshot_bulk(db_conn) -> dict:
+    """Bulk-fetch latest snapshot data per SKU (available_stock, open_purchase, bad_inventory).
+
+    Uses DISTINCT ON to get one row per SKU (the latest snapshot date).
+    Returns {sku_code: {available_stock, open_purchase, bad_inventory}}.
+    """
+    result = {}
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT available_stock FROM daily_inventory_snapshots
-            WHERE sku_code = %s
-            ORDER BY snapshot_date DESC LIMIT 1
-        """, (sku_name,))
-        row = cur.fetchone()
-        if row:
-            return float(row[0])
-    # Fallback to stock_items.closing_balance
-    with db_conn.cursor() as cur:
-        cur.execute("SELECT closing_balance FROM stock_items WHERE name = %s", (sku_name,))
-        row = cur.fetchone()
-        return float(row[0] or 0) if row else 0
-
-
-def _get_latest_snapshot_data(db_conn, sku_name: str) -> dict:
-    """Get open_purchase and bad_inventory from latest snapshot."""
-    with db_conn.cursor() as cur:
-        cur.execute("""
-            SELECT open_purchase, bad_inventory
+            SELECT DISTINCT ON (sku_code)
+                sku_code, available_stock, open_purchase, bad_inventory
             FROM daily_inventory_snapshots
-            WHERE sku_code = %s
-            ORDER BY snapshot_date DESC LIMIT 1
-        """, (sku_name,))
-        row = cur.fetchone()
-        if row:
-            return {"open_purchase": row[0] or 0, "bad_inventory": row[1] or 0}
-    return {"open_purchase": 0, "bad_inventory": 0}
+            ORDER BY sku_code, snapshot_date DESC
+        """)
+        for row in cur.fetchall():
+            result[row[0]] = {
+                "available_stock": float(row[1] or 0),
+                "open_purchase": int(row[2] or 0),
+                "bad_inventory": int(row[3] or 0),
+            }
+    return result
 
 
 def _fetch_daily_positions_bulk(db_conn, sku_names: list[str]) -> dict[str, list[dict]]:
