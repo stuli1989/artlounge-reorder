@@ -1,6 +1,13 @@
 """
 Catalog ingestion — pull SKU master data from Unicommerce.
 
+Brand mapping: UC's `brand` field = real brand (WINSOR & NEWTON, PEBEO, etc.)
+              UC's `categoryCode` = product category (ACRYLIC PAINTS, OIL PAINTS, etc.)
+
+Our `stock_categories` table = brands (for reorder grouping by supplier/brand).
+Our `stock_items.category_name` = brand name.
+Our `stock_items.stock_group` = UC product category (for reference).
+
 Maps to: stock_items, stock_categories tables.
 """
 import logging
@@ -8,9 +15,12 @@ import psycopg2.extras
 
 logger = logging.getLogger(__name__)
 
+# Fallback brand for items with no brand field
+UNKNOWN_BRAND = "UNBRANDED"
+
 
 def pull_all_skus(client):
-    """Pull all SKUs from UC. Used for first sync (~23K items, single call)."""
+    """Pull all SKUs from UC (~23K items, single call)."""
     logger.info("Pulling all SKUs from Unicommerce...")
     data = client._request(
         "POST",
@@ -39,11 +49,16 @@ def pull_updated_skus(client, hours_since=25):
 
 def extract_sku_fields(uc_item):
     """Extract relevant fields from a UC itemType response."""
+    brand = (uc_item.get("brand") or "").strip()
+    if not brand:
+        # Try to infer brand from name (e.g. "Pebeo Studio Acrylics..." -> PEBEO)
+        brand = UNKNOWN_BRAND
     return {
         "sku_code": uc_item.get("skuCode", ""),
         "name": uc_item.get("name", uc_item.get("skuCode", "")),
-        "category_code": uc_item.get("categoryCode", ""),
-        "brand": uc_item.get("brand", ""),
+        "category_code": brand.upper(),  # brand = our category (for grouping)
+        "product_category": uc_item.get("categoryCode", ""),  # UC product category
+        "brand": brand,
         "cost_price": uc_item.get("costPrice"),
         "mrp": uc_item.get("maxRetailPrice"),
         "ean": uc_item.get("ean") or uc_item.get("upc") or uc_item.get("scanIdentifier"),
@@ -53,40 +68,33 @@ def extract_sku_fields(uc_item):
 
 
 def load_catalog(db_conn, uc_items):
-    """
-    Load UC catalog items into stock_items and stock_categories tables.
+    """Load UC catalog items into stock_items and stock_categories tables.
 
-    Args:
-        db_conn: PostgreSQL connection
-        uc_items: List of raw UC itemType dicts
-
-    Returns:
-        dict with counts of items and categories loaded
+    stock_categories = brands (WINSOR & NEWTON, PEBEO, etc.)
+    stock_items.category_name = brand name (for grouping)
+    stock_items.stock_group = UC product category (ACRYLIC PAINTS, etc.)
     """
     if not uc_items:
         return {"items": 0, "categories": 0}
 
     items = [extract_sku_fields(item) for item in uc_items]
 
-    # Collect unique categories
+    # Collect unique brands as categories
     categories = {}
     for item in items:
-        cat = item["category_code"]
-        if cat and cat not in categories:
-            categories[cat] = {"name": cat, "source_id": None}
+        brand = item["category_code"]  # brand name uppercased
+        if brand and brand not in categories:
+            categories[brand] = {"name": brand, "source_id": None}
 
-    # Upsert categories
     cat_count = _upsert_categories(db_conn, list(categories.values()))
-
-    # Upsert items
     item_count = _upsert_items(db_conn, items)
 
-    logger.info("Loaded %d categories, %d items", cat_count, item_count)
+    logger.info("Loaded %d brands (categories), %d items", cat_count, item_count)
     return {"items": item_count, "categories": cat_count}
 
 
 def _upsert_categories(db_conn, categories):
-    """Upsert stock categories."""
+    """Upsert stock categories (= brands)."""
     if not categories:
         return 0
     sql = """
@@ -103,17 +111,18 @@ def _upsert_categories(db_conn, categories):
 
 
 def _upsert_items(db_conn, items):
-    """Upsert stock items from extracted fields."""
+    """Upsert stock items. category_name = brand, stock_group = UC product category."""
     if not items:
         return 0
     sql = """
-        INSERT INTO stock_items (name, sku_code, category_name, brand, cost_price,
-                                 mrp, ean, hsn_code, is_active)
-        VALUES (%(sku_code)s, %(sku_code)s, %(category_code)s, %(brand)s,
-                %(cost_price)s, %(mrp)s, %(ean)s, %(hsn_code)s, %(enabled)s)
+        INSERT INTO stock_items (name, sku_code, category_name, stock_group, brand,
+                                 cost_price, mrp, ean, hsn_code, is_active)
+        VALUES (%(sku_code)s, %(sku_code)s, %(category_code)s, %(product_category)s,
+                %(brand)s, %(cost_price)s, %(mrp)s, %(ean)s, %(hsn_code)s, %(enabled)s)
         ON CONFLICT (name) DO UPDATE SET
             sku_code = EXCLUDED.sku_code,
             category_name = EXCLUDED.category_name,
+            stock_group = EXCLUDED.stock_group,
             brand = EXCLUDED.brand,
             cost_price = EXCLUDED.cost_price,
             mrp = EXCLUDED.mrp,
