@@ -59,7 +59,7 @@ def find_affected_categories(db_conn, sku_names: list[str]) -> set[str]:
         return set()
     with db_conn.cursor() as cur:
         cur.execute(
-            "SELECT DISTINCT category_name FROM stock_items WHERE tally_name = ANY(%s)",
+            "SELECT DISTINCT category_name FROM stock_items WHERE name = ANY(%s)",
             (sku_names,),
         )
         return {row[0] for row in cur.fetchall()}
@@ -82,10 +82,10 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
     # 2. Load stock items for affected SKUs
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT tally_name, category_name, opening_balance, closing_balance,
+            SELECT name, category_name, opening_balance, closing_balance,
                    reorder_intent, is_active, use_xyz_buffer
             FROM stock_items
-            WHERE tally_name = ANY(%s)
+            WHERE name = ANY(%s)
         """, (sku_names,))
         cols = [d[0] for d in cur.description]
         items = []
@@ -118,12 +118,12 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
     if categories:
         with db_conn.cursor() as cur:
             cur.execute("""
-                SELECT sc.tally_name AS category_name,
+                SELECT sc.name AS category_name,
                        s.name, s.lead_time_default, s.lead_time_sea, s.lead_time_air,
                        s.buffer_override, s.typical_order_months
                 FROM stock_categories sc
-                JOIN suppliers s ON UPPER(s.name) = UPPER(sc.tally_name)
-                WHERE sc.tally_name = ANY(%s)
+                JOIN suppliers s ON UPPER(s.name) = UPPER(sc.name)
+                WHERE sc.name = ANY(%s)
             """, (list(categories),))
             for row in cur.fetchall():
                 supplier_map[row[0]] = {
@@ -143,7 +143,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
     # 6. Recompute positions + velocity for each SKU
     metrics_batch = []
     for item in items:
-        txns = all_txns.get(item["tally_name"], [])
+        txns = all_txns.get(item["name"], [])
         current_stock = item["closing_balance"] or 0
 
         if not txns:
@@ -152,7 +152,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
 
         # Reconstruct daily positions
         positions = reconstruct_daily_positions(
-            stock_item_name=item["tally_name"],
+            stock_item_name=item["name"],
             closing_balance=current_stock,
             opening_date=fy_start,
             transactions=txns,
@@ -162,7 +162,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
         upsert_daily_positions(db_conn, positions)
 
         # Flat velocity
-        velocity = calculate_velocity(item["tally_name"], positions)
+        velocity = calculate_velocity(item["name"], positions)
 
         # Dead stock metrics
         last_sale_date = compute_last_sale_date(txns)
@@ -170,7 +170,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
         zero_activity_days = compute_zero_activity_days(positions, opening_gap)
 
         # Import history
-        import_history = detect_import_history(item["tally_name"], txns)
+        import_history = detect_import_history(item["name"], txns)
 
         # Supplier lead time
         supplier = supplier_map.get(item["category_name"])
@@ -204,7 +204,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
             stockout_date = today + timedelta(days=int(days_to_stockout))
 
         m = {
-            "stock_item_name": item["tally_name"],
+            "stock_item_name": item["name"],
             "category_name": item["category_name"],
             "current_stock": current_stock,
             **velocity,
@@ -263,7 +263,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
                 "total_revenue": float(row[4]) if row[4] else 0,
             }
 
-    stock_items_by_name = {item["tally_name"]: item for item in items}
+    stock_items_by_name = {item["name"]: item for item in items}
     for m in metrics_batch:
         ec = existing_class.get(m["stock_item_name"], {})
         m["abc_class"] = ec.get("abc_class", "C")
@@ -346,7 +346,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
 def _empty_metrics(item: dict, current_stock: float) -> dict:
     """Return zero-velocity metrics for an item with no transactions."""
     return {
-        "stock_item_name": item["tally_name"],
+        "stock_item_name": item["name"],
         "category_name": item["category_name"],
         "current_stock": current_stock,
         "wholesale_velocity": 0, "online_velocity": 0, "total_velocity": 0,

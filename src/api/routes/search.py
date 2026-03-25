@@ -1,7 +1,7 @@
 """Universal search endpoint — searches brands and SKUs in one call.
 
 IMPORTANT: sku_metrics does NOT have part_no or is_active columns.
-These live on stock_items, so all SKU queries JOIN stock_items si ON si.tally_name = sm.stock_item_name.
+These live on stock_items, so all SKU queries JOIN stock_items si ON si.name = sm.stock_item_name.
 This matches the pattern in skus.py list_skus().
 """
 from decimal import Decimal
@@ -43,7 +43,7 @@ _SKU_SELECT = (
     "SELECT sm.stock_item_name, si.part_no, sm.category_name, "
     "  sm.reorder_status, sm.current_stock "
     "FROM sku_metrics sm "
-    "LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name"
+    "LEFT JOIN stock_items si ON si.name = sm.stock_item_name"
 )
 
 _SKU_MATCH = (
@@ -110,7 +110,7 @@ def universal_search(
                 scoped_skus = [_clean_row(r) for r in cur.fetchall()]
                 cur.execute(
                     f"SELECT COUNT(*) AS cnt FROM sku_metrics sm "
-                    f"LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name "
+                    f"LEFT JOIN stock_items si ON si.name = sm.stock_item_name "
                     f"WHERE sm.category_name = %(scope)s "
                     f"  AND {_SKU_MATCH} "
                     f"  AND {_SKU_ACTIVE}",
@@ -136,7 +136,7 @@ def universal_search(
             skus = [_clean_row(r) for r in cur.fetchall()]
             cur.execute(
                 f"SELECT COUNT(*) AS cnt FROM sku_metrics sm "
-                f"LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name "
+                f"LEFT JOIN stock_items si ON si.name = sm.stock_item_name "
                 f"WHERE {_SKU_MATCH} "
                 f"  AND {_SKU_ACTIVE} "
                 f"  {exclude_scope}",

@@ -10,7 +10,7 @@ VALID_CHANNELS = {"supplier", "wholesale", "online", "store", "internal", "ignor
 
 
 class ClassifyRequest(BaseModel):
-    tally_name: str
+    name: str
     channel: str
 
 
@@ -20,21 +20,21 @@ def list_all_parties(channel: str = None, search: str = None, user: dict = Depen
     with get_db() as conn:
         with conn.cursor() as cur:
             sql = """
-                SELECT p.tally_name, p.tally_parent, p.channel, p.created_at,
+                SELECT p.name, p.party_group, p.channel, p.created_at,
                        p.classified_at, COUNT(t.id) AS transaction_count
                 FROM parties p
-                LEFT JOIN transactions t ON t.party_name = p.tally_name
+                LEFT JOIN transactions t ON t.party_name = p.name
             """
             conditions, params = [], []
             if channel:
                 conditions.append("p.channel = %s")
                 params.append(channel)
             if search:
-                conditions.append("p.tally_name ILIKE %s")
+                conditions.append("p.name ILIKE %s")
                 params.append(f"%{search}%")
             if conditions:
                 sql += " WHERE " + " AND ".join(conditions)
-            sql += " GROUP BY p.id, p.tally_name, p.tally_parent, p.channel, p.created_at, p.classified_at"
+            sql += " GROUP BY p.id, p.name, p.party_group, p.channel, p.created_at, p.classified_at"
             sql += " ORDER BY transaction_count DESC"
             cur.execute(sql, params)
             rows = cur.fetchall()
@@ -47,12 +47,12 @@ def list_unclassified(user: dict = Depends(get_current_user)):
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT p.tally_name, p.tally_parent, p.created_at,
+                SELECT p.name, p.party_group, p.created_at,
                        COUNT(t.id) AS transaction_count
                 FROM parties p
-                LEFT JOIN transactions t ON t.party_name = p.tally_name
+                LEFT JOIN transactions t ON t.party_name = p.name
                 WHERE p.channel = 'unclassified'
-                GROUP BY p.id, p.tally_name, p.tally_parent, p.created_at
+                GROUP BY p.id, p.name, p.party_group, p.created_at
                 ORDER BY transaction_count DESC
             """)
             rows = cur.fetchall()
@@ -67,31 +67,29 @@ def classify_party(req: ClassifyRequest, user: dict = Depends(require_role("purc
 
     with get_db() as conn:
         with conn.cursor() as cur:
-            # Update party with is_manual flag
             cur.execute("""
-                UPDATE parties SET channel = %s, classified_at = NOW(), is_manual = TRUE
-                WHERE tally_name = %s
-            """, (req.channel, req.tally_name))
+                UPDATE parties SET channel = %s, classified_at = NOW()
+                WHERE name = %s
+            """, (req.channel, req.name))
 
             if cur.rowcount == 0:
-                raise HTTPException(404, f"Party '{req.tally_name}' not found")
+                raise HTTPException(404, f"Party '{req.name}' not found")
 
-            # Update transactions for this party
             cur.execute("""
                 UPDATE transactions SET channel = %s
                 WHERE party_name = %s
-            """, (req.channel, req.tally_name))
+            """, (req.channel, req.name))
             txn_updated = cur.rowcount
 
         conn.commit()
 
         # Trigger targeted recompute for affected SKUs
         from engine.targeted_recompute import recompute_skus_for_party
-        recompute_result = recompute_skus_for_party(conn, req.tally_name)
+        recompute_result = recompute_skus_for_party(conn, req.name)
 
     return {
         "success": True,
-        "party": req.tally_name,
+        "party": req.name,
         "channel": req.channel,
         "transactions_updated": txn_updated,
         **recompute_result,

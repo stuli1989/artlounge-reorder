@@ -1,25 +1,22 @@
 """
-Velocity calculation — units per day during active (sellable) periods only.
+Velocity calculation for Unicommerce data.
 
-Velocity = total demand during active days / count of active days
-
-A day is "active" (is_in_stock=True) if closing_qty > 0 OR if real demand
-(wholesale/online/store sales) occurred. This ensures days with negative
-closing balances due to Tally data quality issues are still counted when
-items were clearly selling. Inactive days (no stock AND no sales) are
-excluded from both numerator and denominator, so stockouts don't dilute
-the velocity estimate.
+F7:  velocity = net_demand / in_stock_days (min 14 in-stock days)
+F8:  per-channel velocity clamped at max(0, ...)
+F9:  recent_velocity over trailing window (default 90 days)
+F10: trend = recent_velocity / flat_velocity with edge case fixes
 """
 from datetime import date, timedelta
 
 from config.settings import FY_START_DATE, FY_END_DATE
+
+MIN_SAMPLE_DAYS = 14  # Minimum in-stock days for reliable velocity
 
 
 def find_in_stock_periods(daily_positions: list[dict]) -> list[dict]:
     """
     Group contiguous active days into periods.
 
-    A day is active (is_in_stock) if closing_qty > 0 or demand occurred.
     Returns list of {"from": date, "to": date, "days": int}.
     """
     periods = []
@@ -31,15 +28,13 @@ def find_in_stock_periods(daily_positions: list[dict]) -> list[dict]:
                 current_start = p["position_date"]
         else:
             if current_start is not None:
-                # Previous day was the end of an in-stock period
                 prev_date = p["position_date"]
                 end_date = prev_date - timedelta(days=1)
                 days = (end_date - current_start).days + 1
                 periods.append({"from": current_start, "to": end_date, "days": days})
                 current_start = None
 
-    # Close final period if still in stock at end of range
-    if current_start is not None:
+    if current_start is not None and daily_positions:
         end_date = daily_positions[-1]["position_date"]
         days = (end_date - current_start).days + 1
         periods.append({"from": current_start, "to": end_date, "days": days})
@@ -49,14 +44,18 @@ def find_in_stock_periods(daily_positions: list[dict]) -> list[dict]:
 
 def calculate_velocity(stock_item_name: str, daily_positions: list[dict]) -> dict:
     """
-    Calculate wholesale, online, and total velocity from daily positions.
+    Calculate wholesale, online, store, and total velocity from daily positions.
 
-    Only active days (is_in_stock: closing_qty > 0 or demand occurred) are included.
-    Returns units/day values (multiply by 30 for monthly display).
+    F7: velocity = net_demand / in_stock_days
+    F8: per-channel velocity clamped at max(0, ...)
+
+    Min sample guard: if in_stock_days < 14, velocity is marked unreliable.
+    Negative net demand (more returns than dispatches) → velocity clamped to 0.
     """
     in_stock_days = [p for p in daily_positions if p["is_in_stock"]]
+    num_days = len(in_stock_days)
 
-    if not in_stock_days:
+    if num_days == 0:
         return {
             "wholesale_velocity": 0,
             "online_velocity": 0,
@@ -64,24 +63,71 @@ def calculate_velocity(stock_item_name: str, daily_positions: list[dict]) -> dic
             "total_in_stock_days": 0,
             "velocity_start_date": None,
             "velocity_end_date": None,
+            "min_sample_met": False,
         }
 
-    total_wholesale_out = sum(p["wholesale_out"] for p in in_stock_days)
-    total_online_out = sum(p["online_out"] for p in in_stock_days)
-    total_store_out = sum(p["store_out"] for p in in_stock_days)
-    num_days = len(in_stock_days)
+    total_wholesale_out = sum(float(p.get("wholesale_out", 0)) for p in in_stock_days)
+    total_online_out = sum(float(p.get("online_out", 0)) for p in in_stock_days)
+    total_store_out = sum(float(p.get("store_out", 0)) for p in in_stock_days)
 
-    wholesale_v = total_wholesale_out / num_days
-    online_v = total_online_out / num_days
-    store_v = total_store_out / num_days
+    # F8: per-channel velocity clamped at 0
+    wholesale_v = max(0, total_wholesale_out / num_days)
+    online_v = max(0, total_online_out / num_days)
+    store_v = max(0, total_store_out / num_days)
+    total_v = wholesale_v + online_v + store_v
+
+    min_sample_met = num_days >= MIN_SAMPLE_DAYS
 
     return {
         "wholesale_velocity": round(wholesale_v, 4),
         "online_velocity": round(online_v, 4),
-        "total_velocity": round(wholesale_v + online_v + store_v, 4),
+        "total_velocity": round(total_v, 4),
         "total_in_stock_days": num_days,
         "velocity_start_date": in_stock_days[0]["position_date"],
         "velocity_end_date": in_stock_days[-1]["position_date"],
+        "min_sample_met": min_sample_met,
+    }
+
+
+def calculate_recent_velocity(
+    daily_positions: list[dict],
+    window_days: int = 90,
+    end_date: date = None,
+) -> dict:
+    """
+    F9: Calculate velocity over a trailing window.
+
+    Same formula as flat velocity but restricted to last N days.
+    Same min sample guard (14 in-stock days in window).
+    """
+    if end_date is None:
+        end_date = date.today()
+    window_start = end_date - timedelta(days=window_days)
+
+    windowed = [
+        p for p in daily_positions
+        if p.get("position_date") and window_start <= p["position_date"] <= end_date
+    ]
+
+    in_stock = [p for p in windowed if p["is_in_stock"]]
+    num_days = len(in_stock)
+
+    if num_days == 0:
+        return {"recent_velocity": 0, "recent_in_stock_days": 0, "recent_min_sample_met": False}
+
+    total_out = sum(
+        max(0, float(p.get("wholesale_out", 0)))
+        + max(0, float(p.get("online_out", 0)))
+        + max(0, float(p.get("store_out", 0)))
+        for p in in_stock
+    )
+
+    recent_v = max(0, total_out / num_days)
+
+    return {
+        "recent_velocity": round(recent_v, 4),
+        "recent_in_stock_days": num_days,
+        "recent_min_sample_met": num_days >= MIN_SAMPLE_DAYS,
     }
 
 
@@ -93,13 +139,7 @@ def resolve_date_range(from_date: str | None, to_date: str | None) -> tuple[date
 
 
 def fetch_batch_velocities(cur, sku_names: list[str], range_start: date, range_end: date) -> dict[str, dict]:
-    """Batch-query daily_stock_positions for per-SKU velocity aggregates in a date range.
-
-    The is_in_stock column includes days with demand even if closing_qty <= 0,
-    so velocity calculations correctly capture all real selling activity.
-
-    Returns {stock_item_name: {in_stock_days, wholesale_total, online_total, store_total}}.
-    """
+    """Batch-query daily_stock_positions for per-SKU velocity aggregates."""
     if not sku_names:
         return {}
     cur.execute("""
@@ -119,31 +159,22 @@ def fetch_batch_velocities(cur, sku_names: list[str], range_start: date, range_e
 def velocities_from_batch_row(vel_row: dict | None) -> tuple[float, float, float, float]:
     """Convert a batch velocity row to (wholesale, online, store, total) daily rates.
 
+    Per-channel rates clamped at 0 (F8).
     Returns (0, 0, 0, 0) if vel_row is None or has zero in-stock days.
     """
     if not vel_row or vel_row["in_stock_days"] <= 0:
         return 0.0, 0.0, 0.0, 0.0
     isd = float(vel_row["in_stock_days"])
-    w = float(vel_row["wholesale_total"]) / isd
-    o = float(vel_row["online_total"]) / isd
-    s = float(vel_row["store_total"]) / isd
+    w = max(0, float(vel_row["wholesale_total"]) / isd)
+    o = max(0, float(vel_row["online_total"]) / isd)
+    s = max(0, float(vel_row["store_total"]) / isd)
     return w, o, s, w + o + s
-
-
-def opt_float(v):
-    """Convert to float if not None, else return None."""
-    return float(v) if v is not None else None
 
 
 def fetch_batch_wma_velocities(
     cur, sku_names: list[str], range_end: date, window_days: int = 90,
 ) -> dict[str, dict]:
-    """Batch-query daily_stock_positions for per-SKU velocity over a trailing window.
-
-    Same shape as fetch_batch_velocities but filtered to last `window_days` of data.
-    Returns {stock_item_name: {in_stock_days, wholesale_total, online_total, store_total}}.
-    Works with both dict cursors (API) and tuple cursors (pipeline).
-    """
+    """Batch-query daily_stock_positions for per-SKU velocity over a trailing window (F9)."""
     if not sku_names:
         return {}
     window_start = range_end - timedelta(days=window_days)
@@ -175,18 +206,28 @@ def detect_trend(
     up_threshold: float = 1.2,
     down_threshold: float = 0.8,
 ) -> tuple[str, float | None]:
-    """Compare WMA velocity to flat velocity to detect trend direction.
+    """F10: Compare recent velocity to flat velocity to detect trend.
 
-    Returns (direction, ratio) where direction is 'up', 'down', or 'flat'.
+    Fixed edge cases:
+    - flat=0, recent>0 → UP (newly activated)
+    - flat=0, recent=0 → FLAT
+    - recent=0, flat>0 → DOWN
     """
     if flat_velocity <= 0 and wma_velocity <= 0:
         return ("flat", None)
     if flat_velocity <= 0 and wma_velocity > 0:
-        return ("up", None)
+        return ("up", None)  # Newly activated
+    if wma_velocity <= 0 and flat_velocity > 0:
+        return ("down", 0.0)  # Demand died
     ratio = wma_velocity / flat_velocity
-    if ratio > up_threshold:
+    if ratio >= up_threshold:
         return ("up", round(ratio, 3))
-    elif ratio < down_threshold:
+    elif ratio <= down_threshold:
         return ("down", round(ratio, 3))
     else:
         return ("flat", round(ratio, 3))
+
+
+def opt_float(v):
+    """Convert to float if not None, else return None."""
+    return float(v) if v is not None else None

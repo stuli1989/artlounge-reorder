@@ -1,16 +1,12 @@
 """
-Daily stock position reconstruction using FORWARD method from Tally opening.
+Daily stock position — forward-computed from UC inventory snapshots + transactions.
 
-Walks forward from Tally's opening balance, applying each transaction:
-- Sales (wholesale/online/store): decrease stock, count as demand
-- Purchases (supplier/internal): increase stock, not demand
-- Physical Stock: use BATCHPHYSDIFF (actual adjustment) when available,
-  otherwise SET-TO the physical count (ACTUALQTY)
-- Credit Note: inward for balance, not demand
-- Debit Note: outward for balance, not demand
+No backward reconstruction. No Physical Stock SET-TO logic.
+The nightly snapshot IS the daily position.
 
-is_in_stock semantics:
-  A day is "in stock" if closing balance > 0 OR if real demand occurred that day.
+is_in_stock semantics (F4):
+  A day is "in stock" if available_stock > 0 OR if demand occurred that day.
+  The OR-demand clause catches sell-to-zero days.
 """
 from datetime import date, timedelta
 from collections import defaultdict
@@ -18,55 +14,39 @@ from collections import defaultdict
 import psycopg2.extras
 
 
-def reconstruct_daily_positions(
+def build_daily_positions_from_snapshots_and_txns(
     stock_item_name: str,
-    closing_balance: float,
-    opening_date: date,
+    snapshot_by_date: dict,
     transactions: list[dict],
+    start_date: date,
     end_date: date,
-    tally_opening: float | None = None,
 ) -> list[dict]:
     """
-    Reconstruct daily stock positions by walking forward from Tally's opening
-    balance, applying transactions day-by-day.
+    Build daily stock positions by combining inventory snapshots with
+    transaction data. For dates with a snapshot, use the snapshot's
+    available_stock as closing_qty. For dates without, carry forward
+    from the last known position.
 
-    Physical Stock handling (hybrid):
-      - If phys_stock_diff is available: use as additive adjustment
-      - If phys_stock_diff is None: treat quantity as SET-TO (replace balance)
+    Args:
+        stock_item_name: SKU identifier
+        snapshot_by_date: {date: available_stock} from daily_inventory_snapshots
+        transactions: list of transaction dicts with date, quantity, is_inward, channel
+        start_date: first date to compute
+        end_date: last date to compute
 
-    All transaction types affect balance (including internal).
-    Only wholesale/online/store sales count as demand.
+    Returns:
+        list of position dicts ready for upsert
     """
     # Group transactions by date
     txns_by_date = defaultdict(list)
     for t in transactions:
-        txns_by_date[t["date"]].append(t)
+        d = t.get("date") or t.get("txn_date")
+        if d:
+            txns_by_date[d].append(t)
 
-    # Use Tally's opening if available, otherwise compute implied opening
-    if tally_opening is not None:
-        forward_opening = tally_opening
-    else:
-        # Fallback: compute from closing and all transactions
-        total_inward = 0.0
-        total_outward = 0.0
-        total_phys_diff = 0.0
-        for t in transactions:
-            if t.get("voucher_type") == "Physical Stock":
-                psd = t.get("phys_stock_diff")
-                if psd is not None:
-                    total_phys_diff += psd
-                # For SET-TO entries without diff, we can't compute backward
-                # reliably — just skip and accept a gap
-            elif t["is_inward"]:
-                total_inward += t["quantity"]
-            else:
-                total_outward += t["quantity"]
-        forward_opening = closing_balance - total_inward - total_phys_diff + total_outward
-
-    # Walk forward from opening, recording daily positions
     positions = []
-    balance = forward_opening
-    current = opening_date
+    last_known_stock = 0
+    current = start_date
 
     while current <= end_date:
         day_inward = 0.0
@@ -77,62 +57,44 @@ def reconstruct_daily_positions(
 
         for t in txns_by_date.get(current, []):
             channel = t.get("channel", "unclassified")
-            voucher_type = t.get("voucher_type", "")
+            qty = float(t.get("quantity", 0))
 
-            # Physical Stock: hybrid handling
-            if voucher_type == "Physical Stock":
-                phys_diff = t.get("phys_stock_diff")
-                if phys_diff is not None:
-                    # BATCHPHYSDIFF available: use as adjustment
-                    if phys_diff >= 0:
-                        day_inward += phys_diff
-                    else:
-                        day_outward += abs(phys_diff)
-                    balance += phys_diff
-                else:
-                    # No diff data: SET-TO the physical count
-                    old_balance = balance
-                    balance = t["quantity"]
-                    diff = balance - old_balance
-                    if diff >= 0:
-                        day_inward += diff
-                    else:
-                        day_outward += abs(diff)
-                # Physical Stock never counts as demand — skip demand section
-                continue
-
-            # All other transactions: apply to balance
-            if t["is_inward"]:
-                day_inward += t["quantity"]
-                balance += t["quantity"]
+            if t.get("is_inward"):
+                day_inward += qty
             else:
-                day_outward += t["quantity"]
-                balance -= t["quantity"]
+                day_outward += qty
 
-            # Demand tracking: only wholesale/online/store sales
-            is_credit_note = voucher_type == "Credit Note"
-            is_debit_note = voucher_type == "Debit Note"
-
-            if is_credit_note and t["is_inward"]:
-                # Credit Note = customer return — subtract from demand
+            # Demand tracking: dispatches (outward) and returns (inward)
+            if not t.get("is_inward"):
                 if channel == "wholesale":
-                    day_wholesale_out -= t["quantity"]
+                    day_wholesale_out += qty
                 elif channel == "online":
-                    day_online_out -= t["quantity"]
+                    day_online_out += qty
                 elif channel == "store":
-                    day_store_out -= t["quantity"]
-            elif not t["is_inward"] and not is_debit_note:
-                # Normal outward sale — add to demand
+                    day_store_out += qty
+            elif t.get("return_type"):
+                # Returns reduce demand (inward but from a demand channel)
                 if channel == "wholesale":
-                    day_wholesale_out += t["quantity"]
+                    day_wholesale_out -= qty
                 elif channel == "online":
-                    day_online_out += t["quantity"]
+                    day_online_out -= qty
                 elif channel == "store":
-                    day_store_out += t["quantity"]
+                    day_store_out -= qty
 
+        # Use snapshot if available, otherwise carry forward
+        if current in snapshot_by_date:
+            closing_qty = float(snapshot_by_date[current])
+            last_known_stock = closing_qty
+        else:
+            # Estimate: carry forward from last known, apply today's movements
+            closing_qty = last_known_stock + day_inward - day_outward
+            last_known_stock = closing_qty
+
+        opening_qty = closing_qty - day_inward + day_outward
+
+        # F4: is_in_stock = available_stock > 0 OR had_demand_that_day
         had_demand = (day_wholesale_out + day_online_out + day_store_out) > 0
-        opening_qty = balance - day_inward + day_outward
-        closing_qty = balance
+        is_in_stock = closing_qty > 0 or had_demand
 
         positions.append({
             "stock_item_name": stock_item_name,
@@ -144,12 +106,52 @@ def reconstruct_daily_positions(
             "wholesale_out": day_wholesale_out,
             "online_out": day_online_out,
             "store_out": day_store_out,
-            "is_in_stock": closing_qty > 0 or had_demand,
+            "is_in_stock": is_in_stock,
         })
 
         current += timedelta(days=1)
 
     return positions
+
+
+def store_snapshot_as_position(db_conn, snapshot_date, aggregated_inventory):
+    """
+    Store today's UC inventory snapshot as daily stock positions.
+
+    For each SKU in the snapshot, creates/updates a daily_stock_positions row
+    using the available_stock as the closing_qty. Transaction-based inward/outward
+    are filled from the transactions table separately during the full pipeline.
+
+    Args:
+        db_conn: PostgreSQL connection
+        snapshot_date: date
+        aggregated_inventory: {sku: {inventory, blocked, putaway, ...}}
+    """
+    if not aggregated_inventory:
+        return 0
+
+    rows = []
+    for sku, data in aggregated_inventory.items():
+        available = (
+            (data.get("inventory", 0) or 0)
+            - (data.get("blocked", 0) or 0)
+            + (data.get("putaway", 0) or 0)
+        )
+        rows.append({
+            "stock_item_name": sku,
+            "position_date": snapshot_date,
+            "opening_qty": available,  # approximation — will be refined by pipeline
+            "inward_qty": 0,
+            "outward_qty": 0,
+            "closing_qty": available,
+            "wholesale_out": 0,
+            "online_out": 0,
+            "store_out": 0,
+            "is_in_stock": available > 0,
+        })
+
+    upsert_daily_positions(db_conn, rows)
+    return len(rows)
 
 
 def upsert_daily_positions(db_conn, positions: list[dict]):
@@ -182,7 +184,7 @@ def fetch_transactions_for_item(db_conn, stock_item_name: str) -> list[dict]:
     with db_conn.cursor() as cur:
         cur.execute("""
             SELECT txn_date AS date, quantity, is_inward, channel, voucher_type,
-                   party_name, phys_stock_diff
+                   party_name, return_type
             FROM transactions
             WHERE stock_item_name = %s
             ORDER BY txn_date, id
@@ -192,7 +194,17 @@ def fetch_transactions_for_item(db_conn, stock_item_name: str) -> list[dict]:
         for row in cur.fetchall():
             d = dict(zip(cols, row))
             d["quantity"] = float(d["quantity"])
-            if d.get("phys_stock_diff") is not None:
-                d["phys_stock_diff"] = float(d["phys_stock_diff"])
             rows.append(d)
         return rows
+
+
+def fetch_snapshot_dates_for_item(db_conn, stock_item_name: str) -> dict:
+    """Fetch all snapshot dates and available_stock for a SKU."""
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT snapshot_date, available_stock
+            FROM daily_inventory_snapshots
+            WHERE sku_code = %s
+            ORDER BY snapshot_date
+        """, (stock_item_name,))
+        return {row[0]: float(row[1]) for row in cur.fetchall()}

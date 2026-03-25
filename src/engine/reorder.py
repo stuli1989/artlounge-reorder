@@ -1,5 +1,11 @@
 """
-Stockout prediction, import history detection, and reorder status flags.
+Reorder computation for Unicommerce data.
+
+F2:  effective_stock = available_stock (no openPurchase)
+F11: days_to_stockout = effective_stock / recent_velocity
+F13: coverage_period from turns-per-year logic
+F15: reorder_qty — buffer on coverage only, NOT on lead time demand
+F16: reorder_status — new STOCKED_OUT, NO_DEMAND statuses
 """
 from datetime import date
 
@@ -7,40 +13,48 @@ DEFAULT_LEAD_TIME = 180  # days (sea freight default)
 
 
 def compute_coverage_days(lead_time: int, typical_order_months: int | None = None) -> int:
-    """Compute coverage period in days for the reorder formula.
+    """F13: Compute coverage period in days.
 
     If typical_order_months is set (per-supplier config), use it directly.
-    Otherwise, auto-calculate from lead time using turns-per-year logic:
-    the number of order cycles that fit in a financial year, capped at 6.
+    Otherwise auto-calculate from lead time using turns-per-year logic.
     """
     if typical_order_months is not None:
         return typical_order_months * 30
 
-    # Auto-calculate: how many turns fit in a year?
     fy_days = 365
-    max_turns = max(1, fy_days // lead_time)
-    # Cap at 6 turns — ordering more than every 2 months is impractical
-    # for an import business with min order quantities
-    turns = min(max_turns, 6)
+    turns = min(max(1, fy_days // lead_time), 6)
     return fy_days // turns
 
 
-def must_stock_fallback_qty(lead_time: int) -> int:
-    """Minimum order quantity for must_stock items with no velocity data."""
-    return max(1, round(lead_time / 30))
+def must_stock_fallback_qty(coverage_period: int) -> int:
+    """Minimum order quantity for must_stock items with no velocity data.
+
+    Conservative: max(1, coverage_period / 90)
+    """
+    return max(1, round(coverage_period / 90))
 
 
-def calculate_days_to_stockout(current_stock: float, total_velocity: float) -> float | None:
-    """Calculate days until stock runs out at current velocity."""
-    if total_velocity <= 0:
-        return None  # No demand data
-    if current_stock <= 0:
+def calculate_days_to_stockout(effective_stock: float, velocity: float) -> float | None:
+    """F11: days_to_stockout = effective_stock / velocity.
+
+    Uses recent_velocity for the most current demand signal.
+
+    Edge cases:
+    - velocity=0, stock>0 → None (no demand, display as "No demand")
+    - velocity=0, stock<=0 → 0
+    - stock<=0 → 0
+    """
+    if velocity <= 0:
+        if effective_stock <= 0:
+            return 0
+        return None  # No demand
+    if effective_stock <= 0:
         return 0  # Already out of stock
-    return round(current_stock / total_velocity, 1)
+    return round(effective_stock / velocity, 1)
 
 
 def detect_import_history(stock_item_name: str, transactions: list[dict]) -> dict:
-    """Find import shipments (purchases from suppliers)."""
+    """Find import shipments (GRNs from suppliers)."""
     imports = [
         t for t in transactions
         if t.get("channel") == "supplier" and t.get("is_inward", False)
@@ -53,11 +67,11 @@ def detect_import_history(stock_item_name: str, transactions: list[dict]) -> dic
             "last_import_supplier": None,
         }
 
-    imports.sort(key=lambda t: t["date"])
+    imports.sort(key=lambda t: t.get("date") or t.get("txn_date"))
 
     last = imports[-1]
     return {
-        "last_import_date": last["date"],
+        "last_import_date": last.get("date") or last.get("txn_date"),
         "last_import_qty": last["quantity"],
         "last_import_supplier": last.get("party_name", ""),
     }
@@ -70,58 +84,79 @@ def determine_reorder_status(
     total_velocity: float,
     safety_buffer: float = 1.3,
     coverage_period: int = 0,
+    reorder_intent: str = "normal",
+    open_purchase: float = 0,
 ) -> tuple[str, float | None]:
     """
-    Determine reorder status and suggested order quantity.
+    F15+F16: Determine reorder status and suggested order quantity.
 
-    Order quantity = enough to cover the coverage_period after the shipment
-    arrives, accounting for stock consumed during lead time.  Items that will
-    stock out before arrival don't get inflated by the lead_time term —
-    you can't deplete stock you don't have.
+    Buffer applies to coverage demand ONLY — not to lead time demand.
+    This prevents double-buffering.
 
     Formula:
-        stock_at_arrival = max(0, current_stock - velocity * lead_time * buffer)
-        order_qty        = max(0, velocity * coverage_period * buffer - stock_at_arrival)
+        demand_during_lead  = velocity × lead_time          (best estimate, NO buffer)
+        stock_at_arrival    = max(0, effective_stock - demand_during_lead)
+        order_for_coverage  = velocity × coverage_period × safety_buffer
+        suggested_qty       = max(0, (demand_during_lead + order_for_coverage) - effective_stock)
 
-    When stock > demand-during-lead, this is algebraically identical to the
-    old formula: velocity * (lead_time + coverage_period) * buffer - stock.
-    When stock will deplete before arrival, it caps at velocity * coverage * buffer.
+    Status mapping (F16):
+        STOCKED_OUT  = velocity > 0 AND stock <= 0
+        OUT_OF_STOCK = velocity = 0 AND stock <= 0
+        NO_DEMAND    = velocity = 0 AND stock > 0
+        CRITICAL     = dts <= lead_time
+        WARNING      = dts <= lead_time + warning_buffer
+        OK           = otherwise
 
-    Warning/critical thresholds remain based on lead_time only
-    (they decide WHEN to order, not HOW MUCH).
-
-    Returns (status, suggested_qty).
+    Override logic:
+        must_stock → minimum WARNING (CRITICAL only if formula agrees)
+        do_not_reorder → show calculated status + qty=0 + suppressed flag
     """
-    if total_velocity <= 0:
-        if current_stock <= 0:
-            return ("out_of_stock", None)
-        return ("no_data", None)
+    effective_stock = current_stock  # F2: no openPurchase
 
-    # Estimate stock remaining when the order arrives (can't go below 0)
-    demand_during_lead = total_velocity * supplier_lead_time * safety_buffer
-    stock_at_arrival = max(0, current_stock - demand_during_lead)
+    # Determine raw status first
+    if total_velocity > 0 and effective_stock <= 0:
+        raw_status = "stocked_out"
+    elif total_velocity <= 0 and effective_stock <= 0:
+        raw_status = "out_of_stock"
+    elif total_velocity <= 0 and effective_stock > 0:
+        raw_status = "no_demand"
+    elif days_to_stockout is not None and days_to_stockout <= supplier_lead_time:
+        raw_status = "critical"
+    elif days_to_stockout is not None and days_to_stockout <= supplier_lead_time + max(30, int(supplier_lead_time * 0.5)):
+        raw_status = "warning"
+    else:
+        raw_status = "ok"
 
-    # Order enough for coverage_period after arrival, minus leftover stock
-    order_for_coverage = total_velocity * coverage_period * safety_buffer
-    suggested_qty = max(0, round(order_for_coverage - stock_at_arrival))
-    if suggested_qty == 0:
+    # Compute suggested quantity
+    suggested_qty = None
+    if total_velocity > 0:
+        demand_during_lead = total_velocity * supplier_lead_time  # NO buffer
+        order_for_coverage = total_velocity * coverage_period * safety_buffer  # buffer HERE only
+        suggested_qty = max(0, round(demand_during_lead + order_for_coverage - effective_stock))
+        if suggested_qty == 0:
+            suggested_qty = None
+
+    # Apply intent overrides
+    status = raw_status
+
+    if reorder_intent == "must_stock":
+        if total_velocity <= 0:
+            # Must-stock with no velocity: force WARNING with conservative qty
+            status = "warning"
+            if suggested_qty is None:
+                suggested_qty = must_stock_fallback_qty(coverage_period)
+        elif status in ("ok",):
+            # Must-stock with velocity but OK status: bump to WARNING
+            status = "warning"
+        # CRITICAL stays CRITICAL (formula agrees)
+        # WARNING stays WARNING
+        # stocked_out stays stocked_out
+
+    elif reorder_intent == "do_not_reorder":
+        # Show calculated status but suppress quantity
         suggested_qty = None
 
-    if current_stock <= 0:
-        return ("out_of_stock", round(order_for_coverage) or None)
-
-    if days_to_stockout is None:
-        return ("no_data", None)
-
-    # Warning buffer: wider for long lead times, minimum 30 days
-    warning_buffer = max(30, int(supplier_lead_time * 0.5))
-
-    if days_to_stockout <= supplier_lead_time:
-        return ("critical", suggested_qty or round(order_for_coverage) or None)
-    elif days_to_stockout <= supplier_lead_time + warning_buffer:
-        return ("warning", suggested_qty or round(order_for_coverage) or None)
-    else:
-        return ("ok", suggested_qty)
+    return (status, suggested_qty)
 
 
 def get_supplier_for_category(db_conn, category_name: str) -> dict | None:

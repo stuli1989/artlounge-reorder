@@ -1,15 +1,15 @@
 """
 ABC/XYZ classification and variable safety buffer computation.
 
-ABC: Revenue-based (A=top 80%, B=next 15%, C=bottom 5%)
-XYZ: Demand variability (X=stable CV<0.5, Y=moderate 0.5-1.0, Z=erratic >1.0)
+F14: Safety buffer — supplier override as MULTIPLIER on matrix (not replacement)
+F17: ABC — revenue-based Pareto (sellingPrice × quantity for dispatched items)
+F18: XYZ — demand variability using CALENDAR WEEKS (Mon-Sun), not stitched days
 """
 import math
 from datetime import timedelta
 
 # Channels counted as demand for revenue calculation
 _DEMAND_CHANNELS = {"wholesale", "online", "store"}
-_EXCLUDED_VOUCHER_TYPES = {"Credit Note", "Debit Note"}
 
 
 def compute_abc_classification(
@@ -18,11 +18,13 @@ def compute_abc_classification(
     a_threshold: float = 0.80,
     b_threshold: float = 0.95,
 ):
-    """Classify SKUs into A/B/C based on revenue contribution.
+    """F17: Classify SKUs into A/B/C based on revenue contribution.
+
+    Revenue = SUM(|amount|) for dispatched demand items.
+    UC's sellingPrice reflects trade discounts (confirmed).
 
     Mutates metrics_batch entries: sets abc_class, total_revenue.
     """
-    # Compute revenue per SKU from demand transactions
     revenue_by_sku = {}
     for m in metrics_batch:
         sku = m["stock_item_name"]
@@ -30,16 +32,13 @@ def compute_abc_classification(
         total_rev = 0.0
         for t in txns:
             if (t.get("channel") in _DEMAND_CHANNELS
-                    and not t.get("is_inward")
-                    and t.get("voucher_type") not in _EXCLUDED_VOUCHER_TYPES):
+                    and not t.get("is_inward")):
                 total_rev += abs(float(t.get("amount") or 0))
         revenue_by_sku[sku] = total_rev
 
-    # Sort SKUs by revenue descending
     sorted_skus = sorted(revenue_by_sku.items(), key=lambda x: x[1], reverse=True)
     grand_total = sum(r for _, r in sorted_skus)
 
-    # Assign ABC based on cumulative revenue percentage
     abc_map = {}
     cumulative = 0.0
     for sku, rev in sorted_skus:
@@ -55,7 +54,6 @@ def compute_abc_classification(
         else:
             abc_map[sku] = "C"
 
-    # Mutate metrics batch
     for m in metrics_batch:
         sku = m["stock_item_name"]
         m["abc_class"] = abc_map.get(sku, "C")
@@ -66,46 +64,56 @@ def compute_xyz_classification(
     metrics_batch: list[dict],
     daily_positions_by_sku: dict[str, list[dict]],
 ):
-    """Classify SKUs into X/Y/Z based on demand variability (CV of weekly demand).
+    """F18: Classify SKUs into X/Y/Z using CALENDAR WEEKS (Mon-Sun).
+
+    FIXED from Tally version: uses ISO calendar weeks instead of stitching
+    non-contiguous in-stock days sequentially. This preserves temporal structure.
+
+    Rules:
+    - Group in-stock days into calendar weeks (Mon-Sun)
+    - Only include weeks where SKU was in-stock >= 4 days
+    - Require minimum 4 qualifying weeks (28 in-stock days equivalent)
+    - CV = population_stddev / mean of qualifying weekly demands
 
     Mutates metrics_batch: sets xyz_class, demand_cv.
-    Requires minimum 4 weeks of in-stock data.
     """
     for m in metrics_batch:
         sku = m["stock_item_name"]
         positions = daily_positions_by_sku.get(sku, [])
 
-        # Only consider in-stock days
-        in_stock = [p for p in positions if p.get("is_in_stock")]
-        if len(in_stock) < 28:  # Need at least 4 weeks
+        # Group positions by ISO calendar week (year, week_number)
+        weeks = {}  # (year, week) → {"demand": float, "in_stock_days": int}
+        for p in positions:
+            pos_date = p.get("position_date")
+            if pos_date is None:
+                continue
+            iso_year, iso_week, _ = pos_date.isocalendar()
+            key = (iso_year, iso_week)
+
+            if key not in weeks:
+                weeks[key] = {"demand": 0.0, "in_stock_days": 0}
+
+            if p.get("is_in_stock"):
+                weeks[key]["in_stock_days"] += 1
+                w_out = max(0, float(p.get("wholesale_out", 0)))
+                o_out = max(0, float(p.get("online_out", 0)))
+                s_out = max(0, float(p.get("store_out", 0)))
+                weeks[key]["demand"] += w_out + o_out + s_out
+
+        # Only include weeks where in-stock >= 4 days
+        qualifying_weeks = [
+            w for w in weeks.values()
+            if w["in_stock_days"] >= 4
+        ]
+
+        if len(qualifying_weeks) < 4:
             m["xyz_class"] = None
             m["demand_cv"] = None
             continue
 
-        # Bucket into weeks and sum demand
-        weekly_demands = []
-        week_demand = 0.0
-        days_in_week = 0
-        for p in in_stock:
-            w_out = float(p.get("wholesale_out", 0))
-            o_out = float(p.get("online_out", 0))
-            s_out = float(p.get("store_out", 0))
-            week_demand += w_out + o_out + s_out
-            days_in_week += 1
-            if days_in_week == 7:
-                weekly_demands.append(week_demand)
-                week_demand = 0.0
-                days_in_week = 0
-        # Include partial final week if >= 4 days
-        if days_in_week >= 4:
-            weekly_demands.append(week_demand)
-
-        if len(weekly_demands) < 4:
-            m["xyz_class"] = None
-            m["demand_cv"] = None
-            continue
-
+        weekly_demands = [w["demand"] for w in qualifying_weeks]
         mean = sum(weekly_demands) / len(weekly_demands)
+
         if mean <= 0:
             m["xyz_class"] = None
             m["demand_cv"] = None
@@ -128,17 +136,28 @@ def compute_safety_buffer(
     abc_class: str | None,
     xyz_class: str | None,
     buffer_settings: dict[str, float],
+    supplier_override: float | None = None,
     use_xyz: bool = True,
 ) -> float:
-    """Look up safety buffer. ABC-only or ABC×XYZ matrix. Fallback 1.3."""
+    """F14: Look up safety buffer from ABC×XYZ matrix.
+
+    Supplier override is a MULTIPLIER on the matrix (not a replacement).
+    Example: supplier_override=1.1 × matrix AX=1.2 → effective buffer=1.32
+
+    Fallback: 1.3 if no classification.
+    """
     if not abc_class:
-        return 1.3
-    if use_xyz and xyz_class:
+        base = 1.3
+    elif use_xyz and xyz_class:
         key = f"buffer_{abc_class.lower()}{xyz_class.lower()}"
-        return buffer_settings.get(key, 1.3)
-    # ABC-only lookup
-    key = f"buffer_{abc_class.lower()}"
-    return buffer_settings.get(key, 1.3)
+        base = buffer_settings.get(key, 1.3)
+    else:
+        key = f"buffer_{abc_class.lower()}"
+        base = buffer_settings.get(key, 1.3)
+
+    if supplier_override is not None:
+        return round(base * supplier_override, 4)
+    return base
 
 
 def fetch_buffer_settings(db_conn) -> dict[str, float]:
@@ -170,6 +189,7 @@ def fetch_classification_settings(db_conn) -> dict:
         "wma_window_days": 90,
         "trend_up_threshold": 1.2,
         "trend_down_threshold": 0.8,
+        "min_velocity_sample_days": 14,
     }
     with db_conn.cursor() as cur:
         keys = list(defaults.keys())

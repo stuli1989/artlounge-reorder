@@ -35,7 +35,7 @@ _PO_SELECT_COLS = """\
 
 _PO_FROM_JOINS = f"""\
     FROM sku_metrics sm
-    LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name
+    LEFT JOIN stock_items si ON si.name = sm.stock_item_name
     LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.stock_item_name = sm.stock_item_name"""
 
 _PO_ORDER = "ORDER BY sm.days_to_stockout ASC NULLS LAST"
@@ -242,9 +242,9 @@ def _match_sku_names(cur, input_names: list[str]) -> list[MatchedSku]:
     if not input_names:
         return []
 
-    # Pre-fetch all tally_names for exact/ilike matching
-    cur.execute("SELECT tally_name FROM stock_items")
-    all_names = {row["tally_name"] for row in cur.fetchall()}
+    # Pre-fetch all names for exact/ilike matching
+    cur.execute("SELECT name FROM stock_items")
+    all_names = {row["name"] for row in cur.fetchall()}
     all_names_lower = {n.lower(): n for n in all_names}
 
     results: list[MatchedSku] = []
@@ -276,19 +276,19 @@ def _match_sku_names(cur, input_names: list[str]) -> list[MatchedSku]:
         cur.execute("""
             SELECT DISTINCT ON (input.name)
                    input.name AS input_name,
-                   si.tally_name,
-                   similarity(si.tally_name, input.name) AS sim
+                   si.name,
+                   similarity(si.name, input.name) AS sim
             FROM unnest(%s::text[]) AS input(name)
             LEFT JOIN stock_items si
-              ON similarity(si.tally_name, input.name) >= 0.25
+              ON similarity(si.name, input.name) >= 0.25
             ORDER BY input.name, sim DESC NULLS LAST
         """, (unmatched_inputs,))
 
         for row in cur.fetchall():
-            if row["tally_name"]:
+            if row["name"]:
                 results.append(MatchedSku(
                     input_name=row["input_name"],
-                    matched_name=row["tally_name"],
+                    matched_name=row["name"],
                     match_type="fuzzy",
                     similarity=round(float(row["sim"]), 3),
                 ))
@@ -335,7 +335,7 @@ def match_and_build_po(req: SkuMatchRequest, user: dict = Depends(require_role("
                     SELECT bm.supplier_lead_time
                     FROM stock_items si
                     JOIN brand_metrics bm ON bm.category_name = si.category_name
-                    WHERE si.tally_name = %s
+                    WHERE si.name = %s
                 """, (matched_names[0],))
                 row = cur.fetchone()
                 lead_time = row["supplier_lead_time"] if row and row["supplier_lead_time"] else 180

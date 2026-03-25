@@ -62,7 +62,7 @@ export default function PartyClassification() {
 
   // Filter parties
   const filteredParties = (parties || []).filter(p => {
-    if (search && !p.tally_name.toLowerCase().includes(search.toLowerCase())) return false
+    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false
     if (tab === 'all' && channelFilter !== 'all' && (p as { channel?: string }).channel !== channelFilter) return false
     return true
   })
@@ -177,19 +177,19 @@ export default function PartyClassification() {
               const currentChannel = (p as { channel?: string }).channel || 'unclassified'
               return (
                 <MobileListRow
-                  key={p.tally_name}
-                  title={p.tally_name}
-                  subtitle={p.tally_parent || undefined}
+                  key={p.name}
+                  title={p.name}
+                  subtitle={p.party_group || undefined}
                   status={currentChannel === 'unclassified' ? 'no_data' : 'ok'}
-                  statusLabel={selections[p.tally_name] || currentChannel}
+                  statusLabel={selections[p.name] || currentChannel}
                   metrics={[
                     { label: 'Txns', value: String(p.transaction_count) },
                   ]}
                   onClick={() => {
                     if (tab === 'all' && currentChannel !== 'unclassified') {
-                      setSelections(s => ({ ...s, [p.tally_name]: currentChannel }))
+                      setSelections(s => ({ ...s, [p.name]: currentChannel }))
                     }
-                    setEditingParty(p.tally_name)
+                    setEditingParty(p.name)
                   }}
                 />
               )
@@ -208,7 +208,7 @@ export default function PartyClassification() {
               <div>
                 <p className="font-medium text-sm">{editingParty}</p>
                 <p className="text-xs text-muted-foreground">
-                  {(parties || []).find(p => p.tally_name === editingParty)?.tally_parent || 'No group'}
+                  {(parties || []).find(p => p.name === editingParty)?.party_group || 'No group'}
                 </p>
               </div>
 
@@ -321,18 +321,18 @@ export default function PartyClassification() {
               <TableBody>
                 {filteredParties.map(p => {
                   const currentChannel = (p as { channel?: string }).channel || 'unclassified'
-                  const selected = selections[p.tally_name]
+                  const selected = selections[p.name]
                   const changed = selected && selected !== currentChannel
                   return (
-                    <TableRow key={p.tally_name} className={changed ? 'bg-amber-50/50' : undefined}>
-                      <TableCell className="font-medium">{p.tally_name}</TableCell>
-                      <TableCell className="text-muted-foreground">{p.tally_parent || '-'}</TableCell>
+                    <TableRow key={p.name} className={changed ? 'bg-amber-50/50' : undefined}>
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{p.party_group || '-'}</TableCell>
                       {tab === 'all' && <TableCell>{channelBadge(currentChannel)}</TableCell>}
                       <TableCell className="text-right">{p.transaction_count}</TableCell>
                       <TableCell>
                         <Select
                           value={selected || (tab === 'all' ? currentChannel : '')}
-                          onValueChange={v => { if (v) setSelections(s => ({ ...s, [p.tally_name]: v })) }}
+                          onValueChange={v => { if (v) setSelections(s => ({ ...s, [p.name]: v })) }}
                         >
                           <SelectTrigger className={changed ? 'border-amber-400 ring-1 ring-amber-200' : ''}>
                             <SelectValue placeholder="Select channel..." />
@@ -350,10 +350,10 @@ export default function PartyClassification() {
                         <Button
                           size="sm"
                           variant={changed ? 'default' : 'outline'}
-                          onClick={() => handleSave(p.tally_name)}
+                          onClick={() => handleSave(p.name)}
                           disabled={tab === 'unclassified' ? !selected : !changed}
                         >
-                          {saving === p.tally_name ? '...' : 'Save'}
+                          {saving === p.name ? '...' : 'Save'}
                         </Button>
                       </TableCell>
                     </TableRow>

@@ -75,7 +75,7 @@ def create_override(req: OverrideCreate, user: dict = Depends(require_role("purc
     with get_db() as conn:
         with conn.cursor() as cur:
             # Verify SKU exists
-            cur.execute("SELECT 1 FROM stock_items WHERE tally_name = %s", (req.stock_item_name,))
+            cur.execute("SELECT 1 FROM stock_items WHERE name = %s", (req.stock_item_name,))
             if not cur.fetchone():
                 raise HTTPException(404, f"Stock item '{req.stock_item_name}' not found")
 

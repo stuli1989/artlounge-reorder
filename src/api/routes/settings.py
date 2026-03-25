@@ -22,11 +22,10 @@ VALID_SETTINGS_KEYS = {
     "buffer_ax", "buffer_ay", "buffer_az",
     "buffer_bx", "buffer_by", "buffer_bz",
     "buffer_cx", "buffer_cy", "buffer_cz",
-    "backdate_physical_stock",
-    "physical_stock_grace_days",
+    "min_velocity_sample_days",
 }
 
-PIPELINE_RECALC_KEYS = {"backdate_physical_stock", "physical_stock_grace_days"}
+PIPELINE_RECALC_KEYS = set()  # No settings currently trigger full pipeline recalc
 
 
 class SettingUpdate(BaseModel):

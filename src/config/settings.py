@@ -6,14 +6,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Tally connection (only used by sync agent, not the web app)
-TALLY_HOST = os.environ.get("TALLY_HOST", "localhost")
-TALLY_PORT = int(os.environ.get("TALLY_PORT", "9000"))
+# Unicommerce API
+UC_TENANT = os.getenv("UC_TENANT", "ppetpl")
+UC_BASE_URL = f"https://{UC_TENANT}.unicommerce.com"
+UC_USERNAME = os.getenv("UC_USERNAME")
+UC_PASSWORD = os.getenv("UC_PASSWORD")
+UC_TOKEN_EXPIRY_BUFFER = 300  # refresh token 5 min before expiry
+UC_FACILITIES_FALLBACK = os.getenv("UC_FACILITIES", "ppetpl,ALIBHIWANDI,PPETPLKALAGHODA").split(",")
 
 # Database
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://reorder_app:password@localhost:5432/artlounge_reorder"
+    "postgresql://reorder_app:password@localhost:5432/artlounge_reorder_uc"
 )
 
 # Email notifications (for sync failure alerts)
@@ -35,5 +39,5 @@ from datetime import date
 FY_START_DATE = date(int(FY_START[:4]), int(FY_START[4:6]), int(FY_START[6:8]))
 FY_END_DATE = date(int(FY_END[:4]), int(FY_END[4:6]), int(FY_END[6:8]))
 
-# Company name in Tally
+# Company
 COMPANY_NAME = "Platinum Painting Essentials & Trading Pvt. Ltd."

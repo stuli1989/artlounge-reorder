@@ -55,11 +55,11 @@ def recalculate_all_buffers(db_conn):
     supplier_map = {}
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT sc.tally_name AS category_name,
+            SELECT sc.name AS category_name,
                    s.name, s.lead_time_default, s.lead_time_sea, s.lead_time_air,
                    s.buffer_override, s.typical_order_months
             FROM stock_categories sc
-            JOIN suppliers s ON UPPER(s.name) = UPPER(sc.tally_name)
+            JOIN suppliers s ON UPPER(s.name) = UPPER(sc.name)
         """)
         for row in cur.fetchall():
             supplier_map[row["category_name"]] = {
@@ -82,7 +82,7 @@ def recalculate_all_buffers(db_conn):
                    si.use_xyz_buffer AS item_xyz_pref,
                    si.reorder_intent
             FROM sku_metrics m
-            LEFT JOIN stock_items si ON si.tally_name = m.stock_item_name
+            LEFT JOIN stock_items si ON si.name = m.stock_item_name
         """)
         rows = cur.fetchall()
 
@@ -162,7 +162,7 @@ def recalculate_all_buffers(db_conn):
                    sm.total_revenue, sm.safety_buffer,
                    si.reorder_intent, si.is_active
             FROM sku_metrics sm
-            JOIN stock_items si ON si.tally_name = sm.stock_item_name
+            JOIN stock_items si ON si.name = sm.stock_item_name
         """)
         for r in cur.fetchall():
             d = dict(r)
@@ -173,8 +173,8 @@ def recalculate_all_buffers(db_conn):
 
     # Also fetch categories with no SKUs so they get zero-count rollups
     with db_conn.cursor() as cur:
-        cur.execute("SELECT tally_name FROM stock_categories ORDER BY tally_name")
-        all_categories = [row["tally_name"] for row in cur.fetchall()]
+        cur.execute("SELECT name FROM stock_categories ORDER BY tally_name")
+        all_categories = [row["name"] for row in cur.fetchall()]
 
     brand_batch = []
     for cat_name in all_categories:

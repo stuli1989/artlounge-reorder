@@ -147,7 +147,7 @@ def list_skus(
                         ovr.wholesale_vel_hold, ovr.online_vel_hold,
                         ovr.store_vel_hold, FALSE) AS hold_from_po
         FROM sku_metrics sm
-        LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name
+        LEFT JOIN stock_items si ON si.name = sm.stock_item_name
         LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.stock_item_name = sm.stock_item_name
         WHERE {where}
         ORDER BY sm.{sort_col} {direction} NULLS LAST
@@ -329,7 +329,7 @@ def list_critical_skus(
                sm.estimated_stockout_date, sm.last_import_date,
                si.part_no, si.is_hazardous
         FROM sku_metrics sm
-        LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name
+        LEFT JOIN stock_items si ON si.name = sm.stock_item_name
         WHERE {where}
         ORDER BY sm.days_to_stockout ASC NULLS LAST
         LIMIT %s OFFSET %s
@@ -340,7 +340,7 @@ def list_critical_skus(
     with get_db() as conn:
         with conn.cursor() as cur:
             # Get total count
-            count_sql = f"SELECT COUNT(*) AS cnt FROM sku_metrics sm LEFT JOIN stock_items si ON si.tally_name = sm.stock_item_name WHERE {where}"
+            count_sql = f"SELECT COUNT(*) AS cnt FROM sku_metrics sm LEFT JOIN stock_items si ON si.name = sm.stock_item_name WHERE {where}"
             cur.execute(count_sql, count_params)
             total = cur.fetchone()["cnt"]
 
@@ -365,7 +365,7 @@ def toggle_hazardous(stock_item_name: str, req: HazardousUpdate, user: dict = De
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE stock_items SET is_hazardous = %s, updated_at = NOW() WHERE tally_name = %s RETURNING tally_name, is_hazardous",
+                "UPDATE stock_items SET is_hazardous = %s, updated_at = NOW() WHERE name = %s RETURNING name, is_hazardous",
                 (req.is_hazardous, stock_item_name),
             )
             row = cur.fetchone()
@@ -386,7 +386,7 @@ def update_reorder_intent(stock_item_name: str, req: ReorderIntentUpdate, user: 
         with conn.cursor() as cur:
             cur.execute(
                 "UPDATE stock_items SET reorder_intent = %s, updated_at = NOW() "
-                "WHERE tally_name = %s RETURNING tally_name, reorder_intent",
+                "WHERE name = %s RETURNING name, reorder_intent",
                 (req.reorder_intent, stock_item_name),
             )
             row = cur.fetchone()
@@ -408,7 +408,7 @@ def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate, user: dict = D
             # Update the stock_items toggle and fetch intent in one query
             cur.execute(
                 "UPDATE stock_items SET use_xyz_buffer = %s, updated_at = NOW() "
-                "WHERE tally_name = %s RETURNING tally_name, reorder_intent",
+                "WHERE name = %s RETURNING name, reorder_intent",
                 (req.use_xyz_buffer, stock_item_name),
             )
             row = cur.fetchone()
@@ -426,7 +426,7 @@ def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate, user: dict = D
             sm = cur.fetchone()
             if not sm:
                 conn.commit()
-                return {"tally_name": stock_item_name, "use_xyz_buffer": req.use_xyz_buffer}
+                return {"name": stock_item_name, "use_xyz_buffer": req.use_xyz_buffer}
 
             # Determine effective use_xyz
             use_xyz_global = fetch_use_xyz_global(conn)
@@ -488,7 +488,7 @@ def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate, user: dict = D
         conn.commit()
 
     return {
-        "tally_name": stock_item_name,
+        "name": stock_item_name,
         "use_xyz_buffer": req.use_xyz_buffer,
         "safety_buffer": new_buffer,
         "reorder_status": status,
@@ -600,7 +600,7 @@ def get_breakdown(
         with conn.cursor() as cur:
             # 1. Closing balance + XYZ pref from stock_items
             cur.execute(
-                "SELECT closing_balance, use_xyz_buffer FROM stock_items WHERE tally_name = %s",
+                "SELECT closing_balance, use_xyz_buffer FROM stock_items WHERE name = %s",
                 (stock_item_name,),
             )
             si_row = cur.fetchone()

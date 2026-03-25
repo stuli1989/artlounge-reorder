@@ -1,4 +1,4 @@
-export type ReorderStatus = 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'
+export type ReorderStatus = 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'stocked_out' | 'no_demand' | 'no_data'
 export type ReorderIntent = 'must_stock' | 'normal' | 'do_not_reorder'
 
 export type AbcClass = 'A' | 'B' | 'C'
@@ -148,8 +148,8 @@ export interface SyncStatus {
 }
 
 export interface Party {
-  tally_name: string
-  tally_parent: string | null
+  name: string
+  party_group: string | null
   created_at: string
   transaction_count: number
 }
@@ -166,8 +166,8 @@ export interface Supplier {
   typical_order_months: number | null
   notes: string
   buffer_override: number | null
-  backdate_physical_stock: boolean | null
-  physical_stock_grace_days: number | null
+  
+  
 }
 
 export interface OverrideInfo {

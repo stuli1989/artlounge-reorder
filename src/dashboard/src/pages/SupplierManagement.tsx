@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
@@ -20,7 +19,7 @@ const emptyForm: FormData = {
   name: '', tally_party: '', lead_time_sea: null, lead_time_air: null,
   lead_time_default: 90, currency: 'USD', min_order_value: null,
   typical_order_months: null, notes: '', buffer_override: null,
-  backdate_physical_stock: null, physical_stock_grace_days: null,
+  
 }
 
 export default function SupplierManagement() {
@@ -128,32 +127,6 @@ export default function SupplierManagement() {
             onChange={e => updateField('typical_order_months', e.target.value ? Number(e.target.value) : null)}
           />
           <p className="text-xs text-muted-foreground">How many months of stock each order covers. Leave empty to auto-calculate from lead time.</p>
-        </div>
-        <div className="space-y-1">
-          <Label>Backdate Physical Stock</Label>
-          <Select
-            value={form.backdate_physical_stock === null ? 'global' : form.backdate_physical_stock ? 'on' : 'off'}
-            onValueChange={v => updateField('backdate_physical_stock', v === 'global' ? null : v === 'on')}
-          >
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="global">Use global setting</SelectItem>
-              <SelectItem value="on">On (force)</SelectItem>
-              <SelectItem value="off">Off (force)</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">Override global backdate setting for this brand.</p>
-        </div>
-        <div className="space-y-1">
-          <Label>Grace Period Override (days)</Label>
-          <Input
-            type="number"
-            inputMode="numeric"
-            min="1"
-            placeholder="Use global"
-            value={form.physical_stock_grace_days ?? ''}
-            onChange={e => updateField('physical_stock_grace_days', e.target.value ? Number(e.target.value) : null)}
-          />
         </div>
       </div>
       <div className="space-y-1">
@@ -320,7 +293,7 @@ export default function SupplierManagement() {
                       : <span className="text-muted-foreground">auto</span>}
                   </TableCell>
                   <TableCell>
-                    {s.backdate_physical_stock === null ? '\u2014' : s.backdate_physical_stock ? 'On' : 'Off'}
+                    
                   </TableCell>
                   <TableCell>{s.currency}</TableCell>
                   <TableCell className="text-xs max-w-[200px] truncate">{s.notes}</TableCell>
