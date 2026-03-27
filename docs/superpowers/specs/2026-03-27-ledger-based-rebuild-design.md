@@ -88,7 +88,7 @@ One data source. One pipeline. No reconstruction, no anchoring, no snapshots.
 5. **Log result** to `sync_log`
 6. **Send email notification** on success/failure
 
-**Historical backfill** (one-time): Load existing 23 CSV files through the same parse -> dedup -> load path, then run pipeline.
+**Historical backfill** (one-time): Pull full history via Export Job API (92-day windows, ~4 requests per facility = 12 total, ~3 minutes). Same parse -> dedup -> load path as nightly. No manual CSV files involved.
 
 **Day 0 definition:** The pipeline starts positions from the earliest transaction date in the DB (Jun 7, 2025 — when UC was set up and initial stock loads occurred). Days before the first transaction for any SKU have no positions. There is no configurable FY start date for positions — the ledger defines the start.
 
@@ -236,6 +236,23 @@ Six phases, run sequentially on every sync and on classification changes:
 **Phase 6: Brand rollups**
 - Aggregate per brand: dead stock count, slow movers, avg/min days to stockout
 
+## Smart Recompute
+
+The pipeline recomputes on **any** frontend change — not just channel classification. But it only runs the phases that are actually affected, making most changes near-instant.
+
+| Frontend Change | Phases Run | Scope | Speed |
+|----------------|------------|-------|-------|
+| Buffer matrix change | 5 (reorder) + 6 (rollups) | All SKUs | Fast (~seconds) |
+| Supplier lead time change | 5 + 6 | SKUs in affected brand | Fast |
+| Override change (qty, velocity, status) | 5 + 6 | Single SKU + its brand | Instant |
+| Reorder intent change (must_stock, do_not_reorder) | 5 + 6 | Single SKU + its brand | Instant |
+| Channel classification rule change | 1-6 (full) | Affected SKUs | ~1-2 min |
+| App settings change (thresholds, WMA window) | 2-6 | All SKUs | ~30s |
+
+**Nightly sync respects frontend changes:** The nightly sync runs a full phase 1-6 recompute, but it reads channel rules, overrides, buffer settings, supplier lead times, and reorder intents from the DB. Since frontend changes persist to these tables, the nightly recompute incorporates them automatically — nothing gets overwritten.
+
+Each API endpoint that accepts a user change calls `run_pipeline(phases=[5,6], scope='brand:WINSOR & NEWTON')` (or whatever subset is needed) before returning. The pipeline function accepts optional `phases` and `scope` parameters to skip unnecessary work.
+
 ## SKU Display Names
 
 - `stock_items.name` = human-readable display name ("WN PAC 60ML SILVER") — shown as title in UI
@@ -284,6 +301,6 @@ src/
 | Malformed CSV row | Log and skip row, continue parsing. |
 | Pipeline fails | Log + email. Previous metrics stay in DB. |
 | DB connection lost | Transaction-level commits. Re-run is safe (dedup). |
-| Classification change from UI | API saves override, triggers pipeline recompute as a background task. Returns immediately with "recomputing" status. Dashboard polls for completion (~1-2 min for full recompute). |
+| Any frontend change (buffer, lead time, override, channel rule, intent, settings) | API saves change to DB, triggers smart recompute (only affected phases/scope). Most changes return in seconds. Channel rule changes run as background task (~1-2 min) with dashboard polling. |
 
 **Periodic validation (optional, weekly):** Pull snapshot for ~50 random SKUs, compare `inventory` field against ledger-derived closing balance. Log warnings if any diverge. Monitoring only, never modifies data.
