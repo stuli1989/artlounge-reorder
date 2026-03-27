@@ -552,8 +552,15 @@ def get_transactions(
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT txn_date, quantity, is_inward, channel, voucher_type,
-                       party_name, rate, amount, voucher_number
+                SELECT txn_date,
+                       ABS(stock_change) AS quantity,
+                       (txn_type = 'IN') AS is_inward,
+                       channel,
+                       entity AS voucher_type,
+                       '' AS party_name,
+                       NULL AS rate,
+                       NULL AS amount,
+                       entity_code AS voucher_number
                 FROM transactions
                 WHERE stock_item_name = %s
                 ORDER BY txn_date DESC, id DESC
@@ -650,14 +657,14 @@ def get_breakdown(
 
             # 4. Transaction summary grouped by channel + direction
             cur.execute("""
-                SELECT channel, is_inward,
+                SELECT channel, (txn_type = 'IN') AS is_inward,
                        COUNT(*) AS cnt,
-                       SUM(quantity) AS total_qty
+                       SUM(ABS(stock_change)) AS total_qty
                 FROM transactions
                 WHERE stock_item_name = %s
                   AND txn_date >= %s AND txn_date <= %s
-                GROUP BY channel, is_inward
-                ORDER BY channel, is_inward
+                GROUP BY channel, (txn_type = 'IN')
+                ORDER BY channel, (txn_type = 'IN')
             """, (stock_item_name, range_start, range_end))
             txn_groups = [dict(r) for r in cur.fetchall()]
 
