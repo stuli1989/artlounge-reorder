@@ -24,8 +24,12 @@ RUN rm -rf venv/ dashboard/node_modules/ dashboard/dist/ data/sample_responses/
 # Copy built frontend from stage 1
 COPY --from=frontend /app/dashboard/dist ./dashboard/dist
 
+# Copy startup script
+COPY start.sh ./
+RUN chmod +x start.sh
+
 # Railway sets PORT env var
 ENV PORT=8000
 EXPOSE 8000
 
-CMD uvicorn api.main:app --host 0.0.0.0 --port $PORT
+CMD ["./start.sh"]
