@@ -29,10 +29,8 @@ def sync_status(user: dict = Depends(get_current_user)):
         return {
             "last_sync_completed": None,
             "status": "never",
-            "categories_synced": 0,
-            "items_synced": 0,
-            "transactions_synced": 0,
-            "new_parties_found": 0,
+            "ledger_rows_loaded": 0,
+            "facilities_synced": 0,
             "freshness": "critical",
             "unclassified_parties_count": unclassified,
         }
@@ -54,10 +52,8 @@ def sync_status(user: dict = Depends(get_current_user)):
     return {
         "last_sync_completed": last_sync["sync_completed"],
         "status": last_sync["status"],
-        "categories_synced": last_sync["categories_synced"],
-        "items_synced": last_sync["items_synced"],
-        "transactions_synced": last_sync["transactions_synced"],
-        "new_parties_found": last_sync["new_parties_found"],
+        "ledger_rows_loaded": last_sync.get("ledger_rows_loaded", 0) or 0,
+        "facilities_synced": last_sync.get("facilities_synced", 0) or 0,
         "freshness": freshness,
         "unclassified_parties_count": unclassified,
     }

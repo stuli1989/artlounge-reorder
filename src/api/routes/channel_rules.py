@@ -7,7 +7,7 @@ from api.auth import get_current_user, require_role
 
 router = APIRouter(tags=["channel_rules"])
 
-VALID_RULE_TYPES = {"voucher_type", "exact_party", "party_pattern", "ledger_parent", "fallback"}
+VALID_RULE_TYPES = {"entity", "sale_order_prefix", "default"}
 VALID_CHANNELS = {"supplier", "wholesale", "online", "store", "internal", "ignore", "unclassified"}
 
 

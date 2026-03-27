@@ -16,26 +16,24 @@ class ClassifyRequest(BaseModel):
 
 @router.get("/parties")
 def list_all_parties(channel: str = None, search: str = None, user: dict = Depends(get_current_user)):
-    """List all parties with their current channel and transaction count."""
+    """List all parties with their current channel."""
     with get_db() as conn:
         with conn.cursor() as cur:
             sql = """
-                SELECT p.name, p.party_group, p.channel, p.created_at,
-                       p.classified_at, COUNT(t.id) AS transaction_count
+                SELECT p.tally_name AS name, p.tally_parent AS party_group,
+                       p.channel, p.created_at, p.classified_at
                 FROM parties p
-                LEFT JOIN transactions t ON t.party_name = p.name
             """
             conditions, params = [], []
             if channel:
                 conditions.append("p.channel = %s")
                 params.append(channel)
             if search:
-                conditions.append("p.name ILIKE %s")
+                conditions.append("p.tally_name ILIKE %s")
                 params.append(f"%{search}%")
             if conditions:
                 sql += " WHERE " + " AND ".join(conditions)
-            sql += " GROUP BY p.id, p.name, p.party_group, p.channel, p.created_at, p.classified_at"
-            sql += " ORDER BY transaction_count DESC"
+            sql += " ORDER BY p.tally_name"
             cur.execute(sql, params)
             rows = cur.fetchall()
     return [dict(r) for r in rows]
@@ -47,13 +45,10 @@ def list_unclassified(user: dict = Depends(get_current_user)):
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT p.name, p.party_group, p.created_at,
-                       COUNT(t.id) AS transaction_count
+                SELECT p.tally_name AS name, p.tally_parent AS party_group, p.created_at
                 FROM parties p
-                LEFT JOIN transactions t ON t.party_name = p.name
                 WHERE p.channel = 'unclassified'
-                GROUP BY p.id, p.name, p.party_group, p.created_at
-                ORDER BY transaction_count DESC
+                ORDER BY p.tally_name
             """)
             rows = cur.fetchall()
     return [dict(r) for r in rows]
@@ -61,7 +56,7 @@ def list_unclassified(user: dict = Depends(get_current_user)):
 
 @router.post("/parties/classify")
 def classify_party(req: ClassifyRequest, user: dict = Depends(require_role("purchaser"))):
-    """Classify a party's channel, update transactions, and recompute affected SKU metrics."""
+    """Classify a party's channel and recompute affected SKU metrics."""
     if req.channel not in VALID_CHANNELS:
         raise HTTPException(400, f"Invalid channel '{req.channel}'. Must be one of: {', '.join(sorted(VALID_CHANNELS))}")
 
@@ -69,17 +64,11 @@ def classify_party(req: ClassifyRequest, user: dict = Depends(require_role("purc
         with conn.cursor() as cur:
             cur.execute("""
                 UPDATE parties SET channel = %s, classified_at = NOW()
-                WHERE name = %s
+                WHERE tally_name = %s
             """, (req.channel, req.name))
 
             if cur.rowcount == 0:
                 raise HTTPException(404, f"Party '{req.name}' not found")
-
-            cur.execute("""
-                UPDATE transactions SET channel = %s
-                WHERE party_name = %s
-            """, (req.channel, req.name))
-            txn_updated = cur.rowcount
 
         conn.commit()
 
@@ -91,6 +80,5 @@ def classify_party(req: ClassifyRequest, user: dict = Depends(require_role("purc
         "success": True,
         "party": req.name,
         "channel": req.channel,
-        "transactions_updated": txn_updated,
         **recompute_result,
     }
