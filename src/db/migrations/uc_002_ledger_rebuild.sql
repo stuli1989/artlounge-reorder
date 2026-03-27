@@ -82,8 +82,14 @@ INSERT INTO channel_rules (rule_type, match_value, facility_filter, channel, pri
 INSERT INTO channel_rules (rule_type, match_value, channel, priority) VALUES
     ('default', 'PICKLIST', 'wholesale', 0);
 
--- 7. Add use_xyz_buffer column to stock_items (from migration_v3)
+-- 7. Add columns from older migrations that uc_001 missed
 ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS use_xyz_buffer BOOLEAN DEFAULT NULL;
+ALTER TABLE overrides ADD COLUMN IF NOT EXISTS stale_since TIMESTAMPTZ;
+ALTER TABLE overrides ADD COLUMN IF NOT EXISTS computed_value_at_creation NUMERIC;
+ALTER TABLE overrides ADD COLUMN IF NOT EXISTS computed_value_latest NUMERIC;
+ALTER TABLE overrides ADD COLUMN IF NOT EXISTS drift_pct NUMERIC;
+ALTER TABLE sku_metrics ADD COLUMN IF NOT EXISTS store_velocity NUMERIC DEFAULT 0;
+ALTER TABLE sku_metrics ADD COLUMN IF NOT EXISTS wma_store_velocity NUMERIC DEFAULT 0;
 
 -- 8. Seed app_settings if empty
 INSERT INTO app_settings (key, value) VALUES
