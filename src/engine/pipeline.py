@@ -196,10 +196,11 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
                 coverage_period=coverage, reorder_intent=intent,
             )
 
-            # Estimated stockout date
+            # Estimated stockout date (cap at 3650 days to avoid overflow)
             stockout_date = None
             if days_to_stockout is not None and days_to_stockout > 0:
-                stockout_date = today + timedelta(days=int(days_to_stockout))
+                capped_days = min(int(days_to_stockout), 3650)
+                stockout_date = today + timedelta(days=capped_days)
 
             m = {
                 "stock_item_name": sku_name,
@@ -234,6 +235,15 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
 
         db_conn.commit()
         print(f"  {processed} items with data computed.")
+
+        # Refresh current_stock_map from freshly-built positions
+        fresh_stock_map = fetch_current_stock_from_positions(db_conn)
+        if fresh_stock_map:
+            print(f"  Refreshed current stock for {len(fresh_stock_map)} items from positions.")
+            for m in metrics_batch:
+                sku = m["stock_item_name"]
+                if sku in fresh_stock_map:
+                    m["current_stock"] = fresh_stock_map[sku]
 
     # If we skipped phase 1+2, load existing metrics for classification phases
     if not metrics_batch and (phases is not None and 1 not in phases and 2 not in phases):
@@ -335,7 +345,8 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
             m["reorder_status"] = status
             m["reorder_qty_suggested"] = suggested_qty
             if days_to_stockout is not None and days_to_stockout > 0:
-                m["estimated_stockout_date"] = today + timedelta(days=int(days_to_stockout))
+                capped_days = min(int(days_to_stockout), 3650)
+                m["estimated_stockout_date"] = today + timedelta(days=capped_days)
             else:
                 m["estimated_stockout_date"] = None
 
@@ -400,7 +411,7 @@ def fetch_all_transactions(db_conn) -> dict[str, list[dict]]:
         for row in cur.fetchall():
             result[row[0]].append({
                 "date": row[1],
-                "quantity": abs(row[2]),
+                "quantity": float(abs(row[2])),
                 "is_inward": row[3] == "IN",
                 "channel": row[6],
                 "return_type": "CIR" if row[4] == "PUTAWAY_CIR"
