@@ -54,7 +54,29 @@ if [ "$TXNS" = "0" ]; then
     PYTHONPATH=. python -m unicommerce.ledger_sync --backfill
     echo "Backfill complete."
 else
-    echo "DB has $TXNS transactions — skipping backfill."
+    echo "DB has $TXNS transactions."
+    # Check if positions need rebuilding (e.g., after a fix)
+    POSITIONS=$(PYTHONPATH=. python -c "
+from extraction.data_loader import get_db_connection
+c = get_db_connection()
+cur = c.cursor()
+cur.execute('SELECT COUNT(*) FROM daily_stock_positions')
+print(cur.fetchone()[0])
+c.close()
+")
+    if [ "$POSITIONS" = "0" ]; then
+        echo "Positions empty — rebuilding pipeline..."
+        PYTHONPATH=. python -c "
+from extraction.data_loader import get_db_connection
+from engine.pipeline import run_computation_pipeline
+db_conn = get_db_connection()
+run_computation_pipeline(db_conn)
+db_conn.close()
+"
+        echo "Pipeline rebuild complete."
+    else
+        echo "Positions: $POSITIONS rows — skipping rebuild."
+    fi
 fi
 
 # Step 3: Start the app
