@@ -260,3 +260,75 @@ class UnicommerceClient:
             code = receipt.get("code") or receipt.get("inflowReceiptCode")
             if code:
                 yield code
+
+    # ------------------------------------------------------------------
+    # Export Job API
+    # ------------------------------------------------------------------
+
+    # Note: UC API field is "exportColums" (missing 'n') — this is UC's typo, not ours
+    _LEDGER_COLUMNS = [
+        "skuCode", "skuName", "entity1", "entityType1", "entityCode",
+        "entityStatus", "fromFacility", "toFacility", "units1",
+        "inventoryUpdatedAt", "putawayCodes", "transactionTypes", "orderCode",
+    ]
+
+    def create_export_job(self, facility, start_date, end_date):
+        """
+        Create a Transaction Ledger export job for a facility.
+
+        Args:
+            facility: Facility code
+            start_date: datetime — start of date range
+            end_date: datetime — end of date range
+
+        Returns:
+            str: Job code for polling
+        """
+        start_ms = int(start_date.timestamp() * 1000)
+        end_ms = int(end_date.timestamp() * 1000)
+
+        payload = {
+            "exportJobTypeName": "Transaction Ledger",
+            "exportColums": self._LEDGER_COLUMNS,
+            "exportFilters": [
+                {"id": "addedOn", "dateRange": {"start": start_ms, "end": end_ms}}
+            ],
+            "frequency": "ONETIME",
+        }
+
+        data = self._request("POST", "/services/rest/v1/export/job/create",
+                             json=payload, facility=facility, timeout=60)
+        job_code = data.get("jobCode")
+        logger.info("Export job created: %s (facility=%s)", job_code, facility)
+        return job_code
+
+    def poll_export_job(self, job_code, facility=None, timeout=300, poll_interval=3):
+        """
+        Poll export job status until COMPLETE or timeout.
+
+        Returns:
+            tuple: (status, file_path) — file_path is S3 URL when COMPLETE
+        """
+        start = time.time()
+        while time.time() - start < timeout:
+            data = self._request("POST", "/services/rest/v1/export/job/status",
+                                 json={"jobCode": job_code}, facility=facility, timeout=60)
+            status = data.get("status", "")
+            if status == "COMPLETE":
+                file_path = data.get("filePath", "")
+                logger.info("Export job %s complete: %s", job_code, file_path)
+                return status, file_path
+            if status in ("FAILED", "ERROR"):
+                logger.error("Export job %s failed: %s", job_code, data)
+                return status, None
+            time.sleep(poll_interval)
+
+        logger.warning("Export job %s timed out after %ds", job_code, timeout)
+        return "TIMEOUT", None
+
+    def download_export_csv(self, s3_url):
+        """Download CSV file from S3 URL returned by export job."""
+        resp = self._session.get(s3_url, timeout=120)
+        resp.raise_for_status()
+        logger.info("Downloaded export CSV: %d bytes", len(resp.content))
+        return resp.text
