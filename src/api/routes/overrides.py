@@ -1,6 +1,6 @@
 """Override CRUD API endpoints."""
 import json
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Depends
 from pydantic import BaseModel
 from api.database import get_db
 from api.auth import get_current_user, require_role
@@ -37,6 +37,13 @@ class OverrideReview(BaseModel):
 SAFE_COLUMNS = {"current_stock", "total_velocity", "wholesale_velocity", "online_velocity"}
 
 
+def _recalc_for_sku(stock_item_name: str):
+    """Background task: recompute buffer/reorder status for a single SKU (phases 5+6)."""
+    from engine.pipeline import run_computation_pipeline
+    with get_db() as conn:
+        run_computation_pipeline(conn, phases=[5, 6], scope={"sku": stock_item_name})
+
+
 def _snapshot_computed_value(cur, stock_item_name: str, field_name: str) -> float | None:
     """Get the current computed value from sku_metrics for snapshotting."""
     if field_name == "note":
@@ -65,7 +72,7 @@ def _snapshot_computed_value(cur, stock_item_name: str, field_name: str) -> floa
 
 
 @router.post("/overrides")
-def create_override(req: OverrideCreate, user: dict = Depends(require_role("purchaser"))):
+def create_override(req: OverrideCreate, background_tasks: BackgroundTasks, user: dict = Depends(require_role("purchaser"))):
     """Create a new override. Deactivates any prior active override for the same field."""
     if req.field_name not in VALID_FIELDS:
         raise HTTPException(400, f"Invalid field_name. Must be one of: {', '.join(sorted(VALID_FIELDS))}")
@@ -125,6 +132,10 @@ def create_override(req: OverrideCreate, user: dict = Depends(require_role("purc
             ))
 
         conn.commit()
+
+    # Trigger targeted recompute for this SKU (phases 5+6: buffer + reorder)
+    background_tasks.add_task(_recalc_for_sku, req.stock_item_name)
+
     return dict(new_row)
 
 
@@ -189,7 +200,7 @@ def get_override(override_id: int, user: dict = Depends(get_current_user)):
 
 
 @router.delete("/overrides/{override_id}")
-def deactivate_override(override_id: int, req: OverrideDeactivate, user: dict = Depends(require_role("purchaser"))):
+def deactivate_override(override_id: int, req: OverrideDeactivate, background_tasks: BackgroundTasks, user: dict = Depends(require_role("purchaser"))):
     """Soft-deactivate an override."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -209,21 +220,30 @@ def deactivate_override(override_id: int, req: OverrideDeactivate, user: dict = 
             """, (override_id, req.performed_by, req.reason))
 
         conn.commit()
+
+    # Trigger targeted recompute so reorder status reflects the removed override
+    stock_item_name = row["stock_item_name"]
+    background_tasks.add_task(_recalc_for_sku, stock_item_name)
+
     return dict(row)
 
 
 @router.post("/overrides/{override_id}/review")
-def review_override(override_id: int, req: OverrideReview, user: dict = Depends(require_role("purchaser"))):
+def review_override(override_id: int, req: OverrideReview, background_tasks: BackgroundTasks, user: dict = Depends(require_role("purchaser"))):
     """Handle a stale override — keep (rebase) or remove (deactivate)."""
     if req.action not in ("keep", "remove"):
         raise HTTPException(400, "action must be 'keep' or 'remove'")
 
+    updated = None
+    sku_name = None
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM overrides WHERE id = %s AND is_active = TRUE", (override_id,))
             row = cur.fetchone()
             if not row:
                 raise HTTPException(404, "Active override not found")
+
+            sku_name = row["stock_item_name"]
 
             if req.action == "keep":
                 # Rebase: update snapshot to current, reset stale flag
@@ -254,8 +274,6 @@ def review_override(override_id: int, req: OverrideReview, user: dict = Depends(
                     req.performed_by,
                     req.reason or "Reviewed and kept",
                 ))
-                conn.commit()
-                return dict(updated)
 
             else:  # remove
                 cur.execute("""
@@ -272,5 +290,9 @@ def review_override(override_id: int, req: OverrideReview, user: dict = Depends(
                     VALUES (%s, 'reviewed_remove', %s, %s)
                 """, (override_id, req.performed_by, req.reason or "Removed during review"))
 
-                conn.commit()
-                return dict(updated)
+        conn.commit()
+
+    # Trigger targeted recompute so reorder status reflects the updated override
+    background_tasks.add_task(_recalc_for_sku, sku_name)
+
+    return dict(updated)
