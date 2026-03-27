@@ -119,6 +119,95 @@ def _send_sync_email(total_loaded, facilities_ok, total_facilities, error=None):
         logger.warning("Failed to send sync email: %s", e)
 
 
+def run_validation_check(client, db_conn, sample_size=50):
+    """Compare ledger-derived stock vs UC snapshot for a sample of SKUs.
+
+    Flags any diff where inventoryBlocked=0 as a potential data problem.
+    Diffs where inventoryBlocked>0 are expected (orders committed but not yet picked).
+    """
+    import random
+
+    print("Step 5: Running validation check...")
+
+    # Get a sample of active SKUs from our metrics
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT stock_item_name, current_stock
+            FROM sku_metrics
+            WHERE current_stock IS NOT NULL AND current_stock != 0
+            ORDER BY RANDOM() LIMIT %s
+        """, (sample_size,))
+        sample = {row[0]: float(row[1]) for row in cur.fetchall()}
+
+    if not sample:
+        print("  No SKUs to validate")
+        return
+
+    sku_list = list(sample.keys())
+
+    # Pull snapshot for these SKUs
+    snapshot = {}
+    for facility in client.facilities:
+        try:
+            data = client._request("POST", "/services/rest/v1/inventory/inventorySnapshot/get",
+                json={"itemTypeSKUs": sku_list}, facility=facility, timeout=120)
+            for snap in data.get("inventorySnapshots", []):
+                sku = snap.get("itemTypeSKU")
+                if not sku:
+                    continue
+                if sku not in snapshot:
+                    snapshot[sku] = {"inv": 0, "blocked": 0, "putaway": 0}
+                snapshot[sku]["inv"] += snap.get("inventory", 0) or 0
+                snapshot[sku]["blocked"] += snap.get("inventoryBlocked", 0) or 0
+                snapshot[sku]["putaway"] += snap.get("putawayPending", 0) or 0
+        except Exception as e:
+            logger.warning("Validation snapshot failed for %s: %s", facility, e)
+
+    # Compare
+    matches = 0
+    expected_diffs = 0  # diffs where blocked > 0 (expected)
+    unexpected_diffs = []  # diffs where blocked = 0 (potential problem)
+
+    for sku in sku_list:
+        our_stock = sample[sku]
+        snap = snapshot.get(sku)
+        if not snap:
+            continue
+
+        uc_inventory = snap["inv"]
+        blocked = snap["blocked"]
+        diff = our_stock - uc_inventory
+
+        if abs(diff) < 0.01:
+            matches += 1
+        elif blocked > 0:
+            expected_diffs += 1
+        else:
+            unexpected_diffs.append({
+                "sku": sku, "our_stock": our_stock,
+                "uc_inventory": uc_inventory, "diff": diff,
+            })
+
+    validated = len([s for s in sku_list if s in snapshot])
+    print(f"  Validated {validated} SKUs: {matches} exact matches, "
+          f"{expected_diffs} expected diffs (blocked>0), "
+          f"{len(unexpected_diffs)} UNEXPECTED diffs (blocked=0)")
+
+    if unexpected_diffs:
+        print("  WARNING: Unexpected diffs (inventoryBlocked=0):")
+        for d in unexpected_diffs[:10]:
+            print(f"    {d['sku']}: our={d['our_stock']:.0f} uc={d['uc_inventory']:.0f} diff={d['diff']:+.0f}")
+        logger.warning("Validation found %d unexpected diffs (blocked=0): %s",
+                       len(unexpected_diffs),
+                       [(d["sku"], d["diff"]) for d in unexpected_diffs[:10]])
+
+    return {
+        "validated": validated, "matches": matches,
+        "expected_diffs": expected_diffs,
+        "unexpected_diffs": len(unexpected_diffs),
+    }
+
+
 def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
     """Main nightly sync: pull ledger, load transactions, run pipeline."""
     print("=== NIGHTLY LEDGER SYNC ===")
@@ -177,7 +266,14 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
             """, (total_loaded, facilities_ok))
         db_conn.commit()
 
-    # 5. Email notification
+    # 5. Validation check (compare ledger stock vs UC snapshot for sample)
+    if not dry_run:
+        try:
+            run_validation_check(client, db_conn)
+        except Exception as e:
+            logger.warning("Validation check failed: %s", e)
+
+    # 6. Email notification
     try:
         _send_sync_email(total_loaded, facilities_ok, len(client.facilities))
     except Exception as e:
