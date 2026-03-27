@@ -286,6 +286,30 @@ def run_backfill(db_conn, from_csv_dir=None):
     """Historical backfill — either from API (92-day windows) or from CSV directory."""
     print("=== HISTORICAL BACKFILL ===")
 
+    # Always pull catalog first (needed for pipeline to find stock_items)
+    print("Step 0: Pulling catalog...")
+    try:
+        client = UnicommerceClient()
+        client.authenticate()
+        client.discover_facilities()
+        skus = pull_all_skus(client)
+        if skus:
+            load_catalog(db_conn, skus)
+            print(f"  Catalog: {len(skus)} SKUs loaded")
+
+            # Seed suppliers from brands
+            with db_conn.cursor() as cur:
+                cur.execute("SELECT name FROM stock_categories ORDER BY name")
+                brands = [row[0] for row in cur.fetchall()]
+            for brand in brands:
+                with db_conn.cursor() as cur:
+                    cur.execute("""INSERT INTO suppliers (name, lead_time_default, typical_order_months, notes)
+                                  VALUES (%s, 90, 3, 'Auto-seeded') ON CONFLICT (name) DO NOTHING""", (brand,))
+            db_conn.commit()
+            print(f"  Suppliers: {len(brands)} seeded")
+    except Exception as e:
+        print(f"  Catalog pull failed: {e} (continuing)")
+
     rules = _fetch_channel_rules(db_conn)
 
     if from_csv_dir:
