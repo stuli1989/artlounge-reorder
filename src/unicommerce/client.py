@@ -315,9 +315,12 @@ class UnicommerceClient:
                                  json={"jobCode": job_code}, facility=facility, timeout=60)
             status = data.get("status", "")
             if status == "COMPLETE":
-                file_path = data.get("filePath", "")
-                logger.info("Export job %s complete: %s", job_code, file_path)
-                return status, file_path
+                file_path = data.get("filePath") or ""
+                if file_path:
+                    logger.info("Export job %s complete: %s", job_code, file_path)
+                    return status, file_path
+                # filePath may not be populated yet — keep polling
+                logger.debug("Export job %s COMPLETE but filePath not ready, retrying", job_code)
             if status in ("FAILED", "ERROR"):
                 logger.error("Export job %s failed: %s", job_code, data)
                 return status, None
