@@ -35,61 +35,62 @@ def test_coverage_days_auto_very_long():
 
 
 def test_reorder_qty_plenty_of_stock():
-    """When stock exceeds lead_time demand, formula matches the algebraic equivalent."""
+    """When stock exceeds lead_time demand, order covers lead + coverage - stock."""
     # velocity=2, lead_time=120, coverage=180, buffer=1.3, stock=400
-    # demand_during_lead = 2 * 120 * 1.3 = 312
-    # stock_at_arrival = max(0, 400 - 312) = 88
+    # demand_during_lead = 2 * 120 = 240  (NO buffer on lead time)
     # order_for_coverage = 2 * 180 * 1.3 = 468
-    # suggested = 468 - 88 = 380
-    # Also equals: 2 * (120+180) * 1.3 - 400 = 780 - 400 = 380
+    # suggested = max(0, round(240 + 468 - 400)) = 308
     status, qty = determine_reorder_status(
         current_stock=400, days_to_stockout=200.0,
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
     assert status == "ok"
-    assert qty == 380
+    assert qty == 308
 
 
 def test_reorder_qty_will_stockout_before_arrival():
-    """Critical items that stock out before arrival: order only for coverage."""
+    """Critical items that stock out before arrival: large order needed."""
     # velocity=2, lead_time=120, coverage=180, buffer=1.3, stock=100
-    # demand_during_lead = 2 * 120 * 1.3 = 312 > 100
-    # stock_at_arrival = max(0, 100 - 312) = 0
+    # demand_during_lead = 2 * 120 = 240  (NO buffer on lead time)
     # order_for_coverage = 2 * 180 * 1.3 = 468
-    # suggested = 468 - 0 = 468
+    # suggested = max(0, round(240 + 468 - 100)) = 608
     status, qty = determine_reorder_status(
         current_stock=100, days_to_stockout=50.0,
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
     assert status == "critical"
-    assert qty == 468
+    assert qty == 608
 
 
 def test_reorder_qty_out_of_stock():
-    """Out-of-stock items: order exactly coverage worth, not inflated by lead_time."""
-    # velocity=2, coverage=180, buffer=1.3
+    """Out-of-stock items with velocity: stocked_out status, order for lead + coverage."""
+    # velocity=2, lead_time=120, coverage=180, buffer=1.3, stock=0
+    # demand_during_lead = 2 * 120 = 240
     # order_for_coverage = 2 * 180 * 1.3 = 468
+    # suggested = max(0, round(240 + 468 - 0)) = 708
     status, qty = determine_reorder_status(
         current_stock=0, days_to_stockout=0,
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
-    assert status == "out_of_stock"
-    assert qty == 468
+    assert status == "stocked_out"
+    assert qty == 708
 
 
 def test_reorder_qty_out_of_stock_not_inflated():
-    """Verify out-of-stock qty does NOT include lead_time (the bug we fixed)."""
-    # Old formula would give: 2 * (120+180) * 1.3 = 780
-    # New formula gives:      2 * 180 * 1.3       = 468
+    """Verify out-of-stock qty uses demand_during_lead WITHOUT buffer."""
+    # demand_during_lead = 2 * 120 = 240  (NO buffer)
+    # order_for_coverage = 2 * 180 * 1.3 = 468
+    # suggested = 240 + 468 - 0 = 708
+    # Old formula with buffer on lead: 2*120*1.3 + 2*180*1.3 = 312+468 = 780
     status, qty = determine_reorder_status(
         current_stock=0, days_to_stockout=0,
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
-    assert qty == 468  # NOT 780
+    assert qty == 708  # NOT 780 (no buffer on lead time)
 
 
 def test_reorder_qty_zero_coverage():
@@ -115,12 +116,12 @@ def test_warning_thresholds_use_lead_time_not_coverage():
     assert status == "ok"
 
 
-def test_no_velocity_no_data():
-    """Items with zero velocity return no_data."""
+def test_no_velocity_no_demand():
+    """Items with zero velocity and positive stock return no_demand."""
     status, qty = determine_reorder_status(
         current_stock=100, days_to_stockout=None,
         supplier_lead_time=120, total_velocity=0,
         safety_buffer=1.3, coverage_period=180,
     )
-    assert status == "no_data"
+    assert status == "no_demand"
     assert qty is None
