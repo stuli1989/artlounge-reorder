@@ -55,10 +55,8 @@ def build_daily_positions_from_snapshots_and_txns(
             if start_date <= d <= latest_snap_date:
                 for t in txns:
                     qty = float(t.get("quantity", 0))
-                    if t.get("is_inward"):
-                        net_movement += qty
-                    else:
-                        net_movement -= qty
+                    change = float(t.get("stock_change", qty if t.get("is_inward") else -qty))
+                    net_movement += change
         opening_balance = latest_snap_stock - net_movement
     else:
         # No snapshots: start from 0
@@ -78,20 +76,26 @@ def build_daily_positions_from_snapshots_and_txns(
         for t in txns_by_date.get(current, []):
             channel = t.get("channel", "unclassified")
             qty = float(t.get("quantity", 0))
+            # Use stock_change (signed) to correctly handle REMOVE/REPLACE
+            # which have txn_type=IN but negative units
+            change = float(t.get("stock_change", qty if t.get("is_inward") else -qty))
 
-            if t.get("is_inward"):
-                day_inward += qty
-            else:
-                day_outward += qty
+            if change > 0:
+                day_inward += change
+            elif change < 0:
+                day_outward += abs(change)
 
-            if not t.get("is_inward"):
+            # Track demand by channel (outward demand movements)
+            if change < 0 and t.get("is_demand"):
+                out_qty = abs(change)
                 if channel == "wholesale":
-                    day_wholesale_out += qty
+                    day_wholesale_out += out_qty
                 elif channel == "online":
-                    day_online_out += qty
+                    day_online_out += out_qty
                 elif channel == "store":
-                    day_store_out += qty
-            elif t.get("return_type"):
+                    day_store_out += out_qty
+            elif t.get("return_type") and change > 0:
+                # Returns reduce demand
                 if channel == "wholesale":
                     day_wholesale_out -= qty
                 elif channel == "online":
@@ -168,7 +172,8 @@ def fetch_transactions_for_item(db_conn, stock_item_name: str) -> list[dict]:
         for row in cur.fetchall():
             rows.append({
                 "date": row[0],
-                "quantity": abs(row[1]),
+                "quantity": float(abs(row[1])),
+                "stock_change": float(row[1]),  # signed — needed for REMOVE/REPLACE
                 "is_inward": row[2] == "IN",
                 "channel": row[5],
                 "return_type": "CIR" if row[3] == "PUTAWAY_CIR"

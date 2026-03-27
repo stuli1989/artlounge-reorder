@@ -412,6 +412,7 @@ def fetch_all_transactions(db_conn) -> dict[str, list[dict]]:
             result[row[0]].append({
                 "date": row[1],
                 "quantity": float(abs(row[2])),
+                "stock_change": float(row[2]),  # signed — needed for REMOVE/REPLACE
                 "is_inward": row[3] == "IN",
                 "channel": row[6],
                 "return_type": "CIR" if row[4] == "PUTAWAY_CIR"
