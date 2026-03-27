@@ -82,7 +82,26 @@ INSERT INTO channel_rules (rule_type, match_value, facility_filter, channel, pri
 INSERT INTO channel_rules (rule_type, match_value, channel, priority) VALUES
     ('default', 'PICKLIST', 'wholesale', 0);
 
--- 7. Truncate positions and metrics for clean rebuild
+-- 7. Add use_xyz_buffer column to stock_items (from migration_v3)
+ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS use_xyz_buffer BOOLEAN DEFAULT NULL;
+
+-- 8. Seed app_settings if empty
+INSERT INTO app_settings (key, value) VALUES
+    ('use_xyz_buffer', 'false'),
+    ('dead_stock_threshold_days', '90'),
+    ('slow_mover_velocity_threshold', '0.1'),
+    ('abc_a_threshold', '0.80'),
+    ('abc_b_threshold', '0.95'),
+    ('buffer_ax', '1.2'), ('buffer_ay', '1.3'), ('buffer_az', '1.5'),
+    ('buffer_bx', '1.15'), ('buffer_by', '1.25'), ('buffer_bz', '1.4'),
+    ('buffer_cx', '1.1'), ('buffer_cy', '1.2'), ('buffer_cz', '1.3'),
+    ('wma_window_days', '90'),
+    ('trend_up_threshold', '1.2'),
+    ('trend_down_threshold', '0.8'),
+    ('min_velocity_sample_days', '14')
+ON CONFLICT (key) DO NOTHING;
+
+-- 9. Truncate positions and metrics for clean rebuild
 TRUNCATE daily_stock_positions;
 TRUNCATE sku_metrics;
 TRUNCATE brand_metrics;
