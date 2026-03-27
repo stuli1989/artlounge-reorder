@@ -111,7 +111,7 @@ function TierCard({
                 return (
                   <MobileListRow
                     key={r.stock_item_name}
-                    title={r.stock_item_name}
+                    title={r.part_no || r.stock_item_name}
                     subtitle={r.category_name}
                     status={r.reorder_status}
                     statusLabel={r.reorder_status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
@@ -131,7 +131,7 @@ function TierCard({
                 <TableRow>
                   <TableHead className="w-[80px]">Status</TableHead>
                   <TableHead className="text-xs">Brand</TableHead>
-                  <TableHead>SKU Name</TableHead>
+                  <TableHead>Product Name</TableHead>
                   <TableHead className="text-right">Stock</TableHead>
                   <TableHead className="text-right">
                     {velocityType === 'wma' ? 'WMA /mo' : 'Vel /mo'}
@@ -154,8 +154,9 @@ function TierCard({
                       >
                         <TableCell><StatusBadge status={r.reorder_status as 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'} /></TableCell>
                         <TableCell className="font-medium text-xs">{r.category_name}</TableCell>
-                        <TableCell className="max-w-[280px] truncate" title={r.stock_item_name}>
-                          {r.stock_item_name}
+                        <TableCell className="max-w-[280px]" title={r.part_no || r.stock_item_name}>
+                          <div className="truncate font-medium">{r.part_no || r.stock_item_name}</div>
+                          <div className="text-xs text-muted-foreground">Part No: {r.stock_item_name}</div>
                         </TableCell>
                         <TableCell className="text-right">{r.current_stock}</TableCell>
                         <TableCell className="text-right">{vel(velValue)}</TableCell>
@@ -166,7 +167,7 @@ function TierCard({
                           <SkuSecondaryLine
                             abc_class={r.abc_class}
                             xyz_class={r.xyz_class}
-                            part_no={r.part_no}
+                            sku_code={r.stock_item_name}
                           />
                         </TableCell>
                       </TableRow>

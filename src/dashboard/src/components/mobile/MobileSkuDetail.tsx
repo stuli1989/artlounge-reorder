@@ -63,10 +63,8 @@ export default function MobileSkuDetail({
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm truncate">{sku.stock_item_name}</div>
-            {sku.part_no && (
-              <div className="text-xs text-muted-foreground">{sku.part_no}</div>
-            )}
+            <div className="font-semibold text-sm truncate">{sku.part_no || sku.stock_item_name}</div>
+            <div className="text-xs text-muted-foreground">Part No: {sku.stock_item_name}</div>
           </div>
           <StatusBadge status={status} />
         </div>

@@ -268,8 +268,8 @@ export default function DeadStock() {
                   {sorted.map((s: SkuMetrics) => (
                     <MobileListRow
                       key={s.stock_item_name}
-                      title={s.stock_item_name}
-                      subtitle={s.part_no || undefined}
+                      title={s.part_no || s.stock_item_name}
+                      subtitle={`Part No: ${s.stock_item_name}`}
                       status="out_of_stock"
                       statusLabel={s.days_since_last_sale !== null ? `${s.days_since_last_sale}d idle` : 'Never sold'}
                       metrics={[
@@ -304,8 +304,8 @@ export default function DeadStock() {
                   {sorted.map((s: SkuMetrics) => (
                     <MobileListRow
                       key={s.stock_item_name}
-                      title={s.stock_item_name}
-                      subtitle={s.part_no || undefined}
+                      title={s.part_no || s.stock_item_name}
+                      subtitle={`Part No: ${s.stock_item_name}`}
                       status="warning"
                       statusLabel={`${vel(s.effective_velocity ?? s.total_velocity)}/mo`}
                       metrics={[
@@ -464,7 +464,7 @@ export default function DeadStock() {
                       <TableHead className="w-[80px]">Status</TableHead>
                       <TableHead className="w-10">ABC</TableHead>
                       <TableHead>Part No</TableHead>
-                      <TableHead>SKU Name</TableHead>
+                      <TableHead>Product Name</TableHead>
                       <TableHead className="text-right">Stock</TableHead>
                       <TableHead>Last Sale</TableHead>
                       <TableHead className="text-right">Days Idle</TableHead>
@@ -488,10 +488,10 @@ export default function DeadStock() {
                           </TableCell>
                           <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
                           <TableCell><AbcBadge value={s.abc_class} /></TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{s.part_no || '-'}</TableCell>
-                          <TableCell className="max-w-[250px] truncate" title={s.stock_item_name}>
+                          <TableCell className="text-xs text-muted-foreground">{s.stock_item_name}</TableCell>
+                          <TableCell className="max-w-[250px] truncate" title={s.part_no || s.stock_item_name}>
                             <span className="inline-flex items-center gap-1">
-                              {s.stock_item_name}
+                              {s.part_no || s.stock_item_name}
                               <Tooltip>
                                 <TooltipTrigger>
                                   <Snowflake className="h-3.5 w-3.5 text-blue-500 shrink-0" />
@@ -548,7 +548,7 @@ export default function DeadStock() {
                       <TableHead className="w-8"></TableHead>
                       <TableHead className="w-[80px]">Status</TableHead>
                       <TableHead>Part No</TableHead>
-                      <TableHead>SKU Name</TableHead>
+                      <TableHead>Product Name</TableHead>
                       <TableHead className="text-right">Stock</TableHead>
                       <TableHead className="text-right">Velocity /mo</TableHead>
                       <TableHead className="text-right">Days Left</TableHead>
@@ -571,9 +571,9 @@ export default function DeadStock() {
                               : <ChevronRight className="h-4 w-4" />}
                           </TableCell>
                           <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{s.part_no || '-'}</TableCell>
-                          <TableCell className="max-w-[250px] truncate" title={s.stock_item_name}>
-                            {s.stock_item_name}
+                          <TableCell className="text-xs text-muted-foreground">{s.stock_item_name}</TableCell>
+                          <TableCell className="max-w-[250px] truncate" title={s.part_no || s.stock_item_name}>
+                            {s.part_no || s.stock_item_name}
                           </TableCell>
                           <TableCell className="text-right">{s.effective_stock ?? s.current_stock}</TableCell>
                           <TableCell className="text-right font-medium text-amber-600">

@@ -502,8 +502,8 @@ export default function PoBuilder() {
                 return (
                   <MobileListRow
                     key={r.stock_item_name}
-                    title={r.stock_item_name}
-                    subtitle={r.part_no ? (isLowConfidence(r) ? `${r.part_no} · ${r.total_in_stock_days}d data` : r.part_no) : (isLowConfidence(r) ? `${r.total_in_stock_days}d data` : undefined)}
+                    title={r.part_no || r.stock_item_name}
+                    subtitle={isLowConfidence(r) ? `Part No: ${r.stock_item_name} · ${r.total_in_stock_days}d data` : `Part No: ${r.stock_item_name}`}
                     status={r.reorder_status}
                     statusLabel={statusLabel}
                     metrics={[
@@ -537,8 +537,8 @@ export default function PoBuilder() {
             {editingRow && (
               <div className="space-y-4">
                 <div>
-                  <p className="font-medium text-sm">{editingRow.stock_item_name}</p>
-                  <p className="text-xs text-muted-foreground">{editingRow.part_no || 'No part number'}</p>
+                  <p className="font-medium text-sm">{editingRow.part_no || editingRow.stock_item_name}</p>
+                  <p className="text-xs text-muted-foreground">Part No: {editingRow.stock_item_name}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-center text-xs">
                   <div>
@@ -862,7 +862,7 @@ export default function PoBuilder() {
                 <TableHead className="w-10"></TableHead>
                 <TableHead className="w-[80px]">Status</TableHead>
                 <TableHead className="w-[110px]">Part No</TableHead>
-                <TableHead>SKU Name</TableHead>
+                <TableHead>Product Name</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
                 <TableHead className="text-right">Vel /mo</TableHead>
                 <TableHead className="text-right">Days Left</TableHead>
@@ -880,12 +880,12 @@ export default function PoBuilder() {
                   <TableCell>
                     <StatusBadge status={r.reorder_status as 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'} />
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{r.part_no || '—'}</TableCell>
-                  <TableCell className="max-w-[250px]" title={r.stock_item_name}>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{r.stock_item_name}</TableCell>
+                  <TableCell className="max-w-[250px]" title={r.part_no || r.stock_item_name}>
                     <div className="truncate">
                       <span className="inline-flex items-center gap-1">
                         {r.is_hazardous && <Flame className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
-                        {r.stock_item_name}
+                        {r.part_no || r.stock_item_name}
                         {r.reorder_intent === 'must_stock' && (
                           <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px] px-1 py-0">Must Stock</Badge>
                         )}

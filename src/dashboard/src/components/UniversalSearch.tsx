@@ -171,8 +171,8 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
                 >
                   <span className="flex items-center gap-2 min-w-0">
                     <Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{s.stock_item_name}</span>
-                    {s.part_no && <span className="text-xs text-muted-foreground shrink-0">({s.part_no})</span>}
+                    <span className="truncate">{s.part_no || s.stock_item_name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">{s.stock_item_name}</span>
                   </span>
                   <StatusBadge status={s.reorder_status} />
                 </button>
@@ -199,8 +199,8 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
                 >
                   <span className="flex items-center gap-2 min-w-0">
                     <Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{s.stock_item_name}</span>
-                    {s.part_no && <span className="text-xs text-muted-foreground shrink-0">({s.part_no})</span>}
+                    <span className="truncate">{s.part_no || s.stock_item_name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">{s.stock_item_name}</span>
                   </span>
                   <span className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-muted-foreground">{s.category_name}</span>

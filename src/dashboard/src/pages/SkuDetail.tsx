@@ -96,10 +96,10 @@ const SkuRow = memo(function SkuRow({
             : <ChevronRight className="h-4 w-4" />}
         </TableCell>
         <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
-        <TableCell className="font-mono font-semibold text-sm">{s.part_no || '\u2014'}</TableCell>
-        <TableCell className="max-w-[280px] truncate" title={s.stock_item_name}>
+        <TableCell className="font-mono text-xs text-muted-foreground">{s.stock_item_name}</TableCell>
+        <TableCell className="max-w-[280px]" title={s.part_no || s.stock_item_name}>
           <span className="inline-flex items-center gap-1">
-            {s.stock_item_name}
+            {s.part_no || s.stock_item_name}
             {s.is_hazardous && (
               <Tooltip>
                 <TooltipTrigger><span className="text-amber-500 text-xs">{'\u25A0'}</span></TooltipTrigger>
@@ -602,8 +602,8 @@ export default function SkuDetail() {
                 return (
                   <MobileListRow
                     key={s.stock_item_name}
-                    title={s.stock_item_name}
-                    subtitle={s.part_no || undefined}
+                    title={s.part_no || s.stock_item_name}
+                    subtitle={`Part No: ${s.stock_item_name}`}
                     status={status}
                     statusLabel={statusLabel}
                     metrics={[
@@ -996,7 +996,7 @@ export default function SkuDetail() {
                   <TableHead className="w-8"></TableHead>
                   <TableHead className="w-[80px]">Status <HelpTip tip="Reorder urgency: Critical (order now), Warning (order soon), OK (sufficient stock), Out of Stock (zero inventory)." helpAnchor="stockout-projection" /></TableHead>
                   <TableHead className="w-[110px]">Part No</TableHead>
-                  <TableHead>SKU Name</TableHead>
+                  <TableHead>Product Name</TableHead>
                   <TableHead className="text-right">Stock</TableHead>
                   <TableHead className="text-right">Velocity /mo <HelpTip tip="Units sold per day, calculated from in-stock days only. Split by channel because wholesale, online, and store are parallel demand tracks." helpAnchor="velocity" /></TableHead>
                   <TableHead className="text-center w-[60px]">ABC <HelpTip tip="Revenue classification: A = top 80%, B = next 15%, C = bottom 5%. Drives buffer size and reorder priority." helpAnchor="abc-classification" /></TableHead>
