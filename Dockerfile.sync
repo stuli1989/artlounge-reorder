@@ -1,0 +1,11 @@
+# Lightweight cron service — runs nightly ledger sync then exits
+FROM python:3.12-slim
+WORKDIR /app
+
+COPY src/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ ./
+RUN rm -rf venv/ dashboard/ data/sample_responses/
+
+CMD ["python", "-m", "unicommerce.ledger_sync"]
