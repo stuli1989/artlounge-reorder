@@ -73,7 +73,7 @@ def detect_import_history(stock_item_name: str, transactions: list[dict]) -> dic
     return {
         "last_import_date": last.get("date") or last.get("txn_date"),
         "last_import_qty": last["quantity"],
-        "last_import_supplier": last.get("party_name", ""),
+        "last_import_supplier": "",
     }
 
 

@@ -17,11 +17,12 @@ def compute_abc_classification(
     all_txns: dict[str, list[dict]],
     a_threshold: float = 0.80,
     b_threshold: float = 0.95,
+    mrp_lookup: dict = None,
 ):
     """F17: Classify SKUs into A/B/C based on revenue contribution.
 
-    Revenue = SUM(|amount|) for dispatched demand items.
-    UC's sellingPrice reflects trade discounts (confirmed).
+    Revenue = quantity * mrp (from catalog) for dispatched demand items.
+    Falls back to |amount| if mrp_lookup is not provided.
 
     Mutates metrics_batch entries: sets abc_class, total_revenue.
     """
@@ -30,10 +31,10 @@ def compute_abc_classification(
         sku = m["stock_item_name"]
         txns = all_txns.get(sku, [])
         total_rev = 0.0
+        mrp = float(mrp_lookup.get(sku, 0)) if mrp_lookup else 0
         for t in txns:
-            if (t.get("channel") in _DEMAND_CHANNELS
-                    and not t.get("is_inward")):
-                total_rev += abs(float(t.get("amount") or 0))
+            if t.get("is_demand") and not t.get("is_inward", True):
+                total_rev += t.get("quantity", 0) * mrp
         revenue_by_sku[sku] = total_rev
 
     sorted_skus = sorted(revenue_by_sku.items(), key=lambda x: x[1], reverse=True)

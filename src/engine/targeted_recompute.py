@@ -13,7 +13,6 @@ from config.settings import FY_START_DATE
 from engine.stock_position import (
     build_daily_positions_from_snapshots_and_txns,
     upsert_daily_positions,
-    fetch_snapshot_dates_for_item,
 )
 from engine.velocity import (
     calculate_velocity,
@@ -32,6 +31,7 @@ from engine.pipeline import (
     batch_upsert_sku_metrics,
     batch_upsert_brand_metrics,
     fetch_sku_metrics_for_category,
+    fetch_current_stock_from_positions,
     compute_last_sale_date,
     compute_zero_activity_days,
     _empty_metrics,
@@ -47,10 +47,10 @@ from engine.classification import (
 
 
 def find_affected_skus(db_conn, party_name: str) -> list[str]:
-    """Find all SKUs that have transactions with the given party."""
+    """Find all SKUs that have transactions with the given entity."""
     with db_conn.cursor() as cur:
         cur.execute(
-            "SELECT DISTINCT stock_item_name FROM transactions WHERE party_name = %s",
+            "SELECT DISTINCT stock_item_name FROM transactions WHERE entity = %s",
             (party_name,),
         )
         return [row[0] for row in cur.fetchall()]
@@ -92,21 +92,31 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
             d["closing_balance"] = float(d["closing_balance"] or 0)
             items.append(d)
 
+    # Fetch transactions using new ledger schema
     all_txns = defaultdict(list)
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT stock_item_name, txn_date AS date, quantity, is_inward,
-                   channel, voucher_type, party_name, amount, return_type
+            SELECT stock_item_name, txn_date, stock_change, txn_type,
+                   entity, entity_type, channel, is_demand, facility
             FROM transactions
             WHERE stock_item_name = ANY(%s)
             ORDER BY stock_item_name, txn_date, id
         """, (sku_names,))
-        cols_t = [desc[0] for desc in cur.description]
         for row in cur.fetchall():
-            d = dict(zip(cols_t, row))
-            d["quantity"] = float(d["quantity"])
-            item_name = d.pop("stock_item_name")
-            all_txns[item_name].append(d)
+            all_txns[row[0]].append({
+                "date": row[1],
+                "quantity": abs(row[2]),
+                "is_inward": row[3] == "IN",
+                "channel": row[6],
+                "return_type": "CIR" if row[4] == "PUTAWAY_CIR"
+                          else "RTO" if row[4] == "PUTAWAY_RTO" else None,
+                "voucher_type": row[4],
+                "entity": row[4],
+                "entity_type": row[5],
+                "is_demand": row[7],
+                "facility": row[8],
+                "amount": None,
+            })
 
     categories = find_affected_categories(db_conn, sku_names)
     supplier_map = {}
@@ -134,28 +144,24 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
     class_settings = fetch_classification_settings(db_conn)
     use_xyz_global = fetch_use_xyz_global(db_conn)
 
+    # Get current stock from latest positions
+    current_stock_map = fetch_current_stock_from_positions(db_conn)
+
     metrics_batch = []
     for item in items:
         sku_name = item["name"]
         txns = all_txns.get(sku_name, [])
 
-        # Get current stock from latest snapshot
-        with db_conn.cursor() as cur:
-            cur.execute("""
-                SELECT available_stock FROM daily_inventory_snapshots
-                WHERE sku_code = %s ORDER BY snapshot_date DESC LIMIT 1
-            """, (sku_name,))
-            row = cur.fetchone()
-            current_stock = float(row[0]) if row else item["closing_balance"]
+        current_stock = current_stock_map.get(sku_name, item["closing_balance"])
 
         if not txns:
             metrics_batch.append(_empty_metrics(sku_name, item["category_name"], current_stock))
             continue
 
-        snapshots = fetch_snapshot_dates_for_item(db_conn, sku_name)
+        # Build positions from transactions (no snapshots)
         positions = build_daily_positions_from_snapshots_and_txns(
             stock_item_name=sku_name,
-            snapshot_by_date=snapshots,
+            snapshot_by_date={},
             transactions=txns,
             start_date=fy_start,
             end_date=today,
@@ -207,8 +213,6 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
             "last_sale_date": last_sale_date,
             "total_zero_activity_days": zero_activity_days,
             "zero_activity_ratio": zero_activity_ratio,
-            "open_purchase": 0,
-            "bad_inventory": 0,
         }
         metrics_batch.append(m)
 
