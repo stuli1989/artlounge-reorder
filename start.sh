@@ -1,7 +1,15 @@
 #!/bin/bash
 set -e
 
-echo "=== STARTUP ==="
+echo "=== STARTUP (MODE=${MODE:-web}) ==="
+
+# If MODE=sync, just run the nightly sync and exit
+if [ "$MODE" = "sync" ]; then
+    echo "Running nightly ledger sync..."
+    PYTHONPATH=. python -m unicommerce.ledger_sync
+    echo "Sync complete. Exiting."
+    exit 0
+fi
 
 # Step 1: Run schema migrations if needed
 PYTHONPATH=. python -c "
