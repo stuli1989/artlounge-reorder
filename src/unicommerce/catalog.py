@@ -59,8 +59,8 @@ def extract_sku_fields(uc_item):
         "category_code": brand.upper(),  # brand = our category (for grouping)
         "product_category": uc_item.get("categoryCode", ""),  # UC product category
         "brand": brand,
-        "cost_price": uc_item.get("costPrice"),
-        "mrp": uc_item.get("maxRetailPrice"),
+        "cost_price": uc_item.get("costPrice") or uc_item.get("basePrice"),
+        "mrp": uc_item.get("maxRetailPrice") or uc_item.get("price"),
         "ean": uc_item.get("ean") or uc_item.get("upc") or uc_item.get("scanIdentifier"),
         "hsn_code": uc_item.get("hsnCode"),
         "enabled": uc_item.get("enabled", True),
