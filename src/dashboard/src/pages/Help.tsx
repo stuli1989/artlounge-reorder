@@ -188,7 +188,7 @@ export default function Help() {
     { id: 'page-critical', icon: ShieldAlert, name: 'Critical SKUs', desc: 'Cross-brand view of every SKU below reorder threshold, sorted by urgency.', to: '/critical' },
     { id: 'page-po-builder', icon: ClipboardList, name: 'Build PO', desc: 'Assemble purchase orders with pre-filled quantities and export to Excel.', to: '/po' },
     { id: 'page-dead-stock', icon: Snowflake, name: 'Dead Stock', desc: 'Items with zero sales activity. Candidates for markdown or discontinuation.', to: '/brands' },
-    { id: 'page-parties', icon: Users, name: 'Parties', desc: 'Classify every Tally party into wholesale, online, or store channels.', to: '/parties' },
+    { id: 'page-parties', icon: Users, name: 'Parties', desc: 'Classify every party into wholesale, online, or store channels.', to: '/parties' },
     { id: 'page-suppliers', icon: Truck, name: 'Suppliers', desc: 'Manage supplier records and lead times that feed reorder calculations.', to: '/suppliers' },
     { id: 'page-overrides', icon: Pencil, name: 'Overrides', desc: 'Review all active overrides. Stale ones are flagged for refresh.', to: '/overrides' },
     { id: 'page-settings', icon: Settings, name: 'Settings', desc: 'Configure buffers, velocity method, dead stock thresholds, and rules.', to: '/settings' },
@@ -205,7 +205,7 @@ export default function Help() {
     { term: 'Dead Stock', definition: 'No sales for longer than the threshold (default 30 days).', anchor: 'page-dead-stock' },
     { term: 'Lead Time', definition: 'Days from order to delivery. Set per supplier.', anchor: 'lead-time-buffer' },
     { term: 'Override', definition: 'Manual adjustment to velocity or stock. Requires a reason.', anchor: 'overrides' },
-    { term: 'Party', definition: 'Customer or supplier name from Tally.', anchor: 'channel-classification' },
+    { term: 'Party', definition: 'Customer or supplier name.', anchor: 'channel-classification' },
     { term: 'Reorder Qty', definition: '(velocity x coverage x buffer) - stock at arrival. Only covers post-arrival demand.', anchor: 'reorder-quantity' },
     { term: 'Staleness', definition: 'Override is stale when system data has drifted.', anchor: 'overrides' },
     { term: 'Velocity', definition: 'Units sold per day, excluding out-of-stock days.', anchor: 'velocity' },
@@ -315,7 +315,7 @@ export default function Help() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Syncs nightly from Tally Prime. Stock levels, transactions, and party data.
+                    Syncs nightly from Unicommerce. Stock levels, transactions, and party data.
                   </p>
                 </CardContent>
               </Card>
@@ -652,7 +652,7 @@ export default function Help() {
               <Card size="sm">
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Classify every Tally party into wholesale / online / store on the{' '}
+                    Classify every party into wholesale / online / store on the{' '}
                     <Link to="/parties" className="text-primary hover:underline font-medium">Parties page</Link>.
                     Unclassified parties = inaccurate velocity.
                   </p>

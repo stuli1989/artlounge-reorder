@@ -8,7 +8,6 @@ const SKU_COLUMN_PATTERNS = [
   /^product.?name$/i,
   /^name$/i,
   /^description$/i,
-  /^tally.?name$/i,
   /^part.?no/i,
   /^item$/i,
 ]

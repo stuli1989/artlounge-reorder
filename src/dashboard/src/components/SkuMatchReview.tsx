@@ -45,7 +45,7 @@ export default function SkuMatchReview({ matches, summary, onConfirm, onBack }: 
         <Alert className="border-amber-200 bg-amber-50">
           <AlertDescription className="text-amber-800 text-sm">
             {summary.unmatched} SKU{summary.unmatched !== 1 ? 's' : ''} could not be matched.
-            Unmatched items will be skipped. Check spelling or use exact Tally names.
+            Unmatched items will be skipped. Check spelling or use exact SKU codes.
           </AlertDescription>
         </Alert>
       )}

@@ -168,7 +168,7 @@ export default function Layout() {
           <Alert className="bg-amber-50 border-amber-200">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800">
-              {staleCount} override{staleCount !== 1 ? 's' : ''} need{staleCount === 1 ? 's' : ''} review — Tally data has changed since they were set.{' '}
+              {staleCount} override{staleCount !== 1 ? 's' : ''} need{staleCount === 1 ? 's' : ''} review — data has changed since they were set.{' '}
               <Link to="/overrides" className="underline font-medium">Review now</Link>
             </AlertDescription>
           </Alert>

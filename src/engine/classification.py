@@ -67,7 +67,7 @@ def compute_xyz_classification(
 ):
     """F18: Classify SKUs into X/Y/Z using CALENDAR WEEKS (Mon-Sun).
 
-    FIXED from Tally version: uses ISO calendar weeks instead of stitching
+    Uses ISO calendar weeks instead of stitching
     non-contiguous in-stock days sequentially. This preserves temporal structure.
 
     Rules:

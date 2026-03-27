@@ -521,7 +521,7 @@ export default function CalculationBreakdown({
                     {effective_values.stock_source === 'override' && (
                       <>
                         <span className="text-muted-foreground text-xs ml-1">
-                          (Tally: {data_source.closing_balance_from_tally ?? 'N/A'})
+                          (Ledger balance: {data_source.closing_balance_from_ledger ?? 'N/A'})
                         </span>
                         <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 border-blue-200 text-xs">overridden</Badge>
                       </>

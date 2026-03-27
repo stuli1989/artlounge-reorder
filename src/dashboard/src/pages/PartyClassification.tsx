@@ -311,7 +311,7 @@ export default function PartyClassification() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Party Name</TableHead>
-                  <TableHead>Tally Group</TableHead>
+                  <TableHead>Group</TableHead>
                   {tab === 'all' && <TableHead>Current</TableHead>}
                   <TableHead className="text-right">Transactions</TableHead>
                   <TableHead className="w-[200px]">{tab === 'all' ? 'Change To' : 'Channel'}</TableHead>

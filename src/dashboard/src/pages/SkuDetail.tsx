@@ -142,7 +142,7 @@ const SkuRow = memo(function SkuRow({
                 </TooltipTrigger>
                 <TooltipContent>
                   Stock override active (computed: {s.current_stock})
-                  {s.stock_override_stale && ' \u2014 STALE: Tally data changed'}
+                  {s.stock_override_stale && ' \u2014 STALE: data changed'}
                 </TooltipContent>
               </Tooltip>
             )}

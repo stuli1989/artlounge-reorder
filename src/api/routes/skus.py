@@ -611,7 +611,7 @@ def get_breakdown(
                 (stock_item_name,),
             )
             si_row = cur.fetchone()
-            closing_balance_tally = float(si_row["closing_balance"]) if si_row else None
+            closing_balance = float(si_row["closing_balance"]) if si_row else None
             item_xyz_pref = si_row["use_xyz_buffer"] if si_row else None
 
             # 2. Computed_at, current_stock, and safety_buffer from sku_metrics
@@ -709,7 +709,7 @@ def get_breakdown(
 
     # Data Source
     data_source = {
-        "closing_balance_from_tally": closing_balance_tally,
+        "closing_balance_from_ledger": closing_balance,
         "last_computed": computed_at,
         "data_as_of": data_as_of.isoformat() if data_as_of else None,
         "fy_period": f"Apr 1, {FY_START_DATE.year} — Mar 31, {FY_END_DATE.year}",
@@ -719,13 +719,13 @@ def get_breakdown(
     # Position Reconstruction
     total_inward = sum(p["inward_qty"] for p in positions)
     total_outward = sum(p["outward_qty"] for p in positions)
-    implied_opening = (closing_balance_tally or 0) - total_inward + total_outward
+    implied_opening = (closing_balance or 0) - total_inward + total_outward
     position_reconstruction = {
         "implied_opening": round(implied_opening, 2),
         "total_inward": round(total_inward, 2),
         "total_outward": round(total_outward, 2),
-        "closing_balance": closing_balance_tally,
-        "formula": f"{round(implied_opening, 2)} (implied opening) + {round(total_inward, 2)} (total in) - {round(total_outward, 2)} (total out) = {closing_balance_tally} (closing from Tally)",
+        "closing_balance": closing_balance,
+        "formula": f"{round(implied_opening, 2)} (implied opening) + {round(total_inward, 2)} (total in) - {round(total_outward, 2)} (total out) = {closing_balance} (closing balance)",
     }
 
     # Transaction Summary — one row per channel+direction (no merging)

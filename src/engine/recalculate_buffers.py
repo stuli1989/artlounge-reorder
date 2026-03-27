@@ -1,6 +1,6 @@
 """
 Lightweight recalculation of safety buffers, reorder status, and brand rollups.
-Called when buffer settings change in the UI — no Tally sync needed.
+Called when buffer settings change in the UI — no full sync needed.
 """
 from decimal import Decimal
 from datetime import date, timedelta

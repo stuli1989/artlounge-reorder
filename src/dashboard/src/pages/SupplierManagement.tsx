@@ -85,7 +85,7 @@ export default function SupplierManagement() {
           <Input value={form.name} onChange={e => updateField('name', e.target.value)} />
         </div>
         <div className="space-y-1">
-          <Label>Tally Party</Label>
+          <Label>UC Party</Label>
           <Input value={form.tally_party} onChange={e => updateField('tally_party', e.target.value)} />
         </div>
         <div className="space-y-1">
@@ -264,7 +264,7 @@ export default function SupplierManagement() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Tally Party</TableHead>
+                <TableHead>UC Party</TableHead>
                 <TableHead className="text-right">Sea (days)</TableHead>
                 <TableHead className="text-right">Air (days)</TableHead>
                 <TableHead className="text-right">Default (days)</TableHead>

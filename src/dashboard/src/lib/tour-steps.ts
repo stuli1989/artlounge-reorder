@@ -21,12 +21,12 @@ export const TOUR_STEPS: Step[] = [
     target: 'body',
     placement: 'center',
     disableBeacon: true,
-    content: 'Welcome to Stock Intelligence! This dashboard tracks 22,000+ SKUs across 167 brands and tells you what to reorder and when. All data syncs nightly from Tally. Let\'s take a quick tour.',
+    content: 'Welcome to Stock Intelligence! This dashboard tracks 22,000+ SKUs across 167 brands and tells you what to reorder and when. All data syncs nightly from Unicommerce. Let\'s take a quick tour.',
     title: 'Welcome to Stock Intelligence',
   },
   {
     target: '[data-tour="sync-indicator"]',
-    content: 'This shows when data last synced from Tally. A green dot means data is fresh. Syncs run nightly so you always have yesterday\'s numbers.',
+    content: 'This shows when data last synced. A green dot means data is fresh. Syncs run nightly so you always have yesterday\'s numbers.',
     title: 'Data Freshness',
   },
   {

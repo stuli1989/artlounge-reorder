@@ -243,7 +243,7 @@ export interface BreakdownTransactionRow {
 export interface BreakdownResponse {
   stock_item_name: string
   data_source: {
-    closing_balance_from_tally: number | null
+    closing_balance_from_ledger: number | null
     last_computed: string | null
     data_as_of: string | null
     fy_period: string
