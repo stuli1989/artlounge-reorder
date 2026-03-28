@@ -319,13 +319,34 @@ If not: document failures, identify pattern, revisit architecture before deployi
 
 ---
 
-### Task 8: Deploy to Railway
+### Task 8: Deploy to Railway (Clean Slate)
 
 Only proceed if Task 7 passes the success criteria.
 
-- [ ] **Step 1: Run migration on Railway DB**
-- [ ] **Step 2: Push to main (triggers Railway deploy)**
-- [ ] **Step 3: Verify startup + first sync (catalog + ledger + KG SP + snapshot)**
+- [ ] **Step 1: Wipe Railway DB completely**
+
+```sql
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO postgres;
+```
+
+- [ ] **Step 2: Run ALL migrations on Railway (uc_001 + uc_002 + uc_003)**
+
+This creates every table from scratch with the latest schema.
+
+- [ ] **Step 3: Push to main (triggers Railway deploy)**
+
+The `start.sh` startup script detects empty DB → runs full backfill:
+- Catalog pull (23K SKUs + MRP)
+- Supplier seeding (172 brands)
+- Transaction Ledger pull (all facilities, 90-day windows)
+- KG Shipping Packages pull (all dispatched)
+- Inventory Snapshot pull (all SKUs)
+- Full pipeline (positions + velocity + classification + reorder)
+- User account creation
+
+- [ ] **Step 4: Verify startup completes + dashboard loads**
 - [ ] **Step 4: Check drift log after first nightly sync**
 
 Verify the nightly drift report shows similar results to the local validation:
