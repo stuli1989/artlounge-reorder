@@ -30,9 +30,21 @@ if not has_schema:
     with open('db/migrations/uc_002_ledger_rebuild.sql') as f:
         cur.execute(f.read())
     conn.commit()
+    with open('db/migrations/uc_003_hybrid_pipeline.sql') as f:
+        cur.execute(f.read())
+    conn.commit()
     print('Migrations complete.')
 else:
-    print('Schema up to date.')
+    # Run uc_003 if not yet applied
+    cur.execute(\"SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='kg_demand')\")
+    if not cur.fetchone()[0]:
+        print('Running uc_003 migration...')
+        with open('db/migrations/uc_003_hybrid_pipeline.sql') as f:
+            cur.execute(f.read())
+        conn.commit()
+        print('uc_003 applied.')
+    else:
+        print('Schema up to date.')
 
 cur.execute('SELECT COUNT(*) FROM transactions')
 print(f'Transactions in DB: {cur.fetchone()[0]}')
