@@ -125,6 +125,14 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
     mrp_lookup = fetch_mrp_lookup(db_conn)
     print(f"  Loaded MRP data for {len(mrp_lookup)} items.")
 
+    # Load inventory snapshots for current stock
+    snapshot_map = fetch_latest_snapshots(db_conn)
+    print(f"  Loaded snapshots for {len(snapshot_map)} items.")
+
+    # Load KG demand corrections
+    kg_demand_map = fetch_kg_demand(db_conn)
+    print(f"  Loaded KG demand for {len(kg_demand_map)} items.")
+
     # ── Phase 1+2: Rebuild positions + flat velocity ──
     processed = 0
     metrics_batch = []
@@ -134,6 +142,11 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
         for i, item in enumerate(items_to_process):
             sku_name = item["name"]
             txns = all_txns.get(sku_name, [])
+            # Merge KG demand from Shipping Package API
+            kg_txns = kg_demand_map.get(sku_name, [])
+            if kg_txns:
+                txns = txns + kg_txns
+                txns.sort(key=lambda t: t["date"])
 
             # Get current stock from positions (or fallback to closing_balance)
             current_stock = current_stock_map.get(
@@ -218,6 +231,23 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
                 "total_zero_activity_days": zero_activity_days,
                 "zero_activity_ratio": zero_activity_ratio,
             }
+
+            # Current sellable stock from snapshot (exact)
+            snap_data = snapshot_map.get(sku_name)
+            if snap_data:
+                m["current_stock"] = snap_data["inventory"]
+            # If no snapshot, fall back to forward-walked closing
+            elif positions:
+                m["current_stock"] = positions[-1]["closing_qty"]
+
+            # Drift check: forward-walked stock vs snapshot physical
+            if positions and snap_data:
+                fw_stock = positions[-1]["closing_qty"]
+                snap_physical = snap_data["inventory"] + snap_data["blocked"] + snap_data["bad"]
+                drift = fw_stock - snap_physical
+                if abs(drift) > 0.01:
+                    log_drift(db_conn, sku_name, today, fw_stock, snap_physical, drift, snap_data["blocked"], snap_data["bad"])
+
             metrics_batch.append(m)
 
             processed += 1
@@ -236,14 +266,32 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
         db_conn.commit()
         print(f"  {processed} items with data computed.")
 
-        # Refresh current_stock_map from freshly-built positions
+        # Refresh current_stock_map: prefer snapshot, fall back to positions
         fresh_stock_map = fetch_current_stock_from_positions(db_conn)
         if fresh_stock_map:
-            print(f"  Refreshed current stock for {len(fresh_stock_map)} items from positions.")
+            snap_used = 0
+            pos_used = 0
             for m in metrics_batch:
                 sku = m["stock_item_name"]
-                if sku in fresh_stock_map:
+                snap = snapshot_map.get(sku)
+                if snap:
+                    m["current_stock"] = snap["inventory"]
+                    snap_used += 1
+                elif sku in fresh_stock_map:
                     m["current_stock"] = fresh_stock_map[sku]
+                    pos_used += 1
+            print(f"  Refreshed current stock: {snap_used} from snapshots, {pos_used} from positions.")
+
+        # Drift summary
+        with db_conn.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(*), COUNT(CASE WHEN ABS(drift) > 0 THEN 1 END),
+                       MAX(ABS(drift)), AVG(ABS(drift))
+                FROM drift_log WHERE check_date = %s
+            """, (today,))
+            row = cur.fetchone()
+            if row and row[0]:
+                print(f"  Drift check: {row[0]} SKUs, {row[1]} with drift, max={row[2]:.0f}, avg={row[3]:.1f}")
 
     # If we skipped phase 1+2, load existing metrics for classification phases
     if not metrics_batch and (phases is not None and 1 not in phases and 2 not in phases):
@@ -467,6 +515,55 @@ def fetch_all_supplier_mappings(db_conn) -> dict[str, dict]:
                 "typical_order_months": row[6],
             }
     return mapping
+
+
+def fetch_latest_snapshots(db_conn):
+    """Get latest inventory snapshot per SKU (aggregated across facilities)."""
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT DISTINCT ON (stock_item_name)
+                stock_item_name, inventory, inventory_blocked, bad_inventory
+            FROM inventory_snapshots
+            ORDER BY stock_item_name, snapshot_date DESC
+        """)
+        return {row[0]: {"inventory": float(row[1]), "blocked": float(row[2]), "bad": float(row[3])}
+                for row in cur.fetchall()}
+
+
+def fetch_kg_demand(db_conn):
+    """Load KG shipping package demand, formatted as transaction dicts for the position builder."""
+    result = defaultdict(list)
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            SELECT stock_item_name, txn_date, quantity, channel
+            FROM kg_demand
+            ORDER BY stock_item_name, txn_date
+        """)
+        for row in cur.fetchall():
+            result[row[0]].append({
+                "date": row[1],
+                "quantity": float(row[2]),
+                "stock_change": -float(row[2]),
+                "is_inward": False,
+                "channel": row[3],
+                "is_demand": True,
+                "entity": "SHIPPING_PACKAGE",
+                "entity_type": "KG_DISPATCH",
+                "return_type": None,
+                "facility": "PPETPLKALAGHODA",
+                "amount": None,
+            })
+    return dict(result)
+
+
+def log_drift(db_conn, sku_name, check_date, fw_stock, snap_physical, drift, blocked, bad):
+    """Log stock drift to drift_log table."""
+    with db_conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO drift_log
+                (stock_item_name, check_date, forward_walk_stock, snapshot_stock, drift, inventory_blocked, bad_inventory)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (sku_name, check_date, fw_stock, snap_physical, drift, blocked, bad))
 
 
 def fetch_all_categories(db_conn) -> list[dict]:
