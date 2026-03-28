@@ -48,6 +48,13 @@ def _load_transactions(db_conn, parsed_rows, rules):
     for row in parsed_rows:
         row["channel"] = classify_channel(row, rules)
 
+    # Skip KG PICKLIST — KG demand comes from Shipping Package API (kg_demand table)
+    # KG PICKLIST is incomplete (misses counter sales like CUSTOM_SHOP dispatches)
+    parsed_rows = [
+        row for row in parsed_rows
+        if not (row.get("facility") == "PPETPLKALAGHODA" and row.get("entity") == "PICKLIST")
+    ]
+
     sql = """
         INSERT INTO transactions
             (stock_item_name, txn_date, entity, entity_type, entity_code,
