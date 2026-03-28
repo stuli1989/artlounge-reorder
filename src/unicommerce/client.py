@@ -335,3 +335,50 @@ class UnicommerceClient:
         resp.raise_for_status()
         logger.info("Downloaded export CSV: %d bytes", len(resp.content))
         return resp.text
+
+    # ------------------------------------------------------------------
+    # Inventory Snapshots
+    # ------------------------------------------------------------------
+
+    def pull_inventory_snapshots(self, sku_codes, chunk_size=1000):
+        """
+        Pull inventory snapshot for SKUs across all facilities.
+
+        Args:
+            sku_codes: list of SKU codes to pull
+            chunk_size: SKUs per API call (UC limit ~10K, conservative 1K)
+
+        Returns:
+            dict: {sku_code: {inventory, blocked, bad}} aggregated across facilities
+        """
+        if not self.facilities:
+            self.discover_facilities()
+
+        aggregated = {}
+        for facility in self.facilities:
+            for i in range(0, len(sku_codes), chunk_size):
+                chunk = sku_codes[i:i + chunk_size]
+                data = self._request(
+                    "POST",
+                    "/services/rest/v1/inventory/inventorySnapshot/get",
+                    json={"itemTypeSKUs": chunk},
+                    facility=facility,
+                    timeout=120,
+                )
+                for snap in data.get("inventorySnapshots", []):
+                    sku = snap.get("itemTypeSKU")
+                    if not sku:
+                        continue
+                    inv = snap.get("inventory", 0) or 0
+                    blocked = snap.get("inventoryBlocked", 0) or 0
+                    bad = snap.get("badInventory", 0) or 0
+
+                    if sku not in aggregated:
+                        aggregated[sku] = {"inventory": 0, "blocked": 0, "bad": 0}
+                    aggregated[sku]["inventory"] += inv
+                    aggregated[sku]["blocked"] += blocked
+                    aggregated[sku]["bad"] += bad
+
+        logger.info("Pulled inventory snapshots for %d SKUs across %d facilities",
+                    len(aggregated), len(self.facilities))
+        return aggregated
