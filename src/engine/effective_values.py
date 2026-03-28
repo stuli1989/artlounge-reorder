@@ -65,11 +65,13 @@ def compute_effective_status(
     eff_total: float,
     lead_time: int = DEFAULT_LEAD_TIME,
     safety_buffer: float = 1.3,
+    coverage_period: int = 90,
 ) -> dict:
     """Recalculate stockout + reorder status from effective values."""
     eff_days = calculate_days_to_stockout(eff_stock, eff_total)
     eff_status, eff_suggested = determine_reorder_status(
-        eff_stock, eff_days, lead_time, eff_total, safety_buffer=safety_buffer,
+        eff_stock, eff_days, lead_time, eff_total,
+        safety_buffer=safety_buffer, coverage_period=coverage_period,
     )
     return {
         "eff_days": eff_days,

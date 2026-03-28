@@ -401,6 +401,16 @@ function generateVerdict(data: BreakdownResponse): { text: string; status: Reord
         text: `Out of stock — order ${qty ?? '?'} units immediately.${effective_values.current_stock <= 0 ? ' Current stock is zero or negative.' : ''}`,
         status,
       }
+    case 'stocked_out':
+      return {
+        text: `Stocked out with active demand (${(effective_values.total_velocity * 30).toFixed(1)}/mo velocity). Order ${qty ?? '?'} units immediately.`,
+        status: 'critical',
+      }
+    case 'no_demand':
+      return {
+        text: `Stock on hand but no recent demand detected. Monitor or mark as do-not-reorder if intentional.`,
+        status,
+      }
     case 'no_data':
     default:
       return {
