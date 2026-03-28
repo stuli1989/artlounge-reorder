@@ -65,6 +65,115 @@ def _load_transactions(db_conn, parsed_rows, rules):
     return len(parsed_rows)
 
 
+def pull_and_store_snapshots(client, db_conn):
+    """Pull UC inventory snapshot and store in inventory_snapshots table."""
+
+    # Get all active SKU codes
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT sku_code FROM stock_items WHERE is_active = TRUE AND sku_code IS NOT NULL")
+        sku_codes = [row[0] for row in cur.fetchall()]
+
+    if not sku_codes:
+        logger.warning("No active SKUs for snapshot pull")
+        return 0
+
+    snapshots = client.pull_inventory_snapshots(sku_codes)
+    today = date.today()
+
+    rows = [
+        {
+            "stock_item_name": sku,
+            "snapshot_date": today,
+            "inventory": data["inventory"],
+            "inventory_blocked": data["blocked"],
+            "bad_inventory": data["bad"],
+        }
+        for sku, data in snapshots.items()
+    ]
+
+    sql = """
+        INSERT INTO inventory_snapshots
+            (stock_item_name, snapshot_date, inventory, inventory_blocked, bad_inventory)
+        VALUES (%(stock_item_name)s, %(snapshot_date)s, %(inventory)s, %(inventory_blocked)s, %(bad_inventory)s)
+        ON CONFLICT (stock_item_name, snapshot_date) DO UPDATE SET
+            inventory = EXCLUDED.inventory,
+            inventory_blocked = EXCLUDED.inventory_blocked,
+            bad_inventory = EXCLUDED.bad_inventory
+    """
+    with db_conn.cursor() as cur:
+        psycopg2.extras.execute_batch(cur, sql, rows, page_size=1000)
+    db_conn.commit()
+
+    logger.info("Stored %d inventory snapshots for %s", len(rows), today)
+    return len(rows)
+
+
+def pull_and_store_kg_demand(client, db_conn):
+    """Pull KG dispatched shipping packages and store as demand in kg_demand table."""
+    from datetime import timezone
+
+    KG_FACILITY = "PPETPLKALAGHODA"
+
+    # UC channel mapping
+    CHANNEL_MAP = {
+        "CUSTOM": "wholesale",
+        "CUSTOM_SHOP": "store",
+        "MAGENTO2": "online",
+        "FLIPKART": "online",
+        "AMAZON_EASYSHIP_V2": "online",
+        "AMAZON_IN_API": "online",
+    }
+
+    data = client._request(
+        "POST",
+        "/services/rest/v1/oms/shippingPackage/search",
+        json={"statuses": ["DISPATCHED"], "updatedSinceInMinutes": 525600},
+        facility=KG_FACILITY,
+        timeout=180,
+    )
+    packages = data.get("elements", [])
+
+    rows = []
+    for pkg in packages:
+        pkg_code = pkg.get("code", "")
+        dispatch_ms = pkg.get("dispatched", 0)
+        if not dispatch_ms or not pkg_code:
+            continue
+
+        dispatch_date = datetime.fromtimestamp(dispatch_ms / 1000, tz=timezone.utc).date()
+        uc_channel = pkg.get("channel", "")
+        channel = CHANNEL_MAP.get(uc_channel, "unclassified")
+
+        items = pkg.get("items", {})
+        if isinstance(items, dict):
+            for item_code, item_data in items.items():
+                sku = item_data.get("itemSku", item_code) if isinstance(item_data, dict) else item_code
+                qty = item_data.get("quantity", 1) if isinstance(item_data, dict) else 1
+                if not sku or qty <= 0:
+                    continue
+                rows.append({
+                    "stock_item_name": sku,
+                    "txn_date": dispatch_date,
+                    "quantity": float(qty),
+                    "channel": channel,
+                    "shipping_package_code": pkg_code,
+                })
+
+    if rows:
+        sql = """
+            INSERT INTO kg_demand
+                (stock_item_name, txn_date, quantity, channel, shipping_package_code)
+            VALUES (%(stock_item_name)s, %(txn_date)s, %(quantity)s, %(channel)s, %(shipping_package_code)s)
+            ON CONFLICT (stock_item_name, shipping_package_code) DO NOTHING
+        """
+        with db_conn.cursor() as cur:
+            psycopg2.extras.execute_batch(cur, sql, rows, page_size=1000)
+        db_conn.commit()
+
+    logger.info("Stored %d KG demand rows from %d packages", len(rows), len(packages))
+    return len(rows)
+
+
 def pull_ledger_for_facility(client, facility, start_date, end_date):
     """Pull transaction ledger CSV for one facility via Export Job API.
 
@@ -127,7 +236,7 @@ def run_validation_check(client, db_conn, sample_size=50):
     """
     import random
 
-    print("Step 5: Running validation check...")
+    print("Step 7: Running validation check...")
 
     # Get a sample of active SKUs from our metrics
     with db_conn.cursor() as cur:
@@ -250,13 +359,31 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
 
     print(f"  Total: {total_loaded} rows loaded, {facilities_ok}/{len(client.facilities)} facilities OK")
 
-    # 3. Run pipeline
+    # 3. Pull KG shipping packages (demand)
     if not dry_run:
-        print("Step 3: Running pipeline...")
+        print("Step 3: Pulling KG shipping packages...")
+        try:
+            kg_count = pull_and_store_kg_demand(client, db_conn)
+            print(f"  KG demand: {kg_count} rows")
+        except Exception as e:
+            print(f"  KG demand pull failed: {e} (continuing)")
+
+    # 4. Pull inventory snapshots
+    if not dry_run:
+        print("Step 4: Pulling inventory snapshots...")
+        try:
+            snap_count = pull_and_store_snapshots(client, db_conn)
+            print(f"  Snapshots: {snap_count} SKUs")
+        except Exception as e:
+            print(f"  Snapshot pull failed: {e} (continuing)")
+
+    # 5. Run pipeline
+    if not dry_run:
+        print("Step 5: Running pipeline...")
         run_computation_pipeline(db_conn)
         print("  Pipeline complete")
 
-    # 4. Log sync
+    # 6. Log sync
     if not dry_run:
         with db_conn.cursor() as cur:
             cur.execute("""
@@ -266,14 +393,14 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
             """, (total_loaded, facilities_ok))
         db_conn.commit()
 
-    # 5. Validation check (compare ledger stock vs UC snapshot for sample)
+    # 7. Validation check (compare ledger stock vs UC snapshot for sample)
     if not dry_run:
         try:
             run_validation_check(client, db_conn)
         except Exception as e:
             logger.warning("Validation check failed: %s", e)
 
-    # 6. Email notification
+    # 8. Email notification
     try:
         _send_sync_email(total_loaded, facilities_ok, len(client.facilities))
     except Exception as e:
@@ -351,6 +478,21 @@ def run_backfill(db_conn, from_csv_dir=None):
             window_start = window_end + timedelta(days=1)
 
         print(f"\nTotal loaded: {total}")
+
+    # Pull KG demand and snapshots
+    print("\nPulling KG shipping packages...")
+    try:
+        kg_count = pull_and_store_kg_demand(client, db_conn)
+        print(f"  KG demand: {kg_count} rows")
+    except Exception as e:
+        print(f"  KG demand pull failed: {e}")
+
+    print("Pulling inventory snapshots...")
+    try:
+        snap_count = pull_and_store_snapshots(client, db_conn)
+        print(f"  Snapshots: {snap_count} SKUs")
+    except Exception as e:
+        print(f"  Snapshot pull failed: {e}")
 
     # Run full pipeline
     print("\nRunning full pipeline...")
