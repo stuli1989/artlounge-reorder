@@ -255,31 +255,87 @@ Verify: kg_demand table populated, inventory_snapshots has current data, pipelin
 
 ---
 
-### Task 7: Integration Test — 13 SKU Reconciliation
+### Task 7: Scale Validation — 50+ SKU Reconciliation
 
 **Files:**
 - Create: `tests/test_hybrid_reconciliation.py`
 
-- [ ] **Step 1: Write reconciliation test**
+This is the critical test. If this fails at scale, we revisit the architecture.
 
-For each of the 13 proven SKUs, verify:
-1. Forward-walked closing balance matches snapshot physical (within tolerance)
-2. KG demand captured (SP quantities correct)
-3. Current stock comes from snapshot `inventory` field
-4. Drift logged for any differences
+- [ ] **Step 1: Write reconciliation script**
 
-- [ ] **Step 2: Run locally and verify**
+Script that:
+1. Runs the full pipeline locally (with KG demand + snapshots loaded)
+2. Selects 50+ SKUs across diverse profiles:
+   - 13 previously tested SKUs (known results)
+   - 10 high-volume BHW wholesale SKUs (top PICKLIST volume)
+   - 10 KG store-heavy SKUs (high KG SP count)
+   - 5 online-only SKUs (MA-*/B2C-* sale orders)
+   - 5 SKUs with returns (PUTAWAY_CIR/RTO entries)
+   - 5 multi-facility SKUs (stock across BHW + KG + ALI)
+   - 5 zero-movement SKUs (stock but no demand)
+   - Random 10 active SKUs
+3. For each SKU:
+   - Forward-walked closing balance (from daily_stock_positions)
+   - UC snapshot physical (inventory + blocked + bad, from inventory_snapshots table)
+   - Drift = forward_walk - snapshot_physical
+   - Log: SKU, forward_walk, snapshot, drift, blocked, bad, last_ledger_date
 
-Expected: 12/13 exact matches, 1414644 drift of ~3 logged.
+- [ ] **Step 2: Run and analyze results**
 
-- [ ] **Step 3: Commit**
+Produce summary report:
+```
+SCALE VALIDATION RESULTS (50+ SKUs)
+====================================
+Total tested:     XX
+Exact matches:    XX (XX%)
+Drift <= 3:       XX (XX%)
+Drift <= 10:      XX (XX%)
+Drift > 10:       XX (XX%) ← if any, investigate immediately
+Max drift:        XX (SKU: XXXXX)
+Avg abs drift:    XX
+```
+
+**Success criteria:**
+- 90%+ exact matches (drift = 0)
+- Zero drifts > 10 units
+- Any drift > 10 → investigate before proceeding (may indicate systematic issue)
+- All drifts explained by known causes (missing PICKLIST, timing, blocked items)
+
+- [ ] **Step 3: Investigate any large drifts**
+
+For SKUs with drift > 3:
+- Check if BHW SP dispatches exist after last PICKLIST date (missing PICKLIST issue)
+- Check if KG demand was captured correctly (SP vs PICKLIST gap)
+- Check blocked/bad inventory amounts
+- Document findings
+
+- [ ] **Step 4: Decision gate**
+
+If success criteria met: proceed to Task 8 (deploy).
+If not: document failures, identify pattern, revisit architecture before deploying.
+
+- [ ] **Step 5: Commit test + results**
 
 ---
 
 ### Task 8: Deploy to Railway
 
+Only proceed if Task 7 passes the success criteria.
+
 - [ ] **Step 1: Run migration on Railway DB**
 - [ ] **Step 2: Push to main (triggers Railway deploy)**
-- [ ] **Step 3: Verify startup + first sync**
+- [ ] **Step 3: Verify startup + first sync (catalog + ledger + KG SP + snapshot)**
 - [ ] **Step 4: Check drift log after first nightly sync**
-- [ ] **Step 5: Monitor for 3 days**
+
+Verify the nightly drift report shows similar results to the local validation:
+- Most SKUs at 0 drift
+- Any drifts are small and match known patterns
+
+- [ ] **Step 5: Run the 50+ SKU validation on Railway data**
+
+Same reconciliation script against Railway DB to confirm production data matches local results.
+
+- [ ] **Step 6: Monitor for 3 days**
+
+Check drift_log table daily. If drift patterns change or grow, investigate immediately.
