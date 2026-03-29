@@ -1,0 +1,29 @@
+.docs-light {
+  --docs-bg: #fafaf9;
+  --docs-bg-card: #ffffff;
+  --docs-bg-code: #f5f5f4;
+  --docs-text: #1c1917;
+  --docs-text-secondary: #57534e;
+  --docs-text-muted: #a8a29e;
+  --docs-border: #e7e5e4;
+  --docs-accent: #d97706;
+  --docs-accent-dim: #92400e;
+  --docs-link: #2563eb;
+  --docs-sidebar-bg: #ffffff;
+  --docs-sidebar-active: #fef3c7;
+}
+
+.docs-dark {
+  --docs-bg: #0c1015;
+  --docs-bg-card: #19222d;
+  --docs-bg-code: #111820;
+  --docs-text: #e8e2d6;
+  --docs-text-secondary: #9aa8b8;
+  --docs-text-muted: #5e7080;
+  --docs-border: #253344;
+  --docs-accent: #f0a500;
+  --docs-accent-dim: #c48800;
+  --docs-link: #60a5fa;
+  --docs-sidebar-bg: #111820;
+  --docs-sidebar-active: rgba(240, 165, 0, 0.1);
+}
