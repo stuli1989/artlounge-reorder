@@ -45,7 +45,7 @@ def test_reorder_qty_plenty_of_stock():
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
-    assert status == "ok"
+    assert status == "healthy"
     assert qty == 308
 
 
@@ -60,7 +60,7 @@ def test_reorder_qty_will_stockout_before_arrival():
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
-    assert status == "critical"
+    assert status == "urgent"
     assert qty == 608
 
 
@@ -75,7 +75,7 @@ def test_reorder_qty_out_of_stock():
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
-    assert status == "stocked_out"
+    assert status == "lost_sales"
     assert qty == 708
 
 
@@ -100,7 +100,7 @@ def test_reorder_qty_zero_coverage():
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=0,
     )
-    assert status == "critical"
+    assert status == "urgent"
     assert qty is None
 
 
@@ -113,7 +113,7 @@ def test_warning_thresholds_use_lead_time_not_coverage():
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
-    assert status == "ok"
+    assert status == "healthy"
 
 
 def test_no_velocity_no_demand():
@@ -123,5 +123,5 @@ def test_no_velocity_no_demand():
         supplier_lead_time=120, total_velocity=0,
         safety_buffer=1.3, coverage_period=180,
     )
-    assert status == "no_demand"
+    assert status == "dead_stock"
     assert qty is None

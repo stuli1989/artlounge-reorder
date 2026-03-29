@@ -176,13 +176,12 @@ class TestEffectiveValuesCoverageZero:
     separately (as po.py does).  But skus.py uses eff_suggested directly
     for display.  Document this known limitation."""
 
-    def test_effective_status_does_not_pass_coverage(self):
-        """Verify that compute_effective_status does NOT pass coverage_period.
-        This is a known design choice — callers must be aware."""
+    def test_effective_status_accepts_coverage_period(self):
+        """Verify that compute_effective_status accepts coverage_period.
+        This parameter is now supported — callers can pass it directly."""
         src = inspect.getsource(compute_effective_status)
-        assert "coverage_period" not in src, (
-            "compute_effective_status now passes coverage_period — "
-            "update this test and the analysis"
+        assert "coverage_period" in src, (
+            "compute_effective_status should accept coverage_period"
         )
 
     def test_effective_status_suggested_with_zero_coverage(self):
@@ -593,7 +592,7 @@ class TestEdgeCases:
         # demand_during_lead = 5.0 * 1 = 5
         # order_for_coverage = 5.0 * 30 * 1.3 = 195
         # suggested = round(5 + 195) = 200
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 200
 
     def test_matching_stock_and_demand(self):

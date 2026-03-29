@@ -69,7 +69,7 @@ class TestSeaFreightEuropeanSupplier:
             safety_buffer=self.BUFFER,
             coverage_period=self.COVERAGE,
         )
-        assert status == "critical"
+        assert status == "urgent"
         assert qty == 1102
 
     def test_order_covers_6_months_of_demand(self):
@@ -142,7 +142,7 @@ class TestAirFreightEmergency:
             safety_buffer=self.BUFFER,
             coverage_period=60,
         )
-        assert status == "critical"
+        assert status == "urgent"
 
 
 # ===================================================================
@@ -177,7 +177,7 @@ class TestWholesaleSpikeSurvivor:
             coverage_period=coverage,
         )
         # 100 days left vs 120 lead_time -> critical
-        assert status == "critical"
+        assert status == "urgent"
 
         # demand_during_lead = 1 * 120 = 120  (NO buffer)
         # order_for_coverage = 1 * 121 * 1.3 = 157.3
@@ -199,7 +199,7 @@ class TestWholesaleSpikeSurvivor:
             coverage_period=coverage,
         )
         # 300 days > 120 lead_time + 60 warning_buffer = 180 -> ok
-        assert status == "ok"
+        assert status == "healthy"
 
 
 # ===================================================================
@@ -235,7 +235,7 @@ class TestSlowMoverTonsOfStock:
         # stock_at_arrival = max(0, 200 - 11.7) = 188.3
         # order_for_coverage = 0.05 * 182 * 1.3 = 11.83
         # suggested = max(0, round(11.83 - 188.3)) = max(0, round(-176.47)) = 0 -> None
-        assert status == "ok"
+        assert status == "healthy"
         assert qty is None, "Should not order when you have 4000 days of stock"
 
 
@@ -268,7 +268,7 @@ class TestFastMoverRunningDry:
         # demand_during_lead = 10 * 90 = 900  (NO buffer)
         # order_for_coverage = 10 * 91 * 1.5 = 1365
         # suggested = max(0, round(900 + 1365 - 5)) = 2260
-        assert status == "critical"
+        assert status == "urgent"
         assert qty == 2260
 
     def test_order_covers_roughly_one_quarter(self):
@@ -304,7 +304,7 @@ class TestJustRestocked:
             coverage_period=self.COVERAGE,
         )
         # 300 days > 120 + max(30, 60) = 180 -> ok
-        assert status == "ok"
+        assert status == "healthy"
 
     def test_order_qty_is_small_or_zero(self):
         days_to_stockout = self.STOCK / self.VELOCITY
@@ -372,7 +372,7 @@ class TestDomesticQuickRestock:
         # demand_during_lead = 5 * 15 = 75  (NO buffer)
         # order_for_coverage = 5 * 60 * 1.0 = 300
         # suggested = max(0, round(75 + 300 - 30)) = 345
-        assert status == "critical"
+        assert status == "urgent"
         assert qty == 345
 
 
@@ -401,7 +401,7 @@ class TestNegativeStockTallyRename:
             safety_buffer=self.BUFFER,
             coverage_period=self.COVERAGE,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
 
     def test_negative_stock_order_qty(self):
         status, qty = determine_reorder_status(
@@ -517,7 +517,7 @@ class TestNoImmediateReorderTrap:
             safety_buffer=self.BUFFER,
             coverage_period=self.COVERAGE,
         )
-        assert status == "critical"
+        assert status == "urgent"
         assert qty is not None
 
         # Simulate: stock depletes during lead_time, then qty arrives
@@ -542,7 +542,7 @@ class TestNoImmediateReorderTrap:
             safety_buffer=self.BUFFER,
             coverage_period=self.COVERAGE,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         post_arrival = qty  # stock_at_arrival is 0
         days = post_arrival / self.VELOCITY
         assert days >= self.COVERAGE
@@ -713,7 +713,7 @@ class TestTimelineSimulation:
             safety_buffer=self.BUFFER,
             coverage_period=self.COVERAGE,
         )
-        assert status == "critical"
+        assert status == "urgent"
         assert qty is not None
 
         # Day-by-day simulation (stock floors at 0 — lost sales, not backorders)
@@ -825,7 +825,7 @@ class TestEdgeCases:
             supplier_lead_time=120, total_velocity=0,
             safety_buffer=1.3, coverage_period=121,
         )
-        assert status == "no_demand"
+        assert status == "dead_stock"
         assert qty is None
 
     def test_zero_velocity_zero_stock(self):
@@ -848,7 +848,7 @@ class TestEdgeCases:
         # demand_during_lead = 100 * 180 = 18000
         # order_for_coverage = 100 * 182 * 1.3 = 23660
         # suggested = 18000 + 23660 = 41660
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 41660
 
     def test_coverage_days_very_short_lead(self):
@@ -873,7 +873,7 @@ class TestEdgeCases:
             supplier_lead_time=120, total_velocity=2.0,
             safety_buffer=1.3, coverage_period=121,
         )
-        assert status == "warning"
+        assert status == "reorder"
 
     def test_ok_status_just_above_boundary(self):
         """Just above warning boundary -> ok."""
@@ -883,7 +883,7 @@ class TestEdgeCases:
             supplier_lead_time=120, total_velocity=2.0,
             safety_buffer=1.3, coverage_period=121,
         )
-        assert status == "ok"
+        assert status == "healthy"
 
     def test_critical_at_lead_time_boundary(self):
         """Exactly at lead_time boundary: critical."""
@@ -892,7 +892,7 @@ class TestEdgeCases:
             supplier_lead_time=120, total_velocity=2.0,
             safety_buffer=1.3, coverage_period=121,
         )
-        assert status == "critical"
+        assert status == "urgent"
 
     def test_fractional_velocity(self):
         """Fractional velocity (0.1/day = 3/month) should produce sensible qty."""
@@ -904,7 +904,7 @@ class TestEdgeCases:
         # demand_during_lead = 0.1 * 180 = 18
         # order_for_coverage = 0.1 * 182 * 1.3 = 23.66
         # suggested = round(18 + 23.66) = round(41.66) = 42
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 42
 
     def test_po_builder_formula_matches_engine(self):

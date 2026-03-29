@@ -71,12 +71,12 @@ def _fake_compute_effective_values(current_stock, _wholesale, _online, total, **
     }
 
 
-def _fake_compute_effective_status(eff_stock, _eff_total, _lead_time, _buffer=1.3):
+def _fake_compute_effective_status(eff_stock, _eff_total, _lead_time, _buffer=1.3, **_kwargs):
     if eff_stock <= 0:
         return {"eff_days": 0, "eff_status": "out_of_stock", "eff_suggested": 0}
     if eff_stock < 5:
-        return {"eff_days": 5, "eff_status": "critical", "eff_suggested": 10}
-    return {"eff_days": 20, "eff_status": "warning", "eff_suggested": 5}
+        return {"eff_days": 5, "eff_status": "urgent", "eff_suggested": 10}
+    return {"eff_days": 20, "eff_status": "reorder", "eff_suggested": 5}
 
 
 class SkuPaginationTests(unittest.TestCase):
@@ -132,7 +132,7 @@ class SkuPaginationTests(unittest.TestCase):
                 "online_velocity": 0.0,
                 "store_velocity": 0.0,
                 "total_velocity": 0.3,
-                "reorder_status": "critical",
+                "reorder_status": "urgent",
                 "days_to_stockout": 5,
                 "part_no": "P2",
                 "is_hazardous": False,
@@ -173,7 +173,7 @@ class SkuPaginationTests(unittest.TestCase):
                 "online_velocity": 0.0,
                 "store_velocity": 0.0,
                 "total_velocity": 0.4,
-                "reorder_status": "warning",
+                "reorder_status": "reorder",
                 "days_to_stockout": 20,
                 "part_no": "P3",
                 "is_hazardous": False,
@@ -240,8 +240,8 @@ class SkuPaginationTests(unittest.TestCase):
         self.assertEqual(len(result["items"]), 2)
         self.assertEqual(result["items"][0]["stock_item_name"], "SKU-002")
         self.assertEqual(result["items"][1]["stock_item_name"], "SKU-003")
-        self.assertEqual(result["counts"]["critical"], 1)
-        self.assertEqual(result["counts"]["warning"], 1)
+        self.assertEqual(result["counts"]["urgent"], 1)
+        self.assertEqual(result["counts"]["reorder"], 1)
         self.assertEqual(result["counts"]["out_of_stock"], 1)
         self.assertEqual(result["counts"]["dead_stock"], 1)
 

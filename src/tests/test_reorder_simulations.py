@@ -52,7 +52,7 @@ def test_sim1_critical_item_full_cycle():
         coverage_period=coverage,
     )
 
-    assert status == "critical", f"Expected critical, got {status}"
+    assert status == "urgent", f"Expected urgent, got {status}"
     assert suggested_qty is not None
 
     # Simulate: sell for 120 days (order transit period)
@@ -104,7 +104,7 @@ def test_sim2_ok_item_full_cycle():
         coverage_period=coverage,
     )
 
-    assert status == "ok"
+    assert status == "healthy"
     assert suggested_qty is not None
 
     # Simulate: sell for 120 days
@@ -154,7 +154,7 @@ def test_sim3_oos_item_not_inflated():
         coverage_period=coverage,
     )
 
-    assert status == "stocked_out"
+    assert status == "lost_sales"
     assert suggested_qty is not None
 
     # Simulate: no sales during transit (stock is 0)
@@ -324,7 +324,7 @@ def test_sim6_air_vs_sea():
         coverage_period=sea_coverage,
     )
 
-    assert sea_status == "critical"
+    assert sea_status == "urgent"
     assert sea_qty is not None
 
     # Simulate sea: OOS by day 4, nothing to sell for 146 days
@@ -352,7 +352,7 @@ def test_sim6_air_vs_sea():
         coverage_period=air_coverage,
     )
 
-    assert air_status == "critical"
+    assert air_status == "urgent"
     assert air_qty is not None
 
     # Simulate air: OOS by day 4, nothing to sell for 26 days
@@ -486,7 +486,7 @@ def test_sim8_negative_stock():
         coverage_period=coverage,
     )
 
-    assert status == "stocked_out"
+    assert status == "lost_sales"
     assert suggested_qty is not None
 
     # demand_during_lead = 2*120 = 240, cov = 2*180*1.3 = 468
@@ -540,7 +540,7 @@ def test_sim9_auto_coverage_integration():
         coverage_period=coverage,
     )
 
-    assert status == "stocked_out"
+    assert status == "lost_sales"
     assert qty is not None
 
     # Order arrives after lead_time days (no sales during OOS)

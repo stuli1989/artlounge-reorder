@@ -53,7 +53,7 @@ class TestBoundaryConditions:
         )
         # days_to_stockout = 234/2 = 117. 117 > 90 → not critical.
         # warning_buffer = max(30, int(90*0.5)) = 45. 117 <= 135 → warning.
-        assert status == "warning"
+        assert status == "reorder"
         assert qty == 183
 
     def test_stock_one_unit_more_than_demand(self):
@@ -98,7 +98,7 @@ class TestBoundaryConditions:
             stock=300, days_to_stockout=150.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=0,
         )
-        assert status == "ok"
+        assert status == "healthy"
         assert qty is None
 
     def test_coverage_period_one_day(self):
@@ -111,7 +111,7 @@ class TestBoundaryConditions:
             stock=300, days_to_stockout=150.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=1,
         )
-        assert status == "ok"
+        assert status == "healthy"
         assert qty is None
 
         # Now with low stock so order is needed:
@@ -121,7 +121,7 @@ class TestBoundaryConditions:
             stock=50, days_to_stockout=25.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=1,
         )
-        assert status2 == "critical"
+        assert status2 == "urgent"
         assert qty2 == 133
 
     def test_coverage_period_365_days(self):
@@ -134,7 +134,7 @@ class TestBoundaryConditions:
             stock=0, days_to_stockout=0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=365,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 1129
 
 
@@ -155,7 +155,7 @@ class TestExtremeValues:
             stock=0, days_to_stockout=0,
             lead_time=90, velocity=0.001, buffer=1.3, coverage=182,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty is None  # Too small to round up to 1
 
         # With larger coverage, it becomes 1:
@@ -166,7 +166,7 @@ class TestExtremeValues:
             stock=0, days_to_stockout=0,
             lead_time=90, velocity=0.001, buffer=1.3, coverage=500,
         )
-        assert status2 == "stocked_out"
+        assert status2 == "lost_sales"
         assert qty2 == 1
 
     def test_huge_velocity(self):
@@ -179,7 +179,7 @@ class TestExtremeValues:
             stock=0, days_to_stockout=0,
             lead_time=90, velocity=100.0, buffer=1.3, coverage=182,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 32660
 
     def test_lead_time_one_day(self):
@@ -195,7 +195,7 @@ class TestExtremeValues:
             stock=100, days_to_stockout=50.0,
             lead_time=1, velocity=2.0, buffer=1.3, coverage=60,
         )
-        assert status == "ok"
+        assert status == "healthy"
         assert qty == 58
 
     def test_lead_time_365_days(self):
@@ -209,7 +209,7 @@ class TestExtremeValues:
             stock=500, days_to_stockout=250.0,
             lead_time=365, velocity=2.0, buffer=1.3, coverage=365,
         )
-        assert status == "critical"
+        assert status == "urgent"
         assert qty == 1179
 
     def test_buffer_one(self):
@@ -224,7 +224,7 @@ class TestExtremeValues:
             stock=200, days_to_stockout=100.0,
             lead_time=90, velocity=2.0, buffer=1.0, coverage=91,
         )
-        assert status == "warning"
+        assert status == "reorder"
         assert qty == 162
 
     def test_buffer_below_one(self):
@@ -238,7 +238,7 @@ class TestExtremeValues:
             stock=100, days_to_stockout=50.0,
             lead_time=90, velocity=2.0, buffer=0.5, coverage=91,
         )
-        assert status == "critical"
+        assert status == "urgent"
         assert qty == 171
 
     def test_buffer_extreme_three(self):
@@ -252,7 +252,7 @@ class TestExtremeValues:
             stock=100, days_to_stockout=50.0,
             lead_time=90, velocity=2.0, buffer=3.0, coverage=91,
         )
-        assert status == "critical"
+        assert status == "urgent"
         assert qty == 626
 
     def test_stock_exactly_zero(self):
@@ -265,7 +265,7 @@ class TestExtremeValues:
             stock=0, days_to_stockout=0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 417
 
     def test_stock_negative_one(self):
@@ -277,7 +277,7 @@ class TestExtremeValues:
             stock=-1, days_to_stockout=0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 418
 
     def test_stock_very_negative(self):
@@ -289,7 +289,7 @@ class TestExtremeValues:
             stock=-1000, days_to_stockout=0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 1417
 
     def test_stock_huge_inventory(self):
@@ -303,7 +303,7 @@ class TestExtremeValues:
             stock=999999, days_to_stockout=499999.5,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "ok"
+        assert status == "healthy"
         assert qty is None
 
 
@@ -323,7 +323,7 @@ class TestRoundingAndPrecision:
             stock=0, days_to_stockout=0,
             lead_time=90, velocity=0.33, buffer=1.3, coverage=182,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 108
 
     def test_exact_integer_result(self):
@@ -336,7 +336,7 @@ class TestRoundingAndPrecision:
             stock=0, days_to_stockout=0,
             lead_time=90, velocity=2.0, buffer=1.0, coverage=180,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 540
 
     def test_subtraction_rounds_to_zero(self):
@@ -354,7 +354,7 @@ class TestRoundingAndPrecision:
             stock=60.4, days_to_stockout=60.4,
             lead_time=10, velocity=1.0, buffer=1.0, coverage=50,
         )
-        assert status == "ok"
+        assert status == "healthy"
         assert qty is None
 
     def test_subtraction_rounds_up_to_one(self):
@@ -367,7 +367,7 @@ class TestRoundingAndPrecision:
             stock=59.4, days_to_stockout=59.4,
             lead_time=10, velocity=1.0, buffer=1.0, coverage=50,
         )
-        assert status == "ok"
+        assert status == "healthy"
         assert qty == 1
 
 
@@ -385,7 +385,7 @@ class TestStatusThresholds:
             stock=180, days_to_stockout=90.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "critical"
+        assert status == "urgent"
 
     def test_days_to_stockout_one_above_lead_time_is_warning(self):
         """Test 22: days_to_stockout = lead_time + 1 → WARNING."""
@@ -394,7 +394,7 @@ class TestStatusThresholds:
             stock=182, days_to_stockout=91.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "warning"
+        assert status == "reorder"
 
     def test_days_to_stockout_equals_warning_threshold_is_warning(self):
         """Test 23: days_to_stockout = lead_time + warning_buffer exactly → WARNING (<=)."""
@@ -405,7 +405,7 @@ class TestStatusThresholds:
             stock=270, days_to_stockout=135.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "warning"
+        assert status == "reorder"
 
     def test_days_to_stockout_one_above_warning_threshold_is_ok(self):
         """Test 24: days_to_stockout = lead_time + warning_buffer + 1 → OK."""
@@ -414,7 +414,7 @@ class TestStatusThresholds:
             stock=272, days_to_stockout=136.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "ok"
+        assert status == "healthy"
 
     def test_days_to_stockout_none_with_positive_stock_and_velocity(self):
         """Test 25: days_to_stockout=None but stock>0 and velocity>0.
@@ -426,7 +426,7 @@ class TestStatusThresholds:
             stock=100, days_to_stockout=None,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "ok"
+        assert status == "healthy"
         assert qty == 317
 
     def test_warning_buffer_minimum_30_for_short_lead_time(self):
@@ -439,14 +439,14 @@ class TestStatusThresholds:
             stock=39, days_to_stockout=39.0,
             lead_time=10, velocity=1.0, buffer=1.0, coverage=50,
         )
-        assert status == "warning"
+        assert status == "reorder"
 
         # days_to_stockout=41 → 41 > 40 → OK
         status2, _ = _reorder(
             stock=41, days_to_stockout=41.0,
             lead_time=10, velocity=1.0, buffer=1.0, coverage=50,
         )
-        assert status2 == "ok"
+        assert status2 == "healthy"
 
 
 # ===================================================================
@@ -525,7 +525,7 @@ class TestStatusQuantityInteraction:
             stock=400, days_to_stockout=200.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=182,
         )
-        assert status == "ok"
+        assert status == "healthy"
         assert qty == 253
 
     def test_critical_status_coverage_zero_returns_qty(self):
@@ -539,7 +539,7 @@ class TestStatusQuantityInteraction:
             stock=50, days_to_stockout=25.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=0,
         )
-        assert status == "critical"
+        assert status == "urgent"
         assert qty == 130
 
     def test_out_of_stock_positive_velocity_positive_coverage(self):
@@ -552,7 +552,7 @@ class TestStatusQuantityInteraction:
             stock=0, days_to_stockout=0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 417
         assert qty > 0
 
@@ -567,7 +567,7 @@ class TestStatusQuantityInteraction:
             stock=0, days_to_stockout=0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=0,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 180
 
     def test_out_of_stock_zero_velocity_returns_none(self):
@@ -585,7 +585,7 @@ class TestStatusQuantityInteraction:
             stock=10000, days_to_stockout=5000.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=182,
         )
-        assert status == "ok"
+        assert status == "healthy"
         assert qty is None
 
     def test_warning_status_still_has_qty(self):
@@ -599,7 +599,7 @@ class TestStatusQuantityInteraction:
             stock=200, days_to_stockout=100.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "warning"
+        assert status == "reorder"
         assert qty == 217
 
     def test_critical_fallback_to_order_for_coverage(self):
@@ -640,7 +640,7 @@ class TestStatusQuantityInteraction:
             stock=180, days_to_stockout=90.0,
             lead_time=90, velocity=2.0, buffer=0.5, coverage=1,
         )
-        assert status == "critical"
+        assert status == "urgent"
         assert qty == 1  # Falls back to round(order_for_coverage)
 
 
@@ -698,7 +698,7 @@ class TestAdditionalEdgeCases:
             stock=10, days_to_stockout=5.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
-        assert status == "critical"
+        assert status == "urgent"
         assert qty == 407
 
     def test_negative_velocity_treated_as_no_demand(self):
@@ -708,7 +708,7 @@ class TestAdditionalEdgeCases:
             stock=100, days_to_stockout=None,
             lead_time=90, velocity=-1.0, buffer=1.3, coverage=91,
         )
-        assert status == "no_demand"
+        assert status == "dead_stock"
         assert qty is None
 
         # With stock <= 0
@@ -729,7 +729,7 @@ class TestAdditionalEdgeCases:
             stock=0, days_to_stockout=0,
             lead_time=90, velocity=5.0, buffer=1.3, coverage=365,
         )
-        assert status == "stocked_out"
+        assert status == "lost_sales"
         assert qty == 2822  # round(2822.5) — Python rounds 0.5 to nearest even
 
     def test_must_stock_fallback_independent_of_reorder(self):
