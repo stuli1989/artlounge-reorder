@@ -44,7 +44,18 @@ else:
         conn.commit()
         print('uc_003 applied.')
     else:
-        print('Schema up to date.')
+        print('uc_003 already applied.')
+
+    # Check if uc_004 needs applying
+    cur.execute(\"SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='brand_metrics' AND column_name='urgent_skus')\")
+    if not cur.fetchone()[0]:
+        print('Running uc_004 migration (status rename)...')
+        with open('db/migrations/uc_004_status_rename.sql') as f:
+            cur.execute(f.read())
+        conn.commit()
+        print('uc_004 applied.')
+    else:
+        print('uc_004 already applied.')
 
 cur.execute('SELECT COUNT(*) FROM transactions')
 print(f'Transactions in DB: {cur.fetchone()[0]}')
