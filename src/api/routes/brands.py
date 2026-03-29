@@ -18,7 +18,7 @@ def list_brands(search: str = Query(None), user: dict = Depends(get_current_user
                 escaped = _escape_ilike(search)
                 sql += " WHERE category_name ILIKE %s"
                 params.append(f"%{escaped}%")
-            sql += " ORDER BY critical_skus DESC, warning_skus DESC, avg_days_to_stockout ASC NULLS LAST"
+            sql += " ORDER BY urgent_skus DESC, reorder_skus DESC, avg_days_to_stockout ASC NULLS LAST"
             cur.execute(sql, params)
             rows = cur.fetchall()
     return [dict(r) for r in rows]
@@ -29,8 +29,8 @@ def _brands_summary_query(cur) -> dict:
     cur.execute("""
         SELECT
             COUNT(*) AS total_brands,
-            SUM(CASE WHEN critical_skus > 0 THEN 1 ELSE 0 END) AS brands_with_critical,
-            SUM(CASE WHEN warning_skus > 0 THEN 1 ELSE 0 END) AS brands_with_warning,
+            SUM(CASE WHEN urgent_skus > 0 THEN 1 ELSE 0 END) AS brands_with_urgent,
+            SUM(CASE WHEN reorder_skus > 0 THEN 1 ELSE 0 END) AS brands_with_reorder,
             SUM(out_of_stock_skus) AS total_skus_out_of_stock,
             SUM(COALESCE(dead_stock_skus, 0)) AS total_dead_stock_skus,
             SUM(COALESCE(slow_mover_skus, 0)) AS total_slow_mover_skus,
@@ -65,15 +65,15 @@ def dashboard_summary(user: dict = Depends(get_current_user)):
             cur.execute("""
                 SELECT
                   COUNT(*) AS total_active_skus,
-                  SUM(CASE WHEN abc_class='A' AND reorder_status='critical' THEN 1 ELSE 0 END) AS a_critical,
-                  SUM(CASE WHEN abc_class='A' AND reorder_status='warning' THEN 1 ELSE 0 END) AS a_warning,
-                  SUM(CASE WHEN abc_class='B' AND reorder_status='critical' THEN 1 ELSE 0 END) AS b_critical,
-                  SUM(CASE WHEN abc_class='B' AND reorder_status='warning' THEN 1 ELSE 0 END) AS b_warning,
-                  SUM(CASE WHEN abc_class='C' AND reorder_status='critical' THEN 1 ELSE 0 END) AS c_critical,
-                  SUM(CASE WHEN abc_class='C' AND reorder_status='warning' THEN 1 ELSE 0 END) AS c_warning,
-                  SUM(CASE WHEN reorder_status='critical' THEN 1 ELSE 0 END) AS total_critical,
-                  SUM(CASE WHEN reorder_status='warning' THEN 1 ELSE 0 END) AS total_warning,
-                  SUM(CASE WHEN reorder_status='ok' THEN 1 ELSE 0 END) AS total_ok,
+                  SUM(CASE WHEN abc_class='A' AND reorder_status='urgent' THEN 1 ELSE 0 END) AS a_urgent,
+                  SUM(CASE WHEN abc_class='A' AND reorder_status='reorder' THEN 1 ELSE 0 END) AS a_reorder,
+                  SUM(CASE WHEN abc_class='B' AND reorder_status='urgent' THEN 1 ELSE 0 END) AS b_urgent,
+                  SUM(CASE WHEN abc_class='B' AND reorder_status='reorder' THEN 1 ELSE 0 END) AS b_reorder,
+                  SUM(CASE WHEN abc_class='C' AND reorder_status='urgent' THEN 1 ELSE 0 END) AS c_urgent,
+                  SUM(CASE WHEN abc_class='C' AND reorder_status='reorder' THEN 1 ELSE 0 END) AS c_reorder,
+                  SUM(CASE WHEN reorder_status='urgent' THEN 1 ELSE 0 END) AS total_urgent,
+                  SUM(CASE WHEN reorder_status='reorder' THEN 1 ELSE 0 END) AS total_reorder,
+                  SUM(CASE WHEN reorder_status='healthy' THEN 1 ELSE 0 END) AS total_healthy,
                   SUM(CASE WHEN reorder_status='out_of_stock' THEN 1 ELSE 0 END) AS total_out_of_stock,
                   SUM(CASE WHEN trend_direction='up' AND total_velocity>0 THEN 1 ELSE 0 END) AS trending_up,
                   SUM(CASE WHEN trend_direction='down' AND total_velocity>0 THEN 1 ELSE 0 END) AS trending_down,
@@ -86,18 +86,18 @@ def dashboard_summary(user: dict = Depends(get_current_user)):
 
             # Top priority brands (with per-brand A-critical counts)
             cur.execute("""
-                SELECT bm.category_name, bm.critical_skus, bm.warning_skus,
+                SELECT bm.category_name, bm.urgent_skus, bm.reorder_skus,
                        bm.a_class_skus, bm.b_class_skus, bm.avg_days_to_stockout,
-                       COALESCE(ac.a_critical_skus, 0) AS a_critical_skus
+                       COALESCE(ac.a_urgent_skus, 0) AS a_urgent_skus
                 FROM brand_metrics bm
                 LEFT JOIN (
-                    SELECT category_name, COUNT(*) AS a_critical_skus
+                    SELECT category_name, COUNT(*) AS a_urgent_skus
                     FROM sku_metrics
-                    WHERE abc_class = 'A' AND reorder_status = 'critical'
+                    WHERE abc_class = 'A' AND reorder_status = 'urgent'
                     GROUP BY category_name
                 ) ac ON ac.category_name = bm.category_name
-                WHERE bm.critical_skus > 0 OR bm.warning_skus > 0
-                ORDER BY (COALESCE(bm.a_class_skus,0)*3 + COALESCE(bm.b_class_skus,0)) * COALESCE(bm.critical_skus,0) DESC
+                WHERE bm.urgent_skus > 0 OR bm.reorder_skus > 0
+                ORDER BY (COALESCE(bm.a_class_skus,0)*3 + COALESCE(bm.b_class_skus,0)) * COALESCE(bm.urgent_skus,0) DESC
                 LIMIT 7
             """)
             top_brands = [dict(r) for r in cur.fetchall()]

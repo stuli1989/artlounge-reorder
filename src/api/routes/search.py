@@ -77,7 +77,7 @@ def universal_search(
             # --- Brands ---
             brand_rank = _rank_expr("category_name")
             cur.execute(
-                f"SELECT category_name, total_skus, critical_skus "
+                f"SELECT category_name, total_skus, urgent_skus "
                 f"FROM brand_metrics "
                 f"WHERE category_name ILIKE %(pattern)s "
                 f"ORDER BY {brand_rank}, category_name "

@@ -60,7 +60,7 @@ ALLOWED_SORT_COLS = {
 @router.get("/brands/{category_name}/skus")
 def list_skus(
     category_name: str,
-    status: str = Query(None, description="Comma-separated: critical,warning,ok,out_of_stock,no_data"),
+    status: str = Query(None, description="Comma-separated: urgent,reorder,healthy,out_of_stock,lost_sales,dead_stock,no_data"),
     min_velocity: float = Query(None),
     sort: str = Query("days_to_stockout"),
     sort_dir: str = Query("asc"),
@@ -270,9 +270,9 @@ def list_skus(
         return results
 
     counts = {
-        "critical": 0,
-        "warning": 0,
-        "ok": 0,
+        "urgent": 0,
+        "reorder": 0,
+        "healthy": 0,
         "out_of_stock": 0,
         "no_data": 0,
         "dead_stock": 0,
@@ -298,7 +298,7 @@ def list_skus(
 
 @router.get("/critical-skus")
 def list_critical_skus(
-    status: str = Query("critical,warning", description="Comma-separated statuses"),
+    status: str = Query("urgent,reorder", description="Comma-separated statuses"),
     abc_class: str = Query(None, description="Filter by ABC class: A, B, C"),
     velocity_type: str = Query("flat", description="flat or wma"),
     limit: int = Query(100, ge=1, le=500),
@@ -467,7 +467,7 @@ def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate, user: dict = D
 
             # Apply intent override
             if item_intent == "must_stock" and status in ("no_data", "out_of_stock"):
-                status = "critical"
+                status = "urgent"
                 if suggested_qty is None:
                     suggested_qty = must_stock_fallback_qty(lead_time + coverage)
             elif item_intent == "do_not_reorder":
@@ -912,11 +912,11 @@ def get_breakdown(
 
     if days_to_so is not None:
         days_str = str(days_to_so)
-        if status == "ok":
+        if status == "healthy":
             status_reason = f"{days_str} days remaining > lead time ({lead_time}d) + 30d buffer = {threshold_warning}d threshold"
-        elif status == "warning":
+        elif status == "reorder":
             status_reason = f"{days_str} days remaining <= {threshold_warning}d threshold (lead time + 30d buffer)"
-        elif status == "critical":
+        elif status == "urgent":
             status_reason = f"{days_str} days remaining <= {lead_time}d lead time"
         elif status == "out_of_stock":
             status_reason = "Current stock is zero or negative"
@@ -938,7 +938,7 @@ def get_breakdown(
         "formula": reorder_formula,
         "status": status,
         "status_reason": status_reason,
-        "status_thresholds": f"critical: <={lead_time}d | warning: <={threshold_warning}d | ok: >{threshold_warning}d | coverage: {coverage_days}d",
+        "status_thresholds": f"urgent: <={lead_time}d | reorder: <={threshold_warning}d | healthy: >{threshold_warning}d | coverage: {coverage_days}d",
         "coverage_days": coverage_days,
         "total_coverage": total_coverage,
         "coverage_source": f"{typical_months} months" if typical_months else "auto",

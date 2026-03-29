@@ -165,11 +165,11 @@ def po_data(
                     coverage_days = compute_coverage_days(lead_time, None)
 
             # Build status filter — skip SQL filter when custom range (status recalculated)
-            statuses = ["critical", "out_of_stock"]
+            statuses = ["urgent", "lost_sales"]
             if include_warning:
-                statuses.append("warning")
+                statuses.append("reorder")
             if include_ok:
-                statuses.append("ok")
+                statuses.append("healthy")
 
             status_clause = "AND sm.reorder_status = ANY(%s)" if not custom_range else ""
             query_params = [category_name]
