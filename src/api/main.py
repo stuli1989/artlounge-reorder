@@ -15,7 +15,12 @@ from api.database import get_db
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Art Lounge Stock Intelligence", version="1.0.0")
+app = FastAPI(
+    title="Art Lounge Stock Intelligence",
+    version="1.0.0",
+    docs_url="/api-docs",
+    redoc_url="/api-redoc",
+)
 
 
 # Security headers middleware
