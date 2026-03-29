@@ -106,6 +106,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
             all_txns[row[0]].append({
                 "date": row[1],
                 "quantity": abs(row[2]),
+                "stock_change": float(row[2]),  # signed — needed for REMOVE/REPLACE
                 "is_inward": row[3] == "IN",
                 "channel": row[6],
                 "return_type": "CIR" if row[4] == "PUTAWAY_CIR"
@@ -384,6 +385,7 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
             all_txns[row[0]].append({
                 "date": row[1],
                 "quantity": abs(row[2]),
+                "stock_change": float(row[2]),  # signed — needed for REMOVE/REPLACE
                 "is_inward": row[3] == "IN",
                 "channel": row[6],
                 "return_type": "CIR" if row[4] == "PUTAWAY_CIR"
