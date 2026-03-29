@@ -44,3 +44,8 @@ WHERE reorder_status IN ('stocked_out', 'critical', 'warning', 'ok', 'no_demand'
 -- 4. Add new CHECK constraint with updated values
 ALTER TABLE sku_metrics ADD CONSTRAINT valid_reorder_status
   CHECK (reorder_status IN ('urgent', 'reorder', 'healthy', 'out_of_stock', 'lost_sales', 'dead_stock', 'no_data'));
+
+-- Seed ABC-only buffer keys if missing
+INSERT INTO app_settings (key, value) VALUES ('buffer_a', '1.3') ON CONFLICT (key) DO NOTHING;
+INSERT INTO app_settings (key, value) VALUES ('buffer_b', '1.2') ON CONFLICT (key) DO NOTHING;
+INSERT INTO app_settings (key, value) VALUES ('buffer_c', '1.1') ON CONFLICT (key) DO NOTHING;

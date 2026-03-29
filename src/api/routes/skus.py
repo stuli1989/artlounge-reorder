@@ -158,7 +158,7 @@ def list_skus(
         with conn.cursor() as cur:
             # Get thresholds (cached in-memory, 60s TTL)
             _settings = _get_cached_settings(cur)
-            dead_stock_threshold = int(_settings.get("dead_stock_threshold_days", "30"))
+            dead_stock_threshold = int(_settings.get("dead_stock_threshold_days", "90"))
             slow_mover_threshold = float(_settings.get("slow_mover_velocity_threshold", "0.1"))
 
             # Get supplier lead time for status recalculation

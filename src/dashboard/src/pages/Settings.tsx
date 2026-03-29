@@ -57,12 +57,12 @@ export default function Settings() {
   useEffect(() => {
     if (!settings) return
     setUseXyzBuffer(settings.use_xyz_buffer === 'true')
-    setBufferA(settings.buffer_a || '1.5')
-    setBufferB(settings.buffer_b || '1.0')
-    setBufferC(settings.buffer_c || '0.5')
+    setBufferA(settings.buffer_a || '1.3')
+    setBufferB(settings.buffer_b || '1.2')
+    setBufferC(settings.buffer_c || '1.1')
     setVelocityType(settings.default_velocity_type || 'flat')
     setDateRange(settings.default_date_range || 'full_fy')
-    setDeadStockDays(settings.dead_stock_threshold_days || '30')
+    setDeadStockDays(settings.dead_stock_threshold_days || '90')
     if (settings.slow_mover_velocity_threshold) {
       setSlowMoverMonthly(String((parseFloat(settings.slow_mover_velocity_threshold) * 30).toFixed(1)))
     } else {
