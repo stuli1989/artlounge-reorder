@@ -179,6 +179,21 @@ def list_skus(
                 sku_names = [r["stock_item_name"] for r in rows]
                 vel_by_sku = fetch_batch_velocities(cur, sku_names, range_start, range_end)
 
+            # Get supplier coverage for this brand
+            coverage_period = 90  # fallback
+            with conn.cursor() as cur2:
+                cur2.execute("""
+                    SELECT s.lead_time_default, s.typical_order_months
+                    FROM suppliers s
+                    WHERE UPPER(s.name) = UPPER(%s)
+                """, (category_name,))
+                srow = cur2.fetchone()
+                if srow:
+                    coverage_period = compute_coverage_days(
+                        srow["lead_time_default"],
+                        srow["typical_order_months"],
+                    )
+
     today = date.today()
     results = []
     for r in rows:
@@ -206,7 +221,6 @@ def list_skus(
             store_ovr=opt_float(d["store_vel_override_value"]),
             total_ovr=opt_float(d["total_vel_override_value"]),
         )
-        coverage_period = 90  # Default 3 months; matches pipeline supplier settings
         st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time, float(d["safety_buffer"] or 1.3), coverage_period=coverage_period)
 
         d["effective_stock"] = vals["eff_stock"]

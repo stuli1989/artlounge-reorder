@@ -156,12 +156,11 @@ def po_data(
                     WHERE UPPER(s.name) = UPPER(%s)
                 """, (category_name,))
                 srow = cur.fetchone()
-                if srow:
-                    coverage_days = compute_coverage_days(
-                        srow["lead_time_default"],
-                        srow["typical_order_months"],
-                    )
+                if srow and srow["typical_order_months"]:
+                    # Explicit supplier setting — use it regardless of lead_time override
+                    coverage_days = compute_coverage_days(srow["lead_time_default"], srow["typical_order_months"])
                 else:
+                    # Auto-calculate from the ACTIVE lead_time (which may be user-overridden)
                     coverage_days = compute_coverage_days(lead_time, None)
 
             # Build status filter — skip SQL filter when custom range (status recalculated)

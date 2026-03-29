@@ -94,15 +94,15 @@ export default function SupplierManagement() {
         </div>
         <div className="space-y-1">
           <Label>Sea Lead Time (days)</Label>
-          <Input type="number" inputMode="numeric" value={form.lead_time_sea ?? ''} onChange={e => updateField('lead_time_sea', e.target.value ? Number(e.target.value) : null)} />
+          <Input type="number" inputMode="numeric" min={1} value={form.lead_time_sea ?? ''} onChange={e => updateField('lead_time_sea', e.target.value ? Number(e.target.value) : null)} />
         </div>
         <div className="space-y-1">
           <Label>Air Lead Time (days)</Label>
-          <Input type="number" inputMode="numeric" value={form.lead_time_air ?? ''} onChange={e => updateField('lead_time_air', e.target.value ? Number(e.target.value) : null)} />
+          <Input type="number" inputMode="numeric" min={1} value={form.lead_time_air ?? ''} onChange={e => updateField('lead_time_air', e.target.value ? Number(e.target.value) : null)} />
         </div>
         <div className="space-y-1">
           <Label>Default Lead Time (days)</Label>
-          <Input type="number" inputMode="numeric" value={form.lead_time_default} onChange={e => updateField('lead_time_default', Number(e.target.value))} />
+          <Input type="number" inputMode="numeric" min={1} value={form.lead_time_default} onChange={e => updateField('lead_time_default', Number(e.target.value))} />
         </div>
         <div className="space-y-1">
           <Label>Buffer Override</Label>

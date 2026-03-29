@@ -1,6 +1,6 @@
 """Supplier CRUD API endpoints."""
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from api.database import get_db
 from api.auth import get_current_user, require_role
 from engine.recalculate_buffers import recalculate_all_buffers
@@ -19,6 +19,13 @@ class SupplierCreate(BaseModel):
     notes: str = ""
     buffer_override: float | None = None
 
+    @field_validator('lead_time_default', 'lead_time_sea', 'lead_time_air')
+    @classmethod
+    def validate_lead_time(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError('Lead time must be positive')
+        return v
+
 
 class SupplierUpdate(BaseModel):
     name: str | None = None
@@ -30,6 +37,13 @@ class SupplierUpdate(BaseModel):
     typical_order_months: int | None = None
     notes: str | None = None
     buffer_override: float | None = None
+
+    @field_validator('lead_time_default', 'lead_time_sea', 'lead_time_air')
+    @classmethod
+    def validate_lead_time(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError('Lead time must be positive')
+        return v
 
 
 @router.get("/suppliers")

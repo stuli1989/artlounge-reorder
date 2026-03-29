@@ -20,6 +20,8 @@ def compute_coverage_days(lead_time: int, typical_order_months: int | None = Non
     """
     if typical_order_months is not None:
         return typical_order_months * 30
+    if lead_time <= 0:
+        lead_time = 1  # prevent division by zero
 
     fy_days = 365
     turns = min(max(1, fy_days // lead_time), 6)
