@@ -349,6 +349,21 @@ export default function SkuDetail() {
   const [mobileSortCol, setMobileSortCol] = useState('reorder_status')
   const [mobileSortDir, setMobileSortDir] = useState<'asc' | 'desc'>('desc')
 
+  // Sort state for desktop table
+  const [sort, setSort] = useState('days_to_stockout')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+
+  const handleSort = (col: string) => {
+    if (sort === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSort(col)
+      setSortDir('asc')
+    }
+    setPage(0)
+    setExpandedRow(null)
+  }
+
   // V2 controls
   const [velocityType, setVelocityType] = useState<'flat' | 'wma'>('flat')
   const [abcFilter, setAbcFilter] = useState('')
@@ -412,7 +427,7 @@ export default function SkuDetail() {
   const brandLeadTime = brands?.find(b => b.category_name === decodedName)?.supplier_lead_time ?? undefined
 
   const { data: skuPage, isLoading, isFetching, isError, refetch } = useQuery({
-    queryKey: ['skus', decodedName, statusFilter, activeSearch, analysisRange?.from, analysisRange?.to, page, pageSize, abcFilter, hideInactive, velocityType, xyzFilter, hazardousFilter, deadStockFilter, intentFilter],
+    queryKey: ['skus', decodedName, statusFilter, activeSearch, analysisRange?.from, analysisRange?.to, page, pageSize, abcFilter, hideInactive, velocityType, xyzFilter, hazardousFilter, deadStockFilter, intentFilter, sort, sortDir],
     queryFn: () => {
       const params: Record<string, string> = {}
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter
@@ -429,6 +444,10 @@ export default function SkuDetail() {
       if (xyzFilter) params.xyz_class = xyzFilter
       params.hide_inactive = String(hideInactive)
       params.velocity_type = velocityType
+      // Use wma_total_velocity sort key when WMA mode is active and sorting by velocity
+      const effectiveSortCol = (sort === 'total_velocity' && velocityType === 'wma') ? 'wma_total_velocity' : sort
+      params.sort = effectiveSortCol
+      params.sort_dir = sortDir
       return fetchSkusPage(decodedName, params, {
         limit: pageSize,
         offset: page * pageSize,
@@ -996,12 +1015,65 @@ export default function SkuDetail() {
               <TableHeader>
                 <TableRow data-tour="sku-columns">
                   <TableHead className="w-8"></TableHead>
-                  <TableHead className="w-[80px]">Status <HelpTip tip="Reorder urgency: Critical (order now), Warning (order soon), OK (sufficient stock), Out of Stock (zero inventory)." helpAnchor="stockout-projection" /></TableHead>
-                  <TableHead className="w-[110px]">Part No</TableHead>
+                  <TableHead
+                    className="w-[80px] cursor-pointer hover:text-foreground select-none"
+                    onClick={() => handleSort('reorder_status')}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Status
+                      {sort === 'reorder_status'
+                        ? <span className="text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                        : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                      <HelpTip tip="Reorder urgency: Critical (order now), Warning (order soon), OK (sufficient stock), Out of Stock (zero inventory)." helpAnchor="stockout-projection" />
+                    </span>
+                  </TableHead>
+                  <TableHead
+                    className="w-[110px] cursor-pointer hover:text-foreground select-none"
+                    onClick={() => handleSort('stock_item_name')}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Part No
+                      {sort === 'stock_item_name'
+                        ? <span className="text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                        : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                    </span>
+                  </TableHead>
                   <TableHead>Product Name</TableHead>
-                  <TableHead className="text-right">Stock</TableHead>
-                  <TableHead className="text-right">Velocity /mo <HelpTip tip="Units sold per day, calculated from in-stock days only. Split by channel because wholesale, online, and store are parallel demand tracks." helpAnchor="velocity" /></TableHead>
-                  <TableHead className="text-center w-[60px]">ABC <HelpTip tip="Revenue classification: A = top 80%, B = next 15%, C = bottom 5%. Drives buffer size and reorder priority." helpAnchor="abc-classification" /></TableHead>
+                  <TableHead
+                    className="text-right cursor-pointer hover:text-foreground select-none"
+                    onClick={() => handleSort('current_stock')}
+                  >
+                    <span className="inline-flex items-center gap-1 justify-end">
+                      Stock
+                      {sort === 'current_stock'
+                        ? <span className="text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                        : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                    </span>
+                  </TableHead>
+                  <TableHead
+                    className="text-right cursor-pointer hover:text-foreground select-none"
+                    onClick={() => handleSort('total_velocity')}
+                  >
+                    <span className="inline-flex items-center gap-1 justify-end">
+                      Velocity /mo
+                      {(sort === 'total_velocity' || sort === 'wma_total_velocity')
+                        ? <span className="text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                        : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                      <HelpTip tip="Units sold per day, calculated from in-stock days only. Split by channel because wholesale, online, and store are parallel demand tracks." helpAnchor="velocity" />
+                    </span>
+                  </TableHead>
+                  <TableHead
+                    className="text-center w-[60px] cursor-pointer hover:text-foreground select-none"
+                    onClick={() => handleSort('abc_class')}
+                  >
+                    <span className="inline-flex items-center gap-1 justify-center">
+                      ABC
+                      {sort === 'abc_class'
+                        ? <span className="text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                        : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                      <HelpTip tip="Revenue classification: A = top 80%, B = next 15%, C = bottom 5%. Drives buffer size and reorder priority." helpAnchor="abc-classification" />
+                    </span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody data-tour="sku-expand-hint">

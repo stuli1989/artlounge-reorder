@@ -107,7 +107,8 @@ def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: Bac
     values = list(updates.values())
     values.append(supplier_id)
 
-    buffer_changed = "buffer_override" in sent_fields
+    recalc_fields = {"buffer_override", "lead_time_default", "lead_time_sea", "lead_time_air", "typical_order_months"}
+    needs_recalc = bool(recalc_fields & set(sent_fields.keys()))
 
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -120,7 +121,7 @@ def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: Bac
                 raise HTTPException(404, "Supplier not found")
         conn.commit()
 
-    if buffer_changed:
+    if needs_recalc:
         background_tasks.add_task(_recalc_buffers)
 
     return dict(row)

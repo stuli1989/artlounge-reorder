@@ -3,7 +3,7 @@ import threading
 import time
 from datetime import date, timedelta
 from typing import Literal
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from api.auth import get_current_user, require_role
 from pydantic import BaseModel
 from api.database import get_db
@@ -395,8 +395,19 @@ class ReorderIntentUpdate(BaseModel):
     reorder_intent: Literal['must_stock', 'normal', 'do_not_reorder']
 
 
+def _recompute_for_sku(sku_name: str):
+    """Background task: run targeted recompute for the SKU's brand."""
+    from engine.targeted_recompute import run_targeted_recompute
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT category_name FROM stock_items WHERE name = %s", (sku_name,))
+            row = cur.fetchone()
+        if row:
+            run_targeted_recompute(conn, [row["category_name"]])
+
+
 @router.patch("/skus/{stock_item_name}/reorder-intent")
-def update_reorder_intent(stock_item_name: str, req: ReorderIntentUpdate, user: dict = Depends(require_role("purchaser"))):
+def update_reorder_intent(stock_item_name: str, req: ReorderIntentUpdate, background_tasks: BackgroundTasks, user: dict = Depends(require_role("purchaser"))):
     """Update reorder intent classification on a stock item."""
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -409,6 +420,7 @@ def update_reorder_intent(stock_item_name: str, req: ReorderIntentUpdate, user: 
             if not row:
                 raise HTTPException(404, "Stock item not found")
         conn.commit()
+    background_tasks.add_task(_recompute_for_sku, stock_item_name)
     return dict(row)
 
 
