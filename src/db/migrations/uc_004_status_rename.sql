@@ -27,7 +27,10 @@ END $$;
 ALTER TABLE brand_metrics ADD COLUMN IF NOT EXISTS lost_sales_skus INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE brand_metrics ADD COLUMN IF NOT EXISTS no_demand_skus INTEGER NOT NULL DEFAULT 0;
 
--- 2. Update sku_metrics.reorder_status values
+-- 2. Drop old CHECK constraint (must happen before value update)
+ALTER TABLE sku_metrics DROP CONSTRAINT IF EXISTS valid_reorder_status;
+
+-- 3. Update sku_metrics.reorder_status values
 UPDATE sku_metrics SET reorder_status = CASE reorder_status
   WHEN 'stocked_out' THEN 'lost_sales'
   WHEN 'critical' THEN 'urgent'
@@ -37,3 +40,7 @@ UPDATE sku_metrics SET reorder_status = CASE reorder_status
   ELSE reorder_status
 END
 WHERE reorder_status IN ('stocked_out', 'critical', 'warning', 'ok', 'no_demand');
+
+-- 4. Add new CHECK constraint with updated values
+ALTER TABLE sku_metrics ADD CONSTRAINT valid_reorder_status
+  CHECK (reorder_status IN ('urgent', 'reorder', 'healthy', 'out_of_stock', 'lost_sales', 'dead_stock', 'no_data'));
