@@ -1,0 +1,28 @@
+﻿commands:
+  install_backend: cd src && venv\Scripts\python -m pip install -r requirements.txt
+  install_frontend: cd src\dashboard && npm install
+  test: cd src && venv\Scripts\python -m pytest tests/ -x -q
+  build_frontend: cd src\dashboard && npm run build
+  typecheck_frontend: cd src\dashboard && npx tsc --noEmit
+
+services:
+  postgres:
+    start: echo "PostgreSQL already running on 5432"
+    stop: echo "Do not stop PostgreSQL"
+    healthcheck: curl.exe -sf http://localhost:8000/api/health
+    port: 5432
+    depends_on: []
+
+  api:
+    start: cd src && start /B venv\Scripts\python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    stop: for /f "tokens=5" %a in ('netstat -ano ^| findstr :8000 ^| findstr LISTENING') do taskkill /PID %a /F
+    healthcheck: curl.exe -sf http://localhost:8000/api/health
+    port: 8000
+    depends_on: [postgres]
+
+  vite:
+    start: cd src\dashboard && start /B npm run dev
+    stop: for /f "tokens=5" %a in ('netstat -ano ^| findstr :5173 ^| findstr LISTENING') do taskkill /PID %a /F
+    healthcheck: curl.exe -sf http://localhost:5173
+    port: 5173
+    depends_on: [api]
