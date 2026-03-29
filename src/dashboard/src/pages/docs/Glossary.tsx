@@ -19,7 +19,7 @@ const GLOSSARY: GlossaryEntry[] = [
   { term: 'GRN', definition: 'Goods Received Note — a purchase receipt. Adds stock when goods arrive from supplier.' },
   { term: 'Healthy', definition: 'Status: stock is well above the reorder point. Pipeline is flowing, order on your normal cycle.', linkTo: '/docs/statuses#status-table' },
   { term: 'In-Stock Days', definition: 'Days when the SKU had stock available for sale. Out-of-stock days are excluded from velocity calculation.', linkTo: '/docs/calculations#velocity' },
-  { term: 'Lead Time', definition: 'Days from placing an order to receiving goods. Default 90 days (sea freight). Configurable per supplier.', linkTo: '/docs/calculations#lead-time' },
+  { term: 'Lead Time', definition: 'Days from placing an order to receiving goods. Default 90 days per supplier setting (engine fallback: 180 days if no supplier configured). Configurable per supplier on the Suppliers page.', linkTo: '/docs/calculations#lead-time' },
   { term: 'Lost Sales', definition: 'Status: zero stock with proven demand. You are actively losing revenue every day.', linkTo: '/docs/statuses#status-table' },
   { term: 'No Data', definition: 'Status: insufficient transaction history to make a recommendation.' },
   { term: 'Out of Stock', definition: 'Status: zero stock AND zero velocity. Demand is unknown — might sell if restocked.', linkTo: '/docs/statuses#status-table' },

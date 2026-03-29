@@ -391,18 +391,18 @@ Days left: 20 ÷ 4.61 = 4.3 days`}
       {/* ── Lead Time & Coverage ── */}
       <DocSection id="lead-time" title="Lead Time & Coverage">
         <p>
-          Lead time = how many days from placing an order to receiving the goods. For sea freight from Europe, that's typically 90 days. For air freight, 15–20 days.
+          Lead time = how many days from placing an order to receiving the goods. Default is 90 days per supplier setting (engine fallback: 180 days if no supplier configured). For air freight, 15–20 days. Configurable per supplier on the Suppliers page.
         </p>
 
         <p>Coverage period = how long the order should last after it arrives.</p>
 
         <FormulaBlock>
-          {`turns_per_year = min(max(1, 365 ÷ lead_time), 6)
-coverage_days  = 365 ÷ turns_per_year
+          {`turns_per_year = min(max(1, ⌊365 ÷ lead_time⌋), 6)
+coverage_days  = ⌊365 ÷ turns_per_year⌋   (integer division, rounded down)
 
 Example: lead_time = 90 days
-  turns = min(max(1, 365 ÷ 90), 6) = min(4, 6) = 4
-  coverage = 365 ÷ 4 = 91 days`}
+  turns = min(max(1, ⌊365 ÷ 90⌋), 6) = min(4, 6) = 4
+  coverage = ⌊365 ÷ 4⌋ = 91 days`}
         </FormulaBlock>
 
         <p>So with 90-day lead time, each order should cover about 91 days of demand.</p>

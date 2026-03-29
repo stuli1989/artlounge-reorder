@@ -306,7 +306,7 @@ export default function DataSources() {
 
       {/* ── 7. Nightly Sync ──────────────────────────────────────────────── */}
       <DocSection id="nightly-sync" title="Nightly Sync">
-        <p>Every night at 10:30 PM IST, the system runs this pipeline:</p>
+        <p>Every night at 10 PM UTC (3:30 AM IST), the system runs this pipeline:</p>
 
         <FlowDiagram
           animated

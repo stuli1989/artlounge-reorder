@@ -332,7 +332,7 @@ function DecisionTree() {
             <TreeNode isTerminal statusName="Urgent" label="→" />
           </Branch>
           <Branch label="NO" isLast>
-            <TreeNode label="Days left ≤ lead time + buffer?" />
+            <TreeNode label="Days left ≤ lead + max(30, 50% of lead)?" />
             <Branch label="YES">
               <TreeNode isTerminal statusName="Reorder" label="→" />
             </Branch>
@@ -434,6 +434,10 @@ export default function Statuses() {
       <DocSection id="decision-tree" title="Status Decision Tree">
         <p style={{ marginTop: 0 }}>The system follows this logic to assign each status.</p>
         <DecisionTree />
+        <CalloutBox type="info" title="Where is No Data?">
+          No Data is assigned before this tree runs — items with no transaction history never enter the
+          status logic. They are flagged as No Data at the pipeline level.
+        </CalloutBox>
       </DocSection>
 
       {/* Section 4: What To Do */}

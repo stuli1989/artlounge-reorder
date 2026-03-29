@@ -188,9 +188,9 @@ Out-of-stock:    67  (excluded — we can't sell what we don't have)`}
 Coverage period  = 90 days  (post-arrival stock duration)
 Buffer           = 1.3×     (ABC=A items)
 
-Stock at arrival = max(0,  20 - 41.55 × 90 × 1.3) = 0  (will be out)
-Order for coverage = 41.55 × 90 × 1.3  =  4,861 units
-Suggested qty    = 4,861 - 0  =  ~8,580 units`}
+demand_during_lead  = 41.55 × 90            =  3,740 units  (no buffer)
+order_for_coverage  = 41.55 × 90 × 1.3      =  4,861 units  (buffer here)
+suggested_qty       = 3,740 + 4,861 − 20    =  8,581 units`}
         </FormulaBlock>
 
         <h3 style={{ color: 'var(--docs-text)', fontSize: '1.1rem', fontWeight: 600, margin: '1.5rem 0 0.5rem' }}>
@@ -198,8 +198,8 @@ Suggested qty    = 4,861 - 0  =  ~8,580 units`}
         </h3>
         <p>
           This SKU is always urgent. At 41.5 units/day, 20 units is half a day of stock — barely enough to handle
-          today's orders. The large suggested quantity (8,580 units) reflects 180 days of demand at full velocity
-          with a 1.3× buffer. If you're not already placing this order, you're losing sales.
+          today's orders. The large suggested quantity (8,581 units) reflects 90 days of lead time demand plus 90
+          days of buffered coverage. If you're not already placing this order, you're losing sales.
         </p>
 
         <CalloutBox
@@ -258,9 +258,9 @@ Out-of-stock:   305  (excluded from velocity denominator)
 demand_cv = 2.63  ← extreme spikiness (bulk wholesale batches)`}
         </FormulaBlock>
         <FormulaBlock caption="Reorder quantity">
-{`Stock at arrival = max(0, 10 - 5.98 × 90 × 1.3) = 0
-Coverage qty     = 5.98 × 90 × 1.3  =  700 units
-Suggested qty    = 700 - 0  =  1,228 units`}
+{`demand_during_lead  = 5.98 × 90            =  538 units  (no buffer)
+order_for_coverage  = 5.98 × 90 × 1.3      =  700 units  (buffer here)
+suggested_qty       = 538 + 700 − 10        =  1,228 units`}
         </FormulaBlock>
 
         <h3 style={{ color: 'var(--docs-text)', fontSize: '1.1rem', fontWeight: 600, margin: '1.5rem 0 0.5rem' }}>
@@ -332,11 +332,11 @@ Online          3        0.011      0.33       4%
 Total          78        0.283      8.48     100%`}
         </FormulaBlock>
         <FormulaBlock caption="Reorder quantity">
-{`Velocity = 78 ÷ 276 = 0.2826 units/day = 8.48 units/month
+{`Velocity = 78 ÷ 216 = 0.36 units/day = 10.8 units/month
 
-Stock at arrival = max(0, 8 - 0.2826 × 90 × 1.3) = 0
-Coverage qty     = 0.2826 × 90 × 1.3  =  33 units
-Suggested qty    = 33 - 0  =  ~50 units`}
+demand_during_lead  = 0.36 × 90            =  32 units  (no buffer)
+order_for_coverage  = 0.36 × 90 × 1.1      =  36 units  (buffer here, ABC=C)
+suggested_qty       = 32 + 36 − 8           =  60 units`}
         </FormulaBlock>
 
         <h3 style={{ color: 'var(--docs-text)', fontSize: '1.1rem', fontWeight: 600, margin: '1.5rem 0 0.5rem' }}>
@@ -344,7 +344,7 @@ Suggested qty    = 33 - 0  =  ~50 units`}
         </h3>
         <p>
           The contrast with the Workhorse is sharp: same urgent status, but the pattern is completely
-          different — retail trickle instead of wholesale bulk. The 50-unit suggested order covers
+          different — retail trickle instead of wholesale bulk. The 60-unit suggested order covers
           six months of store sales. Don't let the small numbers fool you; this marker is always
           on the counter and always sells.
         </p>
@@ -409,11 +409,11 @@ Wholesale        6        0.028      0.83      2.4%
 Total          253        1.171     35.14    100%`}
         </FormulaBlock>
         <FormulaBlock caption="Reorder quantity">
-{`Velocity = 253 ÷ 216 = 1.1713 units/day = 35.14 units/month
+{`Velocity = 253 ÷ 216 = 1.17 units/day = 35.14 units/month
 
-Stock at arrival = max(0, 7 - 1.1713 × 90 × 1.3) = 0
-Coverage qty     = 1.1713 × 90 × 1.3  =  137 units
-Suggested qty    = 137 - 0  =  ~235 units`}
+demand_during_lead  = 1.17 × 90            =  105 units  (no buffer)
+order_for_coverage  = 1.17 × 90 × 1.3      =  137 units  (buffer here)
+suggested_qty       = 105 + 137 − 14        =  228 units`}
         </FormulaBlock>
 
         <h3 style={{ color: 'var(--docs-text)', fontSize: '1.1rem', fontWeight: 600, margin: '1.5rem 0 0.5rem' }}>
@@ -423,7 +423,7 @@ Suggested qty    = 137 - 0  =  ~235 units`}
           Pure online demand — customers discover this premium pencil colour on the website and order
           individually. The pattern is the inverse of the Flash Seller: small, regular orders instead
           of occasional bulk wholesale bursts. With 6 days of stock left, this needs ordering now.
-          The 235-unit suggest covers 6 months of steady online pull.
+          The 228-unit suggestion covers 6 months of steady online pull.
         </p>
 
         <CalloutBox
@@ -479,8 +479,8 @@ Suggested qty    = 137 - 0  =  ~235 units`}
 Units sold     = 0
 Velocity       = 0.0 units/day
 
-Dead stock threshold: in_stock_days ≥ 14  AND  total_demand = 0
-→ status = "dead_stock"   (not "out_of_stock", not "no_data")
+Dead stock rule:  velocity = 0  AND  stock > 0  →  status = "dead_stock"
+(No day threshold — any item with stock and zero velocity is dead stock)
 
 Suggested qty  = null  (no reorder calculation — system refuses to suggest)`}
         </FormulaBlock>
@@ -552,13 +552,13 @@ zero_activity_ratio = 0.99  (99% of days had no activity)`}
         <FormulaBlock caption="Stockout and reorder decision">
 {`Days to stockout = 6 ÷ 0.0102 = 588 days
 
-Healthy threshold: days_remaining > lead_time (90d) + 30d buffer
-                   588 > 120  →  TRUE  →  status = "healthy"
+Healthy threshold: days_remaining > lead_time + max(30, 50% of lead)
+                   588 > 90 + max(30, 45) = 135  →  TRUE  →  status = "healthy"
 
 Reorder check:
-  Stock at arrival = max(0, 6 - 0.0102 × 90 × 1.3) = 4.8 units
-  Coverage needed  = 0.0102 × 90 × 1.3  =  1.2 units
-  Suggested qty    = 1.2 - 4.8  =  −3.6  →  null (no order needed)`}
+  demand_during_lead  = 0.0102 × 90            =  0.9 units  (no buffer)
+  order_for_coverage  = 0.0102 × 90 × 1.1      =  1.0 units  (buffer, ABC=C)
+  suggested_qty       = 0.9 + 1.0 − 6           =  −4.1  →  null (no order needed)`}
         </FormulaBlock>
 
         <h3 style={{ color: 'var(--docs-text)', fontSize: '1.1rem', fontWeight: 600, margin: '1.5rem 0 0.5rem' }}>

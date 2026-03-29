@@ -151,7 +151,7 @@ export default function Architecture() {
 
       <DocSection id="sync-schedule" title="Sync Schedule">
         <p style={{ marginTop: 0 }}>
-          Runs nightly at 10:30 PM IST (<code style={{ fontFamily: 'monospace', fontSize: '0.875rem', background: 'var(--docs-bg-code)', padding: '0.1rem 0.35rem', borderRadius: '3px', border: '1px solid var(--docs-border)' }}>UTC 0 22 * * *</code>) as a Railway cron service. Takes 5–10 minutes. Success/failure notification sent via email.
+          Runs nightly at 10 PM UTC / 3:30 AM IST (<code style={{ fontFamily: 'monospace', fontSize: '0.875rem', background: 'var(--docs-bg-code)', padding: '0.1rem 0.35rem', borderRadius: '3px', border: '1px solid var(--docs-border)' }}>0 22 * * * UTC</code>) as a Railway cron service. Takes 5–10 minutes. Success/failure notification sent via email.
         </p>
         <CalloutBox type="info" title="If sync fails">
           Check the Railway logs first. Common causes: UC API timeout (retry usually fixes it) or
