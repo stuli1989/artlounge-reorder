@@ -23,6 +23,10 @@ DO $$ BEGIN
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
 
+-- 1b. Ensure columns exist (may not have been in original schema)
+ALTER TABLE brand_metrics ADD COLUMN IF NOT EXISTS lost_sales_skus INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE brand_metrics ADD COLUMN IF NOT EXISTS no_demand_skus INTEGER NOT NULL DEFAULT 0;
+
 -- 2. Update sku_metrics.reorder_status values
 UPDATE sku_metrics SET reorder_status = CASE reorder_status
   WHEN 'stocked_out' THEN 'lost_sales'
