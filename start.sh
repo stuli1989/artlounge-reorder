@@ -46,9 +46,10 @@ else:
     else:
         print('uc_003 already applied.')
 
-    # Check if uc_004 needs applying
-    cur.execute(\"SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='brand_metrics' AND column_name='urgent_skus')\")
-    if not cur.fetchone()[0]:
+    # Check if uc_004 needs applying (check both column rename AND status values)
+    cur.execute(\"SELECT EXISTS(SELECT 1 FROM sku_metrics WHERE reorder_status IN ('critical','warning','ok','stocked_out','no_demand') LIMIT 1)\")
+    has_old_statuses = cur.fetchone()[0]
+    if has_old_statuses:
         print('Running uc_004 migration (status rename)...')
         with open('db/migrations/uc_004_status_rename.sql') as f:
             cur.execute(f.read())
