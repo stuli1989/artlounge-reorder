@@ -122,7 +122,7 @@ The current status system has 7 values (`stocked_out`, `out_of_stock`, `critical
    - `warning_skus` → `reorder_skus`
    - `ok_skus` → `healthy_skus`
    - `stocked_out_skus` → `lost_sales_skus`
-   - `no_demand_skus` → `dead_stock_skus`
+   - `no_demand_skus` — **NOT renamed** (`dead_stock_skus` already exists for the F19 date-based dead stock metric; column keeps old name to avoid conflict)
 
 2. Update `sku_metrics.reorder_status` values:
    ```sql
