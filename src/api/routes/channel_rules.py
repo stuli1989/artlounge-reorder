@@ -1,7 +1,7 @@
 """Channel rules CRUD API endpoints."""
 import threading
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from api.database import get_db
 from api.auth import get_current_user, require_role
 
@@ -17,6 +17,13 @@ class ChannelRuleCreate(BaseModel):
     facility_filter: str | None = None
     channel: str
     priority: int
+
+    @field_validator("match_value")
+    @classmethod
+    def match_value_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("match_value cannot be empty or whitespace")
+        return v.strip()
 
 
 class ChannelRuleUpdate(BaseModel):

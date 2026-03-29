@@ -142,7 +142,7 @@ def classify_channel(parsed_row, rules=None):
 
             if rt == "entity" and entity == mv:
                 return rule["channel"]
-            if rt == "sale_order_prefix" and sale_order.startswith(mv):
+            if rt == "sale_order_prefix" and mv and sale_order.startswith(mv):
                 if ff and facility != ff:
                     continue
                 return rule["channel"]
