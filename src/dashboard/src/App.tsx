@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -18,7 +18,17 @@ const OverrideReview = lazy(() => import('./pages/OverrideReview'))
 const DeadStock = lazy(() => import('./pages/DeadStock'))
 const CriticalSkus = lazy(() => import('./pages/CriticalSkus'))
 const Settings = lazy(() => import('./pages/Settings'))
-const Help = lazy(() => import('./pages/Help'))
+
+const DocsLayout = lazy(() => import('./pages/docs/components/DocsLayout'))
+const DocsOverview = lazy(() => import('./pages/docs/Overview'))
+const DocsDataSources = lazy(() => import('./pages/docs/DataSources'))
+const DocsCalculations = lazy(() => import('./pages/docs/Calculations'))
+const DocsStatuses = lazy(() => import('./pages/docs/Statuses'))
+const DocsWalkthroughs = lazy(() => import('./pages/docs/Walkthroughs'))
+const DocsDashboardGuide = lazy(() => import('./pages/docs/DashboardGuide'))
+const DocsWorkflows = lazy(() => import('./pages/docs/Workflows'))
+const DocsArchitecture = lazy(() => import('./pages/docs/Architecture'))
+const DocsGlossary = lazy(() => import('./pages/docs/Glossary'))
 
 function LoadingSkeleton() {
   const isMobile = useIsMobile()
@@ -62,6 +72,22 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<SuspenseWrapper><Login /></SuspenseWrapper>} />
+
+          {/* Docs — public, no auth */}
+          <Route path="/docs" element={<SuspenseWrapper><DocsLayout /></SuspenseWrapper>}>
+            <Route index element={<Navigate to="/docs/overview" replace />} />
+            <Route path="overview" element={<SuspenseWrapper><DocsOverview /></SuspenseWrapper>} />
+            <Route path="data-sources" element={<SuspenseWrapper><DocsDataSources /></SuspenseWrapper>} />
+            <Route path="calculations" element={<SuspenseWrapper><DocsCalculations /></SuspenseWrapper>} />
+            <Route path="statuses" element={<SuspenseWrapper><DocsStatuses /></SuspenseWrapper>} />
+            <Route path="walkthroughs" element={<SuspenseWrapper><DocsWalkthroughs /></SuspenseWrapper>} />
+            <Route path="dashboard-guide" element={<SuspenseWrapper><DocsDashboardGuide /></SuspenseWrapper>} />
+            <Route path="workflows" element={<SuspenseWrapper><DocsWorkflows /></SuspenseWrapper>} />
+            <Route path="architecture" element={<SuspenseWrapper><DocsArchitecture /></SuspenseWrapper>} />
+            <Route path="glossary" element={<SuspenseWrapper><DocsGlossary /></SuspenseWrapper>} />
+            <Route path="*" element={<Navigate to="/docs/overview" replace />} />
+          </Route>
+
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={<SuspenseWrapper><Home /></SuspenseWrapper>} />
@@ -76,7 +102,6 @@ export default function App() {
               <Route path="/overrides" element={<SuspenseWrapper><OverrideReview /></SuspenseWrapper>} />
               <Route path="/settings" element={<SuspenseWrapper><Settings /></SuspenseWrapper>} />
               <Route path="/users" element={<SuspenseWrapper><Users /></SuspenseWrapper>} />
-              <Route path="/help" element={<SuspenseWrapper><Help /></SuspenseWrapper>} />
               <Route path="*" element={
                 <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
                   <h1 className="text-4xl font-bold mb-2">404</h1>

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { HelpCircle, BookOpen, Play, type LucideIcon } from 'lucide-react'
 
@@ -20,10 +19,9 @@ function MenuItem({ icon: Icon, label, onClick }: { icon: LucideIcon; label: str
 
 export default function HelpMenu({ onReplayTour }: HelpMenuProps) {
   const [open, setOpen] = useState(false)
-  const navigate = useNavigate()
 
   const items = [
-    { icon: BookOpen, label: 'Help Guide', action: () => navigate('/help') },
+    { icon: BookOpen, label: 'Docs', action: () => window.open('/docs', '_blank', 'noopener') },
     { icon: Play, label: 'Replay Tour', action: () => onReplayTour() },
   ]
 

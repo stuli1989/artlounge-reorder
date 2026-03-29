@@ -97,6 +97,9 @@ export default function Layout() {
                 {syncLabel ? `Synced ${syncLabel}` : 'Never synced'}
               </div>
             )}
+            <a href="/docs" target="_blank" rel="noopener" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Docs
+            </a>
             <div data-tour="help-menu">
               <HelpMenu onReplayTour={handleReplayTour} />
             </div>

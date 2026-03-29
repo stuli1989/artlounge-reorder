@@ -44,7 +44,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/overrides': 'Overrides',
   '/settings': 'Settings',
   '/users': 'Users',
-  '/help': 'Help Guide',
+  '/docs': 'Docs',
 }
 
 function getPageTitle(pathname: string): string {
@@ -110,7 +110,7 @@ export default function MobileLayout({ tourRunning, setTourRunning, sync, staleO
           { path: '/settings', label: 'Settings', icon: Settings },
           { path: '/users', label: 'Users', icon: UserCog },
         ] : []),
-        { path: '/help', label: 'Help Guide', icon: BookOpen },
+        { path: '/docs', label: 'Docs', icon: BookOpen },
       ],
     },
   ]
