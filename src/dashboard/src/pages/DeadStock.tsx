@@ -306,7 +306,7 @@ export default function DeadStock() {
                       key={s.stock_item_name}
                       title={s.part_no || s.stock_item_name}
                       subtitle={`Part No: ${s.stock_item_name}`}
-                      status="warning"
+                      status="reorder"
                       statusLabel={`${vel(s.effective_velocity ?? s.total_velocity)}/mo`}
                       metrics={[
                         { label: 'Stock', value: String(s.effective_stock ?? s.current_stock) },

@@ -878,7 +878,7 @@ export default function PoBuilder() {
                     <Checkbox checked={r.included} onCheckedChange={() => toggleRow(r.stock_item_name)} />
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={r.reorder_status as 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'} />
+                    <StatusBadge status={r.reorder_status as 'urgent' | 'reorder' | 'healthy' | 'out_of_stock' | 'no_data'} />
                   </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">{r.stock_item_name}</TableCell>
                   <TableCell className="max-w-[250px]" title={r.part_no || r.stock_item_name}>

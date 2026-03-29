@@ -23,7 +23,7 @@ export const MOBILE_TOUR_STEPS: Step[] = [
   {
     target: '[data-tour-mobile="bottom-tabs"]',
     placement: 'top',
-    content: 'Navigate between your daily workflow pages using these tabs: Home, Brands, Critical SKUs, and PO Builder.',
+    content: 'Navigate between your daily workflow pages using these tabs: Home, Brands, Priority SKUs, and PO Builder.',
     title: 'Navigation',
   },
   {
@@ -35,7 +35,7 @@ export const MOBILE_TOUR_STEPS: Step[] = [
   {
     target: '[data-tour="summary-cards"]',
     placement: 'bottom',
-    content: 'Your daily snapshot. Critical SKUs need ordering now. Tap any card to see details.',
+    content: 'Your daily snapshot. Urgent SKUs need ordering now. Tap any card to see details.',
     title: 'Summary Cards',
   },
   {
@@ -54,7 +54,7 @@ export const MOBILE_TOUR_STEPS: Step[] = [
   {
     target: '[data-tour="brand-cards"]',
     placement: 'bottom',
-    content: 'Each card shows a brand\'s health at a glance: critical count, warnings, and stock status.',
+    content: 'Each card shows a brand\'s health at a glance: urgent count, reorder items, and stock status.',
     title: 'Brand Cards',
   },
   {

@@ -49,9 +49,9 @@ function getPresetRange(preset: string): { from: string; to: string } | null {
 }
 
 const DEFAULT_COUNTS: SkuCounts = {
-  critical: 0,
-  warning: 0,
-  ok: 0,
+  urgent: 0,
+  reorder: 0,
+  healthy: 0,
   out_of_stock: 0,
   no_data: 0,
   dead_stock: 0,
@@ -415,8 +415,8 @@ export default function SkuDetail() {
     queryKey: ['skus', decodedName, statusFilter, activeSearch, analysisRange?.from, analysisRange?.to, page, pageSize, abcFilter, hideInactive, velocityType, xyzFilter, hazardousFilter, deadStockFilter, intentFilter],
     queryFn: () => {
       const params: Record<string, string> = {}
-      if (statusFilter === 'critical') params.status = 'critical'
-      else if (statusFilter === 'critical_warning') params.status = 'critical,warning'
+      if (statusFilter === 'urgent') params.status = 'urgent'
+      else if (statusFilter === 'urgent_reorder') params.status = 'urgent,reorder'
       else if (statusFilter === 'out_of_stock') params.status = 'out_of_stock'
       if (deadStockFilter) params.dead_stock = 'true'
       if (hazardousFilter) params.hazardous = 'true'
@@ -477,8 +477,8 @@ export default function SkuDetail() {
 
   const statusPills = [
     { value: 'all', label: 'All', count: totalSkus },
-    { value: 'critical', label: 'Critical', count: counts.critical, color: 'text-red-600' },
-    { value: 'critical_warning', label: 'Warning', count: counts.warning, color: 'text-amber-600' },
+    { value: 'urgent', label: 'Urgent', count: counts.urgent, color: 'text-red-600' },
+    { value: 'urgent_reorder', label: 'Reorder', count: counts.reorder, color: 'text-amber-600' },
     { value: 'out_of_stock', label: 'OOS', count: counts.out_of_stock, color: 'text-red-500' },
   ]
 
@@ -531,9 +531,9 @@ export default function SkuDetail() {
         {/* Summary Cards — horizontal scroll */}
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
           {[
-            { label: 'Critical', value: counts.critical, color: 'text-red-600' },
-            { label: 'Warning', value: counts.warning, color: 'text-amber-600' },
-            { label: 'OK', value: counts.ok, color: 'text-green-600' },
+            { label: 'Urgent', value: counts.urgent, color: 'text-red-600' },
+            { label: 'Reorder', value: counts.reorder, color: 'text-amber-600' },
+            { label: 'Healthy', value: counts.healthy, color: 'text-green-600' },
             { label: 'OOS', value: counts.out_of_stock, color: 'text-red-500' },
             { label: 'Dead', value: counts.dead_stock, color: 'text-blue-600' },
           ].map(c => (
@@ -840,9 +840,9 @@ export default function SkuDetail() {
         {/* Summary Cards */}
         <div className="grid grid-cols-5 gap-4">
           {[
-            { label: 'Critical', value: counts.critical, color: 'text-red-600' },
-            { label: 'Warning', value: counts.warning, color: 'text-amber-600' },
-            { label: 'OK', value: counts.ok, color: 'text-green-600' },
+            { label: 'Urgent', value: counts.urgent, color: 'text-red-600' },
+            { label: 'Reorder', value: counts.reorder, color: 'text-amber-600' },
+            { label: 'Healthy', value: counts.healthy, color: 'text-green-600' },
             { label: 'Out of Stock', value: counts.out_of_stock, color: 'text-red-500' },
             { label: 'Dead Stock', value: counts.dead_stock, color: 'text-blue-600' },
           ].map(c => (
@@ -879,8 +879,8 @@ export default function SkuDetail() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="critical">Critical Only</SelectItem>
-              <SelectItem value="critical_warning">Critical & Warning</SelectItem>
+              <SelectItem value="urgent">Urgent Only</SelectItem>
+              <SelectItem value="urgent_reorder">Urgent & Reorder</SelectItem>
               <SelectItem value="out_of_stock">Out of Stock</SelectItem>
             </SelectContent>
           </Select>

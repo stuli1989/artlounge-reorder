@@ -2,17 +2,21 @@ import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
 
 const STATUS_BORDER: Record<string, string> = {
-  critical: 'border-l-red-500',
-  warning: 'border-l-amber-500',
-  ok: 'border-l-green-500',
+  urgent: 'border-l-red-500',
+  reorder: 'border-l-amber-500',
+  healthy: 'border-l-green-500',
+  lost_sales: 'border-l-red-600',
+  dead_stock: 'border-l-gray-400',
   out_of_stock: 'border-l-gray-400',
   no_data: 'border-l-gray-400',
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  critical: 'bg-red-900/60 text-red-300',
-  warning: 'bg-amber-900/60 text-amber-300',
-  ok: 'bg-green-900/60 text-green-300',
+  urgent: 'bg-red-900/60 text-red-300',
+  reorder: 'bg-amber-900/60 text-amber-300',
+  healthy: 'bg-green-900/60 text-green-300',
+  lost_sales: 'bg-red-900/80 text-red-200',
+  dead_stock: 'bg-gray-800 text-gray-400',
   out_of_stock: 'bg-gray-800 text-gray-400',
   no_data: 'bg-gray-800 text-gray-400',
 }

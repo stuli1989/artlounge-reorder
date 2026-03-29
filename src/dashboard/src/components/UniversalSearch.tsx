@@ -143,8 +143,8 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
                   </span>
                   <span className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
                     <span>{b.total_skus} SKUs</span>
-                    {b.critical_skus > 0 && (
-                      <span className="text-red-500 font-medium">{b.critical_skus} critical</span>
+                    {b.urgent_skus > 0 && (
+                      <span className="text-red-500 font-medium">{b.urgent_skus} urgent</span>
                     )}
                   </span>
                 </button>

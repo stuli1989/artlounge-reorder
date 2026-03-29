@@ -20,7 +20,7 @@ import type { FilterChip } from '@/components/mobile/FilterDrawer'
 import type { SortOption } from '@/components/mobile/MobileSortSheet'
 
 const BRAND_SORT_OPTIONS: SortOption[] = [
-  { value: 'critical_skus', label: 'Critical SKUs' },
+  { value: 'urgent_skus', label: 'Urgent SKUs' },
   { value: 'total_skus', label: 'Total SKUs' },
   { value: 'dead_stock_skus', label: 'Dead Stock' },
   { value: 'avg_days_to_stockout', label: 'Avg Days to Stockout' },
@@ -32,7 +32,7 @@ export default function BrandOverview() {
   const isMobile = useIsMobile()
   const queryClient = useQueryClient()
   const [criticalOnly, setCriticalOnly] = useState(false)
-  const [sortCol, setSortCol] = useState<string>('critical_skus')
+  const [sortCol, setSortCol] = useState<string>('urgent_skus')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact')
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false)
@@ -67,7 +67,7 @@ export default function BrandOverview() {
 
   const filteredBrands = useMemo(() =>
     (brands || [])
-      .filter(b => !criticalOnly || b.critical_skus > 0 || b.warning_skus > 0)
+      .filter(b => !criticalOnly || b.urgent_skus > 0 || b.reorder_skus > 0)
       .sort((a, b) => {
         const aVal = ((a as unknown as Record<string, unknown>)[sortCol] as number) ?? -Infinity
         const bVal = ((b as unknown as Record<string, unknown>)[sortCol] as number) ?? -Infinity
@@ -87,8 +87,8 @@ export default function BrandOverview() {
 
   const summaryCards = [
     { label: 'Total Brands', value: summary?.total_brands, color: '' },
-    { label: 'Brands with Critical', value: summary?.brands_with_critical, color: 'text-red-600' },
-    { label: 'Brands with Warning', value: summary?.brands_with_warning, color: 'text-amber-600' },
+    { label: 'Brands with Urgent', value: summary?.brands_with_urgent, color: 'text-red-600' },
+    { label: 'Brands with Reorder', value: summary?.brands_with_reorder, color: 'text-amber-600' },
     { label: 'SKUs Out of Stock', value: summary?.total_skus_out_of_stock, color: 'text-red-600' },
     { label: 'Dead Stock SKUs', value: summary?.total_dead_stock_skus, color: 'text-blue-600' },
     { label: 'Slow Mover SKUs', value: summary?.total_slow_mover_skus, color: 'text-amber-600' },
@@ -96,8 +96,8 @@ export default function BrandOverview() {
 
   // Mobile filter chips
   const mobileFilterChips: FilterChip[] = []
-  if (criticalOnly) mobileFilterChips.push({ key: 'critical', label: 'Critical/Warning only', onRemove: () => setCriticalOnly(false) })
-  const mobileFilterCount = mobileFilterChips.length + (sortCol !== 'critical_skus' ? 1 : 0)
+  if (criticalOnly) mobileFilterChips.push({ key: 'critical', label: 'Urgent/Reorder only', onRemove: () => setCriticalOnly(false) })
+  const mobileFilterCount = mobileFilterChips.length + (sortCol !== 'urgent_skus' ? 1 : 0)
 
   if (isError) return <div className="p-8 text-center text-muted-foreground">Failed to load brands. <button onClick={() => refetch()} className="text-primary hover:underline">Retry</button></div>
 
@@ -139,9 +139,9 @@ export default function BrandOverview() {
         ) : (
           <div className="space-y-3 -mx-4">
             {filteredBrands.map(b => {
-              const worstStatus = b.critical_skus > 0 ? 'critical' : b.warning_skus > 0 ? 'warning' : 'ok'
-              const borderColor = worstStatus === 'critical' ? 'border-l-red-500' : worstStatus === 'warning' ? 'border-l-amber-500' : 'border-l-green-500'
-              const healthPct = b.total_skus > 0 ? Math.round((b.ok_skus / b.total_skus) * 100) : 0
+              const worstStatus = b.urgent_skus > 0 ? 'urgent' : b.reorder_skus > 0 ? 'reorder' : 'healthy'
+              const borderColor = worstStatus === 'urgent' ? 'border-l-red-500' : worstStatus === 'reorder' ? 'border-l-amber-500' : 'border-l-green-500'
+              const healthPct = b.total_skus > 0 ? Math.round((b.healthy_skus / b.total_skus) * 100) : 0
               const healthColor = healthPct >= 70 ? 'text-green-600' : healthPct >= 40 ? 'text-amber-600' : 'text-red-600'
               return (
                 <div
@@ -158,16 +158,16 @@ export default function BrandOverview() {
                   </div>
                   <div className="grid grid-cols-4 gap-2 text-center">
                     <div>
-                      <div className="text-sm font-bold text-red-600">{b.critical_skus}</div>
-                      <div className="text-[10px] text-muted-foreground">Crit</div>
+                      <div className="text-sm font-bold text-red-600">{b.urgent_skus}</div>
+                      <div className="text-[10px] text-muted-foreground">Urgent</div>
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-amber-600">{b.warning_skus}</div>
-                      <div className="text-[10px] text-muted-foreground">Warn</div>
+                      <div className="text-sm font-bold text-amber-600">{b.reorder_skus}</div>
+                      <div className="text-[10px] text-muted-foreground">Reorder</div>
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-green-600">{b.ok_skus}</div>
-                      <div className="text-[10px] text-muted-foreground">OK</div>
+                      <div className="text-sm font-bold text-green-600">{b.healthy_skus}</div>
+                      <div className="text-[10px] text-muted-foreground">Healthy</div>
                     </div>
                     <div>
                       <div className="text-sm font-bold text-blue-600">{b.dead_stock_skus}</div>
@@ -188,7 +188,7 @@ export default function BrandOverview() {
                 checked={criticalOnly}
                 onCheckedChange={(v) => setCriticalOnly(!!v)}
               />
-              <span className="text-sm">Show critical/warning only</span>
+              <span className="text-sm">Show urgent/reorder only</span>
             </label>
             <div>
               <div className="text-sm font-medium mb-2">Sort by</div>
@@ -243,7 +243,7 @@ export default function BrandOverview() {
             checked={criticalOnly}
             onCheckedChange={(v) => setCriticalOnly(!!v)}
           />
-          <Label htmlFor="critical-only" className="text-sm">Show critical/warning only</Label>
+          <Label htmlFor="critical-only" className="text-sm">Show urgent/reorder only</Label>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <ClassificationExplainer />
@@ -295,8 +295,8 @@ export default function BrandOverview() {
             <TableHeader>
               <TableRow>
                 <TableHead>Brand</TableHead>
-                <TableHead className="cursor-pointer" onClick={() => toggleSort('critical_skus')}>
-                  <span className="flex items-center gap-1">Health <HelpTip tip="Combined health indicator: count of critical, warning, and ok SKUs for this brand." helpAnchor="stockout-projection" /> <ArrowUpDown className="h-3 w-3" /></span>
+                <TableHead className="cursor-pointer" onClick={() => toggleSort('urgent_skus')}>
+                  <span className="flex items-center gap-1">Health <HelpTip tip="Combined health indicator: count of urgent, reorder, and healthy SKUs for this brand." helpAnchor="stockout-projection" /> <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
                 <TableHead className="cursor-pointer" onClick={() => toggleSort('a_class_skus')}>
                   <span className="flex items-center gap-1">ABC Split <ArrowUpDown className="h-3 w-3" /></span>
@@ -327,14 +327,14 @@ export default function BrandOverview() {
                     <TableCell className="font-medium">{b.category_name}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 flex-wrap">
-                        {b.critical_skus > 0 && (
-                          <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-xs">{b.critical_skus} crit</Badge>
+                        {b.urgent_skus > 0 && (
+                          <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-xs">{b.urgent_skus} urgent</Badge>
                         )}
-                        {b.warning_skus > 0 && (
-                          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-xs">{b.warning_skus} warn</Badge>
+                        {b.reorder_skus > 0 && (
+                          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-xs">{b.reorder_skus} reorder</Badge>
                         )}
-                        {b.ok_skus > 0 && (
-                          <span className="text-xs text-green-600">{b.ok_skus} ok</span>
+                        {b.healthy_skus > 0 && (
+                          <span className="text-xs text-green-600">{b.healthy_skus} healthy</span>
                         )}
                       </div>
                     </TableCell>
@@ -420,9 +420,9 @@ export default function BrandOverview() {
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Status</div>
                     <div className="flex gap-2 flex-wrap text-xs">
-                      {b.critical_skus > 0 && <Badge className="bg-red-100 text-red-700 hover:bg-red-100">{b.critical_skus} critical</Badge>}
-                      {b.warning_skus > 0 && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{b.warning_skus} warning</Badge>}
-                      <span className="text-green-600">{b.ok_skus} ok</span>
+                      {b.urgent_skus > 0 && <Badge className="bg-red-100 text-red-700 hover:bg-red-100">{b.urgent_skus} urgent</Badge>}
+                      {b.reorder_skus > 0 && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{b.reorder_skus} reorder</Badge>}
+                      <span className="text-green-600">{b.healthy_skus} healthy</span>
                       {b.out_of_stock_skus > 0 && <span className="text-red-500">{b.out_of_stock_skus} OOS</span>}
                     </div>
                   </div>

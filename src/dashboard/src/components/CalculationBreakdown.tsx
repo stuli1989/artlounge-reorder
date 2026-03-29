@@ -366,13 +366,12 @@ function MethodologySection({
 }
 
 function generateVerdict(data: BreakdownResponse): { text: string; status: ReorderStatus } {
-  const { velocity, stockout, reorder, effective_values } = data
+  const { velocity, stockout, reorder } = data
   const status = reorder.status as ReorderStatus
 
   const qty = reorder.suggested_qty
   const days = stockout.days_to_stockout
   const leadTime = reorder.supplier_lead_time
-  const buffer = reorder.buffer_multiplier
 
   // Determine dominant channel
   const channels = [

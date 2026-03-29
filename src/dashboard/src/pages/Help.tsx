@@ -57,7 +57,7 @@ const SIDEBAR_SECTIONS: SidebarGroup[] = [
       { id: 'page-home', label: 'Home' },
       { id: 'page-brands', label: 'Brands' },
       { id: 'page-sku-detail', label: 'SKU Detail' },
-      { id: 'page-critical', label: 'Critical SKUs' },
+      { id: 'page-critical', label: 'Priority SKUs' },
       { id: 'page-po-builder', label: 'Build PO' },
       { id: 'page-dead-stock', label: 'Dead Stock' },
       { id: 'page-parties', label: 'Parties' },
@@ -183,9 +183,9 @@ export default function Help() {
   /* ---------- page guide data ---------- */
   const pageGuides: { id: string; icon: React.ElementType; name: string; desc: string; to: string }[] = [
     { id: 'page-home', icon: LayoutDashboard, name: 'Home', desc: 'Summary cards, sync status, and overall inventory health at a glance.', to: '/' },
-    { id: 'page-brands', icon: Package, name: 'Brands', desc: 'Every brand with aggregated metrics. Sort by critical count to find hot spots.', to: '/brands' },
+    { id: 'page-brands', icon: Package, name: 'Brands', desc: 'Every brand with aggregated metrics. Sort by urgent count to find hot spots.', to: '/brands' },
     { id: 'page-sku-detail', icon: Search, name: 'SKU Detail', desc: 'Per-item stock timeline, velocity breakdown, and calculation details.', to: '/brands' },
-    { id: 'page-critical', icon: ShieldAlert, name: 'Critical SKUs', desc: 'Cross-brand view of every SKU below reorder threshold, sorted by urgency.', to: '/critical' },
+    { id: 'page-critical', icon: ShieldAlert, name: 'Priority SKUs', desc: 'Cross-brand view of every SKU below reorder threshold, sorted by urgency.', to: '/critical' },
     { id: 'page-po-builder', icon: ClipboardList, name: 'Build PO', desc: 'Assemble purchase orders with pre-filled quantities and export to Excel.', to: '/po' },
     { id: 'page-dead-stock', icon: Snowflake, name: 'Dead Stock', desc: 'Items with zero sales activity. Candidates for markdown or discontinuation.', to: '/brands' },
     { id: 'page-parties', icon: Users, name: 'Parties', desc: 'Classify every party into wholesale, online, or store channels.', to: '/parties' },

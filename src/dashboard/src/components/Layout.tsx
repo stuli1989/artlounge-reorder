@@ -62,7 +62,7 @@ export default function Layout() {
     [
       { path: '/', label: 'Home', icon: LayoutDashboard, exact: true },
       { path: '/brands', label: 'Brands', icon: Package, exact: true },
-      { path: '/critical', label: 'Critical', icon: ShieldAlert },
+      { path: '/critical', label: 'Priority', icon: ShieldAlert },
       ...(user?.role !== 'viewer' ? [{ path: '/po', label: 'Build PO', icon: ClipboardList }] : []),
     ],
     ...(user?.role !== 'viewer' ? [[

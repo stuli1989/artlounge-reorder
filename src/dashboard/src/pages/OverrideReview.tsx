@@ -100,7 +100,7 @@ export default function OverrideReview() {
                   key={o.id}
                   title={o.stock_item_name}
                   subtitle={`${fieldLabels[o.field_name] || o.field_name}: ${o.override_value !== null ? o.override_value : '-'}`}
-                  status={o.is_stale ? 'warning' : 'ok'}
+                  status={o.is_stale ? 'reorder' : 'healthy'}
                   statusLabel={o.is_stale ? 'Stale' : 'Active'}
                   metrics={[
                     { label: 'Age', value: ageStr },

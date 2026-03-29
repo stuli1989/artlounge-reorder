@@ -55,7 +55,7 @@ export default function Home() {
     )
   }
 
-  const totalCritical = s.a_critical + s.b_critical + s.c_critical
+  const totalCritical = s.a_urgent + s.b_urgent + s.c_urgent
 
   return (
     <div className={isMobile ? 'px-4 py-4 space-y-5' : 'space-y-8'}>
@@ -72,7 +72,7 @@ export default function Home() {
             : 'grid grid-cols-3 gap-4'}
           data-tour="summary-cards"
         >
-          {/* Critical SKUs */}
+          {/* Urgent SKUs */}
           <Card
             className={`cursor-pointer hover:shadow-md transition-shadow bg-red-50 border-red-200 ${isMobile ? 'min-w-[130px] flex-shrink-0' : ''}`}
             onClick={() => navigate('/critical')}
@@ -80,11 +80,11 @@ export default function Home() {
             <CardContent className={isMobile ? 'pt-4 pb-3 px-3' : 'pt-6'}>
               <div className={`font-bold text-red-600 ${isMobile ? 'text-2xl' : 'text-4xl'}`}>{totalCritical}</div>
               <div className={`font-medium mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                Critical SKUs
+                Urgent SKUs
                 {!isMobile && <> <HelpTip tip="SKUs with less than lead time + buffer days of stock at current sell-through rate." helpAnchor="stockout-projection" /></>}
               </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                across {s.brands_with_critical} brands
+                across {s.brands_with_urgent} brands
               </div>
             </CardContent>
           </Card>
@@ -95,10 +95,10 @@ export default function Home() {
             onClick={() => navigate('/brands')}
           >
             <CardContent className={isMobile ? 'pt-4 pb-3 px-3' : 'pt-6'}>
-              <div className={`font-bold text-amber-600 ${isMobile ? 'text-2xl' : 'text-4xl'}`}>{s.brands_with_critical}</div>
+              <div className={`font-bold text-amber-600 ${isMobile ? 'text-2xl' : 'text-4xl'}`}>{s.brands_with_urgent}</div>
               <div className={`font-medium mt-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>Brands Needing POs</div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                have critical SKUs
+                have urgent SKUs
               </div>
             </CardContent>
           </Card>
@@ -123,12 +123,12 @@ export default function Home() {
           /* Mobile: MobileListRow cards */
           <div className="border rounded-lg overflow-hidden -mx-4">
             {s.top_brands.slice(0, 10).map(brand => {
-              const status = brand.critical_skus > 0 ? 'critical' : brand.warning_skus > 0 ? 'warning' : 'ok'
-              const statusLabel = brand.critical_skus > 0
-                ? `${brand.critical_skus} critical`
-                : brand.warning_skus > 0
-                  ? `${brand.warning_skus} warning`
-                  : 'OK'
+              const status = brand.urgent_skus > 0 ? 'urgent' : brand.reorder_skus > 0 ? 'reorder' : 'healthy'
+              const statusLabel = brand.urgent_skus > 0
+                ? `${brand.urgent_skus} urgent`
+                : brand.reorder_skus > 0
+                  ? `${brand.reorder_skus} reorder`
+                  : 'Healthy'
               return (
                 <MobileListRow
                   key={brand.category_name}
@@ -136,8 +136,8 @@ export default function Home() {
                   status={status}
                   statusLabel={statusLabel}
                   metrics={[
-                    { label: 'Critical', value: String(brand.critical_skus || 0), color: brand.critical_skus > 0 ? 'text-red-500' : undefined },
-                    { label: 'Warning', value: String(brand.warning_skus || 0), color: brand.warning_skus > 0 ? 'text-amber-500' : undefined },
+                    { label: 'Urgent', value: String(brand.urgent_skus || 0), color: brand.urgent_skus > 0 ? 'text-red-500' : undefined },
+                    { label: 'Reorder', value: String(brand.reorder_skus || 0), color: brand.reorder_skus > 0 ? 'text-amber-500' : undefined },
                   ]}
                   onClick={() => navigate(`/brands/${encodeURIComponent(brand.category_name)}/skus`)}
                 />
@@ -157,8 +157,8 @@ export default function Home() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Brand</TableHead>
-                    <TableHead className="text-right">Critical</TableHead>
-                    <TableHead className="text-right">Warning</TableHead>
+                    <TableHead className="text-right">Urgent</TableHead>
+                    <TableHead className="text-right">Reorder</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
@@ -171,13 +171,13 @@ export default function Home() {
                     >
                       <TableCell className="font-medium">{brand.category_name}</TableCell>
                       <TableCell className="text-right">
-                        <span className={brand.critical_skus > 0 ? 'text-red-600 font-medium' : ''}>
-                          {brand.critical_skus || '-'}
+                        <span className={brand.urgent_skus > 0 ? 'text-red-600 font-medium' : ''}>
+                          {brand.urgent_skus || '-'}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className={brand.warning_skus > 0 ? 'text-amber-600' : ''}>
-                          {brand.warning_skus || '-'}
+                        <span className={brand.reorder_skus > 0 ? 'text-amber-600' : ''}>
+                          {brand.reorder_skus || '-'}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">

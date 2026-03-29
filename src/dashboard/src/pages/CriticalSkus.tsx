@@ -28,10 +28,10 @@ function tierOf(item: CriticalItem): 'immediate' | 'urgent' | 'watch' {
   const days = item.days_to_stockout
   const status = item.reorder_status
 
-  if (abc === 'A' && status === 'critical' && (days === null || days === 0 || days < IMMEDIATE_DAYS)) {
+  if (abc === 'A' && status === 'urgent' && (days === null || days === 0 || days < IMMEDIATE_DAYS)) {
     return 'immediate'
   }
-  if (abc === 'A' && status === 'critical' && days !== null && days >= IMMEDIATE_DAYS && days <= URGENT_DAYS) {
+  if (abc === 'A' && status === 'urgent' && days !== null && days >= IMMEDIATE_DAYS && days <= URGENT_DAYS) {
     return 'urgent'
   }
   return 'watch'
@@ -57,7 +57,7 @@ const tierConfig = {
     emoji: '🟡',
     color: 'border-yellow-300 bg-yellow-50',
     headerColor: 'text-yellow-700',
-    description: 'B/C class critical items and all warnings. Monitor and include in next PO cycle.',
+    description: 'B/C class urgent items and all reorder items. Monitor and include in next PO cycle.',
   },
 }
 
@@ -152,7 +152,7 @@ function TierCard({
                         onClick={() => navigate(`/brands/${encodeURIComponent(r.category_name)}/skus`)}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/brands/${encodeURIComponent(r.category_name)}/skus`) } }}
                       >
-                        <TableCell><StatusBadge status={r.reorder_status as 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'no_data'} /></TableCell>
+                        <TableCell><StatusBadge status={r.reorder_status as 'urgent' | 'reorder' | 'healthy' | 'out_of_stock' | 'no_data'} /></TableCell>
                         <TableCell className="font-medium text-xs">{r.category_name}</TableCell>
                         <TableCell className="max-w-[280px]" title={r.part_no || r.stock_item_name}>
                           <div className="truncate font-medium">{r.part_no || r.stock_item_name}</div>
@@ -197,7 +197,7 @@ export default function CriticalSkus() {
   const [searchParams] = useSearchParams()
   const isMobile = useIsMobile()
 
-  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'critical,warning')
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'urgent,reorder')
   const [abcFilter, setAbcFilter] = useState<string>(searchParams.get('abc_class') || '')
   const [velocityType, setVelocityType] = useState<'flat' | 'wma'>('flat')
   const [page, setPage] = useState(0)
@@ -244,15 +244,15 @@ export default function CriticalSkus() {
     return groups
   }, [items])
 
-  const activeFilterCount = (statusFilter !== 'critical,warning' ? 1 : 0) + (abcFilter ? 1 : 0)
+  const activeFilterCount = (statusFilter !== 'urgent,reorder' ? 1 : 0) + (abcFilter ? 1 : 0)
 
-  if (isError) return <div className="p-8 text-center text-muted-foreground">Failed to load critical SKUs. <button onClick={() => refetch()} className="text-primary hover:underline">Retry</button></div>
+  if (isError) return <div className="p-8 text-center text-muted-foreground">Failed to load priority SKUs. <button onClick={() => refetch()} className="text-primary hover:underline">Retry</button></div>
 
   if (isMobile) {
     return (
       <TooltipProvider>
         <div className="px-4 py-4 space-y-4">
-          <h2 className="text-lg font-semibold">Critical SKUs</h2>
+          <h2 className="text-lg font-semibold">Priority SKUs</h2>
 
           {/* Search + Filter */}
           <div className="flex items-center gap-2">
@@ -281,7 +281,7 @@ export default function CriticalSkus() {
 
               {items.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  No critical SKUs found
+                  No priority SKUs found
                 </div>
               )}
             </div>
@@ -310,9 +310,9 @@ export default function CriticalSkus() {
               <div>
                 <div className="text-sm font-medium mb-2">Status</div>
                 {[
-                  { value: 'critical,warning', label: 'Critical & Warning' },
-                  { value: 'critical', label: 'Critical Only' },
-                  { value: 'warning', label: 'Warning Only' },
+                  { value: 'urgent,reorder', label: 'Urgent & Reorder' },
+                  { value: 'urgent', label: 'Urgent Only' },
+                  { value: 'reorder', label: 'Reorder Only' },
                   { value: 'out_of_stock', label: 'Out of Stock' },
                 ].map(opt => (
                   <button
@@ -352,7 +352,7 @@ export default function CriticalSkus() {
     <TooltipProvider>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Critical SKUs — Triage</h2>
+          <h2 className="text-xl font-semibold">Priority SKUs — Triage</h2>
           <div className="flex items-center gap-3">
             <ClassificationExplainer />
             <VelocityToggle value={velocityType} onChange={setVelocityType} />
@@ -369,9 +369,9 @@ export default function CriticalSkus() {
               <SelectValue placeholder="Status filter" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="critical,warning">Critical & Warning</SelectItem>
-              <SelectItem value="critical">Critical Only</SelectItem>
-              <SelectItem value="warning">Warning Only</SelectItem>
+              <SelectItem value="urgent,reorder">Urgent & Reorder</SelectItem>
+              <SelectItem value="urgent">Urgent Only</SelectItem>
+              <SelectItem value="reorder">Reorder Only</SelectItem>
               <SelectItem value="out_of_stock">Out of Stock</SelectItem>
             </SelectContent>
           </Select>
@@ -390,7 +390,7 @@ export default function CriticalSkus() {
 
         {/* Tiered Groups */}
         {isLoading ? (
-          <div className="text-center py-12 text-muted-foreground">Loading critical SKUs...</div>
+          <div className="text-center py-12 text-muted-foreground">Loading priority SKUs...</div>
         ) : (
           <div className="space-y-4">
             {(['immediate', 'urgent', 'watch'] as const).map(tier => (
@@ -405,7 +405,7 @@ export default function CriticalSkus() {
 
             {items.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
-                No critical SKUs found
+                No priority SKUs found
               </div>
             )}
           </div>

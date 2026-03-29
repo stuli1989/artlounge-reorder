@@ -37,7 +37,7 @@ const freshnessColors: Record<string, string> = {
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Home',
   '/brands': 'Brands',
-  '/critical': 'Critical',
+  '/critical': 'Priority',
   '/po': 'Build PO',
   '/parties': 'Parties',
   '/suppliers': 'Suppliers',
@@ -59,7 +59,7 @@ function getPageTitle(pathname: string): string {
 const BOTTOM_TABS = [
   { path: '/', label: 'Home', icon: LayoutDashboard, exact: true },
   { path: '/brands', label: 'Brands', icon: Package, exact: true },
-  { path: '/critical', label: 'Critical', icon: ShieldAlert, exact: false },
+  { path: '/critical', label: 'Priority', icon: ShieldAlert, exact: false },
   { path: '/po', label: 'PO', icon: ClipboardList, exact: false },
 ]
 

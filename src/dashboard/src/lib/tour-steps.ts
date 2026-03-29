@@ -31,7 +31,7 @@ export const TOUR_STEPS: Step[] = [
   },
   {
     target: '[data-tour="summary-cards"]',
-    content: 'Your daily snapshot. Critical SKUs need ordering now — the red number tells you how many. Click any card to drill in.',
+    content: 'Your daily snapshot. Urgent SKUs need ordering now — the red number tells you how many. Click any card to drill in.',
     title: 'Summary Cards',
   },
   {
@@ -41,18 +41,18 @@ export const TOUR_STEPS: Step[] = [
   },
   {
     target: '[data-tour="priority-table"]',
-    content: 'Brands sorted by urgency — most critical items at the top. Click any row to see that brand\'s individual SKUs.',
+    content: 'Brands sorted by urgency — most urgent items at the top. Click any row to see that brand\'s individual SKUs.',
     title: 'Priority Brands',
   },
   // Brands (5-7)
   {
     target: '[data-tour="brand-cards"]',
-    content: 'Each card summarizes a brand\'s health — how many critical SKUs, warnings, and dead stock items. Red and amber numbers need attention.',
+    content: 'Each card summarizes a brand\'s health — how many urgent SKUs, reorder items, and dead stock items. Red and amber numbers need attention.',
     title: 'Brand Health Summary',
   },
   {
     target: '[data-tour="brand-filters"]',
-    content: 'Filter to only brands with critical items, or sort by any column to focus your review.',
+    content: 'Filter to only brands with urgent items, or sort by any column to focus your review.',
     title: 'Filters & Sorting',
   },
   {
@@ -63,12 +63,12 @@ export const TOUR_STEPS: Step[] = [
   // SKU Detail (8-13)
   {
     target: '[data-tour="sku-table"]',
-    content: 'Every SKU for this brand. Status badges tell you at a glance what needs attention — red means act now, amber means plan ahead.',
+    content: 'Every SKU for this brand. Status badges tell you at a glance what needs attention — red (urgent) means act now, amber (reorder) means plan ahead.',
     title: 'SKU Table',
   },
   {
     target: '[data-tour="sku-columns"]',
-    content: 'Each column tells part of the story. Status shows urgency, Stock shows what you have, Velocity shows how fast it sells across all channels, and ABC shows revenue importance.',
+    content: 'Each column tells part of the story. Status shows urgency (urgent/reorder/healthy), Stock shows what you have, Velocity shows how fast it sells across all channels, and ABC shows revenue importance.',
     title: 'Understanding the Columns',
   },
   {
