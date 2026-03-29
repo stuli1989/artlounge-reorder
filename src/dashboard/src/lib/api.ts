@@ -40,9 +40,9 @@ export const fetchSkus = (categoryName: string, params?: Record<string, string |
   api.get(`/api/brands/${encodeURIComponent(categoryName)}/skus`, { params }).then(r => r.data)
 
 const EMPTY_SKU_COUNTS: SkuCounts = {
-  critical: 0,
-  warning: 0,
-  ok: 0,
+  urgent: 0,
+  reorder: 0,
+  healthy: 0,
   out_of_stock: 0,
   no_data: 0,
   dead_stock: 0,

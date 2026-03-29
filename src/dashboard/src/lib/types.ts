@@ -1,4 +1,4 @@
-export type ReorderStatus = 'critical' | 'warning' | 'ok' | 'out_of_stock' | 'stocked_out' | 'no_demand' | 'no_data'
+export type ReorderStatus = 'urgent' | 'reorder' | 'healthy' | 'out_of_stock' | 'lost_sales' | 'dead_stock' | 'no_data'
 export type ReorderIntent = 'must_stock' | 'normal' | 'do_not_reorder'
 
 export type AbcClass = 'A' | 'B' | 'C'
@@ -10,9 +10,9 @@ export interface BrandMetrics {
   total_skus: number
   in_stock_skus: number
   out_of_stock_skus: number
-  critical_skus: number
-  warning_skus: number
-  ok_skus: number
+  urgent_skus: number
+  reorder_skus: number
+  healthy_skus: number
   no_data_skus: number
   avg_days_to_stockout: number | null
   dead_stock_skus: number
@@ -28,8 +28,8 @@ export interface BrandMetrics {
 
 export interface BrandSummary {
   total_brands: number
-  brands_with_critical: number
-  brands_with_warning: number
+  brands_with_urgent: number
+  brands_with_reorder: number
   total_skus_out_of_stock: number
   total_dead_stock_skus: number
   total_slow_mover_skus: number
@@ -96,9 +96,9 @@ export interface SkuMetrics {
 }
 
 export interface SkuCounts {
-  critical: number
-  warning: number
-  ok: number
+  urgent: number
+  reorder: number
+  healthy: number
   out_of_stock: number
   no_data: number
   dead_stock: number
@@ -308,27 +308,27 @@ export interface BreakdownResponse {
 
 export interface DashboardSummaryBrand {
   category_name: string
-  critical_skus: number
-  warning_skus: number
+  urgent_skus: number
+  reorder_skus: number
   a_class_skus: number
   b_class_skus: number
   avg_days_to_stockout: number | null
-  a_critical_skus: number
+  a_urgent_skus: number
 }
 
 export interface DashboardSummary {
   // ABC x Status
   total_active_skus: number
-  a_critical: number
-  a_warning: number
-  b_critical: number
-  b_warning: number
-  c_critical: number
-  c_warning: number
+  a_urgent: number
+  a_reorder: number
+  b_urgent: number
+  b_reorder: number
+  c_urgent: number
+  c_reorder: number
   // Status totals
-  total_critical: number
-  total_warning: number
-  total_ok: number
+  total_urgent: number
+  total_reorder: number
+  total_healthy: number
   total_out_of_stock: number
   // Trends
   trending_up: number
@@ -336,8 +336,8 @@ export interface DashboardSummary {
   trending_flat: number
   // Brand summary
   total_brands: number
-  brands_with_critical: number
-  brands_with_warning: number
+  brands_with_urgent: number
+  brands_with_reorder: number
   total_skus_out_of_stock: number
   total_dead_stock_skus: number
   total_slow_mover_skus: number
@@ -432,7 +432,7 @@ export interface LoginResponse {
 export interface SearchBrandResult {
   category_name: string
   total_skus: number
-  critical_skus: number
+  urgent_skus: number
 }
 
 export interface SearchSkuResult {

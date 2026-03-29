@@ -27,18 +27,22 @@ const confidenceColors = {
 }
 
 const statusColors: Record<string, string> = {
-  ok: 'bg-green-100 text-green-700 border-green-200',
-  warning: 'bg-amber-100 text-amber-700 border-amber-200',
-  critical: 'bg-red-100 text-red-700 border-red-200',
-  out_of_stock: 'bg-red-50 text-red-600 border-red-200',
+  healthy: 'bg-green-100 text-green-700 border-green-200',
+  reorder: 'bg-amber-100 text-amber-700 border-amber-200',
+  urgent: 'bg-red-100 text-red-700 border-red-200',
+  lost_sales: 'bg-red-200 text-red-800 border-red-300',
+  dead_stock: 'bg-gray-100 text-gray-500 border-gray-200',
+  out_of_stock: 'bg-gray-50 text-gray-400 border-gray-200',
   no_data: 'bg-gray-100 text-gray-500 border-gray-200',
 }
 
 const verdictBgColors: Record<string, string> = {
-  ok: 'bg-green-50 border-green-300',
-  warning: 'bg-amber-50 border-amber-300',
-  critical: 'bg-red-50 border-red-300',
-  out_of_stock: 'bg-red-50 border-red-300',
+  healthy: 'bg-green-50 border-green-300',
+  reorder: 'bg-amber-50 border-amber-300',
+  urgent: 'bg-red-50 border-red-300',
+  lost_sales: 'bg-red-100 border-red-400',
+  dead_stock: 'bg-gray-50 border-gray-300',
+  out_of_stock: 'bg-gray-50 border-gray-300',
   no_data: 'bg-gray-50 border-gray-300',
 }
 
@@ -381,32 +385,32 @@ function generateVerdict(data: BreakdownResponse): { text: string; status: Reord
   const monthlyVel = velocity.total.monthly_velocity
 
   switch (status) {
-    case 'critical':
+    case 'urgent':
       return {
-        text: `Order ${qty ?? '?'} units. ${dominantChannel ? `${dominantChannel} demand is driving this at ${monthlyVel}/mo.` : `Demand is ${monthlyVel}/mo.`} At current velocity you have ~${days ?? 0} days of stock, but with ${leadTime}-day lead time and ${buffer}x buffer, you should order now.`,
+        text: `Order ${qty ?? '?'} units now. ${dominantChannel ? `${dominantChannel} is driving demand at ${monthlyVel}/mo.` : `Demand is ${monthlyVel}/mo.`} At current velocity you have ~${days ?? 0} days of stock, but with ${leadTime}-day lead time you need to act today.`,
         status,
       }
-    case 'warning':
+    case 'reorder':
       return {
-        text: `Consider ordering ${qty ?? '?'} units. You have ~${days ?? 0} days of stock — within the ${leadTime}-day lead time window.`,
+        text: `Time to order ${qty ?? '?'} units. You have ~${days ?? 0} days of stock — include this in your next PO.`,
         status,
       }
-    case 'ok':
+    case 'healthy':
       return {
-        text: `No immediate action needed. You have ~${days ?? '?'} days of stock, well above the ${leadTime}-day lead time.`,
+        text: `Pipeline is flowing. You have ~${days ?? '?'} days of stock, well above the ${leadTime}-day lead time. Keep ordering on your normal cycle.`,
         status,
       }
     case 'out_of_stock':
       return {
-        text: `Out of stock — order ${qty ?? '?'} units immediately.${effective_values.current_stock <= 0 ? ' Current stock is zero or negative.' : ''}`,
+        text: `Out of stock with no measured demand. Investigate whether to restock — demand may exist but can't be measured without inventory.`,
         status,
       }
-    case 'stocked_out':
+    case 'lost_sales':
       return {
-        text: `Stocked out with active demand (${(effective_values.total_velocity * 30).toFixed(1)}/mo velocity). Order ${qty ?? '?'} units immediately.`,
-        status: 'critical',
+        text: `You're losing sales — proven demand at ${monthlyVel}/mo but zero stock. Order ${qty ?? '?'} units immediately.`,
+        status,
       }
-    case 'no_demand':
+    case 'dead_stock':
       return {
         text: `Stock on hand but no recent demand detected. Monitor or mark as do-not-reorder if intentional.`,
         status,
