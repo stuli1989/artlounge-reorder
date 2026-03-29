@@ -4,10 +4,31 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { fetchPositions, fetchTransactions } from '@/lib/api'
 import type { Transaction } from '@/lib/types'
 import { X } from 'lucide-react'
 import { useIsMobile } from '@/hooks/useIsMobile'
+
+const TYPE_LABELS: Record<string, string> = {
+  'PICKLIST': 'Picked for Order',
+  'GRN': 'Purchase Received',
+  'INVENTORY_ADJUSTMENT': 'Stock Adjustment',
+  'INBOUND_GATEPASS': 'Transfer In',
+  'OUTBOUND_GATEPASS': 'Transfer Out',
+  'PUTAWAY_CIR': 'Customer Return',
+  'PUTAWAY_RTO': 'Return to Origin',
+  'PUTAWAY_CANCELLED_ITEM': 'Pick Cancelled',
+  'PUTAWAY_PICKLIST_ITEM': 'Pick Correction',
+  'SHIPPING_PACKAGE': 'Store Sale (KG)',
+}
+
+const FACILITY_LABELS: Record<string, string> = {
+  'ppetpl': 'Bhiwandi',
+  'PPETPLKALAGHODA': 'Kala Ghoda',
+  'ALIBHIWANDI': 'Ali Bhiwandi',
+}
 
 interface Props {
   categoryName: string
@@ -35,6 +56,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
   const [selEnd, setSelEnd] = useState<string | null>(null)
   const [dragging, setDragging] = useState<string | null>(null)
   const [datePreset, setDatePreset] = useState<'7d' | '30d' | '90d' | 'all'>('all')
+  const [hideInternal, setHideInternal] = useState(true)
 
   const { data: positions, isLoading: posLoading } = useQuery({
     queryKey: ['positions', categoryName, stockItemName],
@@ -67,14 +89,20 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
     }))
   }, [positions, isMobile, datePreset])
 
-  // Filter transactions by selected date range
+  // Filter transactions by selected date range and hide-internal toggle
   const filteredTxns = useMemo(() => {
     if (!transactions?.length) return []
-    if (!selStart || !selEnd) return transactions
-    const from = selStart <= selEnd ? selStart : selEnd
-    const to = selStart <= selEnd ? selEnd : selStart
-    return transactions.filter(t => t.txn_date >= from && t.txn_date <= to)
-  }, [transactions, selStart, selEnd])
+    let filtered = transactions
+    if (hideInternal) {
+      filtered = filtered.filter(t => t.channel !== 'internal')
+    }
+    if (selStart && selEnd) {
+      const from = selStart <= selEnd ? selStart : selEnd
+      const to = selStart <= selEnd ? selEnd : selStart
+      filtered = filtered.filter(t => t.txn_date >= from && t.txn_date <= to)
+    }
+    return filtered
+  }, [transactions, selStart, selEnd, hideInternal])
 
   const handleMouseDown = useCallback((e: { activeLabel?: string }) => {
     if (e?.activeLabel) {
@@ -214,14 +242,22 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
       </div>
 
       {/* Transactions table */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Switch id="hide-internal" checked={hideInternal} onCheckedChange={setHideInternal} />
+          <Label htmlFor="hide-internal" className="text-xs text-muted-foreground cursor-pointer">
+            Hide internal transfers
+          </Label>
+        </div>
+      </div>
       <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-[90px]">Date</TableHead>
-              <TableHead>Party</TableHead>
-              {!isMobile && <TableHead>Type</TableHead>}
-              {!isMobile && <TableHead className="w-[80px]">Voucher #</TableHead>}
+              <TableHead>Type</TableHead>
+              {!isMobile && <TableHead>Order #</TableHead>}
+              {!isMobile && <TableHead>Facility</TableHead>}
               <TableHead className="w-[70px] text-right">Qty In</TableHead>
               <TableHead className="w-[70px] text-right">Qty Out</TableHead>
               <TableHead className="w-[80px]">Channel</TableHead>
@@ -230,7 +266,7 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
           <TableBody>
             {filteredTxns.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isMobile ? 5 : 7} className="text-center py-6 text-muted-foreground">
+                <TableCell colSpan={isMobile ? 4 : 7} className="text-center py-6 text-muted-foreground">
                   {hasSelection ? 'No transactions in selected period' : 'No transactions found'}
                 </TableCell>
               </TableRow>
@@ -238,9 +274,9 @@ export default memo(function StockTimeline({ categoryName, stockItemName }: Prop
               filteredTxns.map((t: Transaction, i: number) => (
                 <TableRow key={`${t.txn_date}-${t.voucher_number}-${i}`}>
                   <TableCell className="text-xs">{fmtDate(t.txn_date)}</TableCell>
-                  <TableCell className="text-xs max-w-[200px] truncate">{t.party_name}</TableCell>
-                  {!isMobile && <TableCell className="text-xs">{t.voucher_type}</TableCell>}
-                  {!isMobile && <TableCell className="text-xs">{t.voucher_number}</TableCell>}
+                  <TableCell className="text-xs">{TYPE_LABELS[t.voucher_type] || t.voucher_type}</TableCell>
+                  {!isMobile && <TableCell className="text-xs font-mono">{t.sale_order_code || t.voucher_number || ''}</TableCell>}
+                  {!isMobile && <TableCell className="text-xs">{t.facility ? (FACILITY_LABELS[t.facility] || t.facility) : ''}</TableCell>}
                   <TableCell className="text-xs text-right text-green-600">{t.is_inward ? t.quantity : ''}</TableCell>
                   <TableCell className="text-xs text-right text-red-600">{!t.is_inward ? t.quantity : ''}</TableCell>
                   <TableCell>

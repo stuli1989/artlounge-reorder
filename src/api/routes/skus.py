@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from api.auth import get_current_user, require_role
 from pydantic import BaseModel
 from api.database import get_db
+import psycopg2.extras
 from api.sql_fragments import OVERRIDE_AGG_SUBQUERY
 from engine.velocity import (
     calculate_velocity, find_in_stock_periods,
@@ -558,17 +559,39 @@ def get_transactions(
                        (txn_type = 'IN') AS is_inward,
                        channel,
                        entity AS voucher_type,
-                       '' AS party_name,
-                       NULL AS rate,
-                       NULL AS amount,
-                       entity_code AS voucher_number
+                       sale_order_code,
+                       entity_code AS voucher_number,
+                       facility,
+                       entity_type
                 FROM transactions
                 WHERE stock_item_name = %s
                 ORDER BY txn_date DESC, id DESC
                 LIMIT %s
             """, (stock_item_name, limit))
             rows = cur.fetchall()
-    return [dict(r) for r in rows]
+
+    # Also include KG shipping package demand
+    kg_rows = []
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT txn_date, quantity, FALSE AS is_inward, channel,
+                       'SHIPPING_PACKAGE' AS voucher_type,
+                       NULL AS sale_order_code,
+                       shipping_package_code AS voucher_number,
+                       'PPETPLKALAGHODA' AS facility,
+                       'KG_DISPATCH' AS entity_type
+                FROM kg_demand
+                WHERE stock_item_name = %s
+                ORDER BY txn_date DESC
+                LIMIT %s
+            """, (stock_item_name, limit))
+            kg_rows = cur.fetchall()
+
+    # Merge and sort
+    all_txns = [dict(r) for r in rows] + [dict(r) for r in kg_rows]
+    all_txns.sort(key=lambda x: x['txn_date'], reverse=True)
+    return all_txns[:limit]
 
 
 # Channel explanation mapping

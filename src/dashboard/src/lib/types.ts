@@ -130,10 +130,10 @@ export interface Transaction {
   is_inward: boolean
   channel: string
   voucher_type: string
-  party_name: string
-  rate: number | null
-  amount: number | null
   voucher_number: string
+  sale_order_code: string | null
+  facility: string | null
+  entity_type: string | null
 }
 
 export interface SyncStatus {
