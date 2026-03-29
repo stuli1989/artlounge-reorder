@@ -39,7 +39,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/brands': 'Brands',
   '/critical': 'Priority',
   '/po': 'Build PO',
-  '/parties': 'Parties',
+  '/parties': 'Channel Rules',
   '/suppliers': 'Suppliers',
   '/overrides': 'Overrides',
   '/settings': 'Settings',
@@ -97,7 +97,7 @@ export default function MobileLayout({ tourRunning, setTourRunning, sync, staleO
     ...(user?.role !== 'viewer' ? [{
       title: 'Data Management',
       items: [
-        { path: '/parties', label: 'Parties', icon: Users },
+        { path: '/parties', label: 'Channel Rules', icon: Users },
         { path: '/suppliers', label: 'Suppliers', icon: Truck },
         { path: '/overrides', label: 'Overrides', icon: Pencil },
         { path: '/brands?filter=dead-stock', label: 'Dead Stock', icon: Skull },
@@ -152,7 +152,7 @@ export default function MobileLayout({ tourRunning, setTourRunning, sync, staleO
         <div className="bg-amber-900/80 text-amber-200 px-3 py-2 text-xs flex items-center justify-between shrink-0">
           <div className="flex-1 min-w-0">
             {unclassifiedCount > 0 && (
-              <span>{unclassifiedCount} unclassified parties</span>
+              <span>{unclassifiedCount} unclassified channels</span>
             )}
             {unclassifiedCount > 0 && staleCount > 0 && <span> &middot; </span>}
             {staleCount > 0 && (

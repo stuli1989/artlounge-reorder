@@ -66,7 +66,7 @@ export default function Layout() {
       ...(user?.role !== 'viewer' ? [{ path: '/po', label: 'Build PO', icon: ClipboardList }] : []),
     ],
     ...(user?.role !== 'viewer' ? [[
-      { path: '/parties', label: 'Parties', icon: Users },
+      { path: '/parties', label: 'Channel Rules', icon: Users },
       { path: '/suppliers', label: 'Suppliers', icon: Truck },
       { path: '/overrides', label: 'Overrides', icon: Pencil },
     ]] : []),
@@ -158,7 +158,7 @@ export default function Layout() {
           <Alert className="bg-amber-50 border-amber-200">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800">
-              {sync.unclassified_parties_count} new parties need classification. Velocity calculations may be incomplete.{' '}
+              {sync.unclassified_parties_count} new channels need classification. Velocity calculations may be incomplete.{' '}
               <Link to="/parties" className="underline font-medium">Classify now</Link>
             </AlertDescription>
           </Alert>

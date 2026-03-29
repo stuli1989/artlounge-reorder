@@ -125,7 +125,7 @@ export default function PartyClassification() {
   if (isMobile) {
     return (
       <div className="px-4 py-4 space-y-4">
-        <h2 className="text-lg font-semibold">Party Classification</h2>
+        <h2 className="text-lg font-semibold">Channel Rules</h2>
         {tabBar}
 
         {success && (
@@ -248,7 +248,7 @@ export default function PartyClassification() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Party Classification</h2>
+        <h2 className="text-xl font-semibold">Channel Rules</h2>
         <div className="w-[360px]">{tabBar}</div>
       </div>
 

@@ -311,9 +311,12 @@ export default function CriticalSkus() {
                 <div className="text-sm font-medium mb-2">Status</div>
                 {[
                   { value: 'urgent,reorder', label: 'Urgent & Reorder' },
-                  { value: 'urgent', label: 'Urgent Only' },
-                  { value: 'reorder', label: 'Reorder Only' },
+                  { value: 'lost_sales', label: 'Lost Sales' },
+                  { value: 'urgent', label: 'Urgent' },
+                  { value: 'reorder', label: 'Reorder' },
+                  { value: 'healthy', label: 'Healthy' },
                   { value: 'out_of_stock', label: 'Out of Stock' },
+                  { value: 'dead_stock', label: 'Dead Stock' },
                 ].map(opt => (
                   <button
                     key={opt.value}
@@ -370,9 +373,12 @@ export default function CriticalSkus() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="urgent,reorder">Urgent & Reorder</SelectItem>
-              <SelectItem value="urgent">Urgent Only</SelectItem>
-              <SelectItem value="reorder">Reorder Only</SelectItem>
+              <SelectItem value="lost_sales">Lost Sales</SelectItem>
+              <SelectItem value="urgent">Urgent</SelectItem>
+              <SelectItem value="reorder">Reorder</SelectItem>
+              <SelectItem value="healthy">Healthy</SelectItem>
               <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+              <SelectItem value="dead_stock">Dead Stock</SelectItem>
             </SelectContent>
           </Select>
           <Select value={abcFilter || 'all'} onValueChange={v => { if (v) { setAbcFilter(v === 'all' ? '' : v); setPage(0) } }}>

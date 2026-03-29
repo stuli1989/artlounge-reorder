@@ -415,9 +415,7 @@ export default function SkuDetail() {
     queryKey: ['skus', decodedName, statusFilter, activeSearch, analysisRange?.from, analysisRange?.to, page, pageSize, abcFilter, hideInactive, velocityType, xyzFilter, hazardousFilter, deadStockFilter, intentFilter],
     queryFn: () => {
       const params: Record<string, string> = {}
-      if (statusFilter === 'urgent') params.status = 'urgent'
-      else if (statusFilter === 'urgent_reorder') params.status = 'urgent,reorder'
-      else if (statusFilter === 'out_of_stock') params.status = 'out_of_stock'
+      if (statusFilter && statusFilter !== 'all') params.status = statusFilter
       if (deadStockFilter) params.dead_stock = 'true'
       if (hazardousFilter) params.hazardous = 'true'
       if (intentFilter === 'must_stock') params.reorder_intent = 'must_stock'
@@ -879,9 +877,13 @@ export default function SkuDetail() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="urgent">Urgent Only</SelectItem>
-              <SelectItem value="urgent_reorder">Urgent & Reorder</SelectItem>
+              <SelectItem value="lost_sales">Lost Sales</SelectItem>
+              <SelectItem value="urgent">Urgent</SelectItem>
+              <SelectItem value="urgent,reorder">Urgent & Reorder</SelectItem>
+              <SelectItem value="reorder">Reorder</SelectItem>
+              <SelectItem value="healthy">Healthy</SelectItem>
               <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+              <SelectItem value="dead_stock">Dead Stock</SelectItem>
             </SelectContent>
           </Select>
           <Select value={abcFilter || 'all'} onValueChange={v => { if (v) { setAbcFilter(v === 'all' ? '' : v); setPage(0); setExpandedRow(null) } }}>
