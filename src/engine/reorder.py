@@ -5,7 +5,7 @@ F2:  effective_stock = available_stock (no openPurchase)
 F11: days_to_stockout = effective_stock / recent_velocity
 F13: coverage_period from turns-per-year logic
 F15: reorder_qty — buffer on coverage only, NOT on lead time demand
-F16: reorder_status — new STOCKED_OUT, NO_DEMAND statuses
+F16: reorder_status — LOST_SALES, DEAD_STOCK, URGENT, REORDER, HEALTHY statuses
 """
 from datetime import date
 
@@ -100,32 +100,32 @@ def determine_reorder_status(
         suggested_qty       = max(0, (demand_during_lead + order_for_coverage) - effective_stock)
 
     Status mapping (F16):
-        STOCKED_OUT  = velocity > 0 AND stock <= 0
+        LOST_SALES   = velocity > 0 AND stock <= 0
         OUT_OF_STOCK = velocity = 0 AND stock <= 0
-        NO_DEMAND    = velocity = 0 AND stock > 0
-        CRITICAL     = dts <= lead_time
-        WARNING      = dts <= lead_time + warning_buffer
-        OK           = otherwise
+        DEAD_STOCK   = velocity = 0 AND stock > 0
+        URGENT       = dts <= lead_time
+        REORDER      = dts <= lead_time + warning_buffer
+        HEALTHY      = otherwise
 
     Override logic:
-        must_stock → minimum WARNING (CRITICAL only if formula agrees)
+        must_stock → minimum REORDER (URGENT only if formula agrees)
         do_not_reorder → show calculated status + qty=0 + suppressed flag
     """
     effective_stock = current_stock  # F2: no openPurchase
 
     # Determine raw status first
     if total_velocity > 0 and effective_stock <= 0:
-        raw_status = "stocked_out"
+        raw_status = "lost_sales"
     elif total_velocity <= 0 and effective_stock <= 0:
         raw_status = "out_of_stock"
     elif total_velocity <= 0 and effective_stock > 0:
-        raw_status = "no_demand"
+        raw_status = "dead_stock"
     elif days_to_stockout is not None and days_to_stockout <= supplier_lead_time:
-        raw_status = "critical"
+        raw_status = "urgent"
     elif days_to_stockout is not None and days_to_stockout <= supplier_lead_time + max(30, int(supplier_lead_time * 0.5)):
-        raw_status = "warning"
+        raw_status = "reorder"
     else:
-        raw_status = "ok"
+        raw_status = "healthy"
 
     # Compute suggested quantity
     suggested_qty = None
@@ -141,16 +141,16 @@ def determine_reorder_status(
 
     if reorder_intent == "must_stock":
         if total_velocity <= 0:
-            # Must-stock with no velocity: force WARNING with conservative qty
-            status = "warning"
+            # Must-stock with no velocity: force REORDER with conservative qty
+            status = "reorder"
             if suggested_qty is None:
                 suggested_qty = must_stock_fallback_qty(coverage_period)
-        elif status in ("ok",):
-            # Must-stock with velocity but OK status: bump to WARNING
-            status = "warning"
-        # CRITICAL stays CRITICAL (formula agrees)
-        # WARNING stays WARNING
-        # stocked_out stays stocked_out
+        elif status in ("healthy",):
+            # Must-stock with velocity but HEALTHY status: bump to REORDER
+            status = "reorder"
+        # URGENT stays URGENT (formula agrees)
+        # REORDER stays REORDER
+        # lost_sales stays lost_sales
 
     elif reorder_intent == "do_not_reorder":
         # Show calculated status but suppress quantity

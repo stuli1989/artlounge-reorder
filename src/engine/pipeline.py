@@ -743,16 +743,16 @@ _SKU_METRICS_DEFAULTS = {
 _BRAND_METRICS_UPSERT_SQL = """
     INSERT INTO brand_metrics (
         category_name, total_skus, in_stock_skus, out_of_stock_skus,
-        critical_skus, warning_skus, ok_skus, no_data_skus,
-        stocked_out_skus, no_demand_skus,
+        urgent_skus, reorder_skus, healthy_skus, no_data_skus,
+        lost_sales_skus, no_demand_skus,
         dead_stock_skus, slow_mover_skus, avg_days_to_stockout, min_days_to_stockout,
         primary_supplier, supplier_lead_time,
         a_class_skus, b_class_skus, c_class_skus, inactive_skus,
         computed_at
     ) VALUES (
         %(category_name)s, %(total_skus)s, %(in_stock_skus)s, %(out_of_stock_skus)s,
-        %(critical_skus)s, %(warning_skus)s, %(ok_skus)s, %(no_data_skus)s,
-        %(stocked_out_skus)s, %(no_demand_skus)s,
+        %(urgent_skus)s, %(reorder_skus)s, %(healthy_skus)s, %(no_data_skus)s,
+        %(lost_sales_skus)s, %(no_demand_skus)s,
         %(dead_stock_skus)s, %(slow_mover_skus)s, %(avg_days_to_stockout)s, %(min_days_to_stockout)s,
         %(primary_supplier)s, %(supplier_lead_time)s,
         %(a_class_skus)s, %(b_class_skus)s, %(c_class_skus)s, %(inactive_skus)s,
@@ -762,11 +762,11 @@ _BRAND_METRICS_UPSERT_SQL = """
         total_skus = EXCLUDED.total_skus,
         in_stock_skus = EXCLUDED.in_stock_skus,
         out_of_stock_skus = EXCLUDED.out_of_stock_skus,
-        critical_skus = EXCLUDED.critical_skus,
-        warning_skus = EXCLUDED.warning_skus,
-        ok_skus = EXCLUDED.ok_skus,
+        urgent_skus = EXCLUDED.urgent_skus,
+        reorder_skus = EXCLUDED.reorder_skus,
+        healthy_skus = EXCLUDED.healthy_skus,
         no_data_skus = EXCLUDED.no_data_skus,
-        stocked_out_skus = EXCLUDED.stocked_out_skus,
+        lost_sales_skus = EXCLUDED.lost_sales_skus,
         no_demand_skus = EXCLUDED.no_demand_skus,
         dead_stock_skus = EXCLUDED.dead_stock_skus,
         slow_mover_skus = EXCLUDED.slow_mover_skus,
@@ -832,7 +832,7 @@ def compute_zero_activity_days(positions: list[dict]) -> int:
 
 def _empty_metrics(sku_name: str, category_name: str, current_stock: float) -> dict:
     """Return empty metrics dict for items with no data."""
-    status = "out_of_stock" if current_stock <= 0 else "no_demand"
+    status = "out_of_stock" if current_stock <= 0 else "dead_stock"
     return {
         "stock_item_name": sku_name,
         "category_name": category_name,

@@ -27,12 +27,12 @@ def compute_brand_metrics(
     total = len(sku_metrics_list)
     in_stock = 0
     out_of_stock = 0
-    critical = 0
-    warning = 0
-    ok = 0
+    urgent = 0
+    reorder_count = 0
+    healthy = 0
     no_data = 0
-    stocked_out = 0
-    no_demand = 0
+    lost_sales = 0
+    no_demand_count = 0
     dead_stock = 0
     slow_mover = 0
     a_class = 0
@@ -64,16 +64,16 @@ def compute_brand_metrics(
             out_of_stock += 1
 
         # Status counts — expanded for UC
-        if status == "critical":
-            critical += 1
-        elif status == "warning":
-            warning += 1
-        elif status == "ok":
-            ok += 1
-        elif status == "stocked_out":
-            stocked_out += 1
-        elif status == "no_demand":
-            no_demand += 1
+        if status == "urgent":
+            urgent += 1
+        elif status == "reorder":
+            reorder_count += 1
+        elif status == "healthy":
+            healthy += 1
+        elif status == "lost_sales":
+            lost_sales += 1
+        elif status == "dead_stock":
+            no_demand_count += 1
         elif status in ("no_data", "out_of_stock"):
             no_data += 1
 
@@ -106,12 +106,12 @@ def compute_brand_metrics(
         "total_skus": total,
         "in_stock_skus": in_stock,
         "out_of_stock_skus": out_of_stock,
-        "critical_skus": critical,
-        "warning_skus": warning,
-        "ok_skus": ok,
+        "urgent_skus": urgent,
+        "reorder_skus": reorder_count,
+        "healthy_skus": healthy,
         "no_data_skus": no_data,
-        "stocked_out_skus": stocked_out,
-        "no_demand_skus": no_demand,
+        "lost_sales_skus": lost_sales,
+        "no_demand_skus": no_demand_count,
         "avg_days_to_stockout": avg_days,
         "min_days_to_stockout": min_dts,
         "dead_stock_skus": dead_stock,
