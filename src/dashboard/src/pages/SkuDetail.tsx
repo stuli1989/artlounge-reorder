@@ -175,7 +175,7 @@ const SkuRow = memo(function SkuRow({
       {/* Expanded detail with summary strip */}
       {isExpanded && (
         <TableRow>
-          <TableCell colSpan={7} className="bg-muted/30 p-4">
+          <TableCell colSpan={7} className="bg-muted/30 p-4 max-w-0 overflow-hidden">
             {/* Summary strip */}
             <div className="grid grid-cols-3 gap-4 mb-4 bg-background rounded-lg border p-4">
               {/* Left: Velocity by Channel */}
