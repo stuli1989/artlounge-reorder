@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchSuppliers, createSupplier, updateSupplier, deleteSupplier } from '@/lib/api'
 import type { Supplier } from '@/lib/types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
@@ -17,7 +17,7 @@ import { BottomSheet } from '@/components/mobile/BottomSheet'
 type FormData = Omit<Supplier, 'id'> & { id?: number }
 
 const emptyForm: FormData = {
-  name: '', tally_party: '', lead_time_sea: null, lead_time_air: null,
+  name: '', lead_time_sea: null, lead_time_air: null,
   lead_time_default: 90, currency: 'USD', min_order_value: null,
   typical_order_months: null, notes: '', buffer_override: null,
   lead_time_demand_mode: 'full',
@@ -84,10 +84,6 @@ export default function SupplierManagement() {
         <div className="space-y-1">
           <Label>Name *</Label>
           <Input value={form.name} onChange={e => updateField('name', e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label>UC Party</Label>
-          <Input value={form.tally_party} onChange={e => updateField('tally_party', e.target.value)} />
         </div>
         <div className="space-y-1">
           <Label>Currency</Label>
@@ -191,7 +187,6 @@ export default function SupplierManagement() {
               <MobileListRow
                 key={s.id}
                 title={s.name}
-                subtitle={s.tally_party || undefined}
                 metrics={[
                   { label: 'Lead', value: `${s.lead_time_default}d` },
                   { label: 'Coverage', value: s.typical_order_months != null ? `${s.typical_order_months}mo` : 'auto' },
@@ -249,11 +244,9 @@ export default function SupplierManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Supplier Management</h2>
-        {!showForm && (
-          <Button onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true) }}>
-            <Plus className="h-4 w-4 mr-1" /> Add Supplier
-          </Button>
-        )}
+        <Button onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true) }}>
+          <Plus className="h-4 w-4 mr-1" /> Add Supplier
+        </Button>
       </div>
 
       {error && (
@@ -262,17 +255,15 @@ export default function SupplierManagement() {
         </Alert>
       )}
 
-      {/* Form */}
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">{editingId ? 'Edit Supplier' : 'New Supplier'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {renderForm()}
-          </CardContent>
-        </Card>
-      )}
+      {/* Edit/Add Dialog */}
+      <Dialog open={showForm} onOpenChange={open => { if (!open) { setShowForm(false); setEditingId(null); setError(null) } }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingId ? 'Edit Supplier' : 'New Supplier'}</DialogTitle>
+          </DialogHeader>
+          {renderForm()}
+        </DialogContent>
+      </Dialog>
 
       {/* Table */}
       {isLoading ? (
@@ -283,14 +274,12 @@ export default function SupplierManagement() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>UC Party</TableHead>
                 <TableHead className="text-right">Sea (days)</TableHead>
                 <TableHead className="text-right">Air (days)</TableHead>
                 <TableHead className="text-right">Default (days)</TableHead>
                 <TableHead className="text-right">Buffer</TableHead>
                 <TableHead className="text-right">Coverage</TableHead>
                 <TableHead>Order Mode</TableHead>
-                <TableHead>Backdate</TableHead>
                 <TableHead>Currency</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
@@ -300,7 +289,6 @@ export default function SupplierManagement() {
               {(suppliers || []).map(s => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{s.tally_party}</TableCell>
                   <TableCell className="text-right">{s.lead_time_sea ?? '-'}</TableCell>
                   <TableCell className="text-right">{s.lead_time_air ?? '-'}</TableCell>
                   <TableCell className="text-right">{s.lead_time_default}</TableCell>
@@ -316,9 +304,6 @@ export default function SupplierManagement() {
                     <span className="text-xs">
                       {s.lead_time_demand_mode === 'coverage_only' ? 'Coverage only' : 'Full'}
                     </span>
-                  </TableCell>
-                  <TableCell>
-
                   </TableCell>
                   <TableCell>{s.currency}</TableCell>
                   <TableCell className="text-xs max-w-[200px] truncate">{s.notes}</TableCell>
@@ -340,7 +325,7 @@ export default function SupplierManagement() {
               ))}
               {(suppliers || []).length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                     No suppliers configured
                   </TableCell>
                 </TableRow>

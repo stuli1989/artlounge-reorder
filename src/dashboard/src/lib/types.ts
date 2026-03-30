@@ -160,7 +160,6 @@ export interface Party {
 export interface Supplier {
   id: number
   name: string
-  tally_party: string
   lead_time_sea: number | null
   lead_time_air: number | null
   lead_time_default: number
