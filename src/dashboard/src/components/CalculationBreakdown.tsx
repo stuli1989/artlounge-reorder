@@ -735,7 +735,7 @@ export default function CalculationBreakdown({
 
           {/* 4. Reorder Quantity */}
           <MethodologySection number={4} title="Reorder Quantity">
-            <div className="font-mono text-xs text-muted-foreground bg-white/60 rounded p-2 overflow-x-auto break-all">
+            <div className="font-mono text-xs text-muted-foreground bg-white/60 rounded p-2 overflow-x-auto whitespace-pre-wrap">
               {reorder.formula}
             </div>
             {reorder.supplier_name && (
