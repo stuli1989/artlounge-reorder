@@ -318,6 +318,7 @@ def list_skus(
         return results
 
     counts = {
+        "lost_sales": 0,
         "urgent": 0,
         "reorder": 0,
         "healthy": 0,
