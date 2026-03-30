@@ -932,21 +932,21 @@ def get_breakdown(
         order_for_coverage = round(eff_total_vel * coverage_days * buffer_multiplier, 1)
         if include_lead_demand_bd:
             demand_during_lead = round(eff_total_vel * lead_time, 1)  # NO buffer on lead
+            target = round(demand_during_lead + order_for_coverage, 1)
+            total_days = lead_time + coverage_days
             reorder_formula = (
-                f"While you wait     = {eff_total_vel}/day × {lead_time}d lead time = {demand_during_lead} units\n"
-                f"                     (sales expected during the {lead_time}-day wait for shipment)\n"
-                f"After arrival      = {eff_total_vel}/day × {coverage_days}d coverage × {buffer_multiplier}x buffer = {order_for_coverage} units\n"
-                f"                     (stock to last until your next order cycle)\n"
-                f"Already in stock   = {eff_stock} units\n"
+                f"Target stock       = {target} units  (enough for {total_days} days: {lead_time}d wait + {coverage_days}d coverage)\n"
+                f"  ├─ Wait period   = {demand_during_lead} units  ({lead_time} days × {eff_total_vel}/day)\n"
+                f"  └─ Post-arrival  = {order_for_coverage} units  ({coverage_days} days × {eff_total_vel}/day × {buffer_multiplier}x buffer)\n"
+                f"Already have       = {eff_stock} units\n"
                 f"─────────────────\n"
-                f"Order qty          = {demand_during_lead} + {order_for_coverage} − {eff_stock} = {suggested_qty} units"
+                f"Order qty          = {target} − {eff_stock} = {suggested_qty} units"
             )
         else:
             reorder_formula = (
-                f"Coverage only mode (wait period excluded from order)\n"
-                f"After arrival      = {eff_total_vel}/day × {coverage_days}d coverage × {buffer_multiplier}x buffer = {order_for_coverage} units\n"
-                f"                     (stock to last until your next order cycle)\n"
-                f"Already in stock   = {eff_stock} units\n"
+                f"Target stock       = {order_for_coverage} units  (enough for {coverage_days}d coverage, wait period excluded)\n"
+                f"  └─ Post-arrival  = {order_for_coverage} units  ({coverage_days} days × {eff_total_vel}/day × {buffer_multiplier}x buffer)\n"
+                f"Already have       = {eff_stock} units\n"
                 f"─────────────────\n"
                 f"Order qty          = {order_for_coverage} − {eff_stock} = {suggested_qty} units"
             )
