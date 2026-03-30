@@ -125,3 +125,69 @@ def test_no_velocity_no_demand():
     )
     assert status == "dead_stock"
     assert qty is None
+
+
+def test_coverage_only_mode_zero_stock():
+    """Coverage-only: stock=0 should not include lead demand."""
+    status, qty = determine_reorder_status(
+        current_stock=0, days_to_stockout=0, supplier_lead_time=90,
+        total_velocity=3.88, safety_buffer=1.3, coverage_period=90,
+        include_lead_demand=False,
+    )
+    # order_for_coverage = 3.88 * 90 * 1.3 ≈ 454
+    assert qty == 454
+    assert status == "lost_sales"
+
+
+def test_coverage_only_mode_with_stock():
+    """Coverage-only with stock: stock offsets coverage demand."""
+    status, qty = determine_reorder_status(
+        current_stock=100, days_to_stockout=25.8, supplier_lead_time=90,
+        total_velocity=3.88, safety_buffer=1.3, coverage_period=90,
+        include_lead_demand=False,
+    )
+    # order_for_coverage = 3.88 * 90 * 1.3 ≈ 454
+    # suggested = max(0, 454 - 100) = 354
+    assert qty == 354
+
+
+def test_full_mode_unchanged():
+    """Full mode (default): same as before."""
+    status, qty = determine_reorder_status(
+        current_stock=0, days_to_stockout=0, supplier_lead_time=90,
+        total_velocity=3.88, safety_buffer=1.3, coverage_period=90,
+        include_lead_demand=True,
+    )
+    # demand_lead = 3.88 * 90 ≈ 349
+    # order_cov = 3.88 * 90 * 1.3 ≈ 454
+    # suggested = max(0, 349 + 454 - 0) = 803
+    assert qty == 803
+
+
+def test_default_is_full_mode():
+    """Default param should be True (full mode)."""
+    _, qty_default = determine_reorder_status(
+        current_stock=0, days_to_stockout=0, supplier_lead_time=90,
+        total_velocity=3.88, safety_buffer=1.3, coverage_period=90,
+    )
+    _, qty_full = determine_reorder_status(
+        current_stock=0, days_to_stockout=0, supplier_lead_time=90,
+        total_velocity=3.88, safety_buffer=1.3, coverage_period=90,
+        include_lead_demand=True,
+    )
+    assert qty_default == qty_full
+
+
+def test_coverage_only_status_unchanged():
+    """Coverage-only should NOT change status — only qty."""
+    status_full, _ = determine_reorder_status(
+        current_stock=20, days_to_stockout=5.0, supplier_lead_time=90,
+        total_velocity=4.0, safety_buffer=1.3, coverage_period=90,
+        include_lead_demand=True,
+    )
+    status_cov, _ = determine_reorder_status(
+        current_stock=20, days_to_stockout=5.0, supplier_lead_time=90,
+        total_velocity=4.0, safety_buffer=1.3, coverage_period=90,
+        include_lead_demand=False,
+    )
+    assert status_full == status_cov  # both should be "urgent"

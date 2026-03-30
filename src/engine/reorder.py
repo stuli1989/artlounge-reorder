@@ -88,6 +88,7 @@ def determine_reorder_status(
     coverage_period: int = 0,
     reorder_intent: str = "normal",
     open_purchase: float = 0,
+    include_lead_demand: bool = True,
 ) -> tuple[str, float | None]:
     """
     F15+F16: Determine reorder status and suggested order quantity.
@@ -95,13 +96,19 @@ def determine_reorder_status(
     Buffer applies to coverage demand ONLY — not to lead time demand.
     This prevents double-buffering.
 
-    Formula:
-        demand_during_lead  = velocity × lead_time          (best estimate, NO buffer)
-        stock_at_arrival    = max(0, effective_stock - demand_during_lead)
-        order_for_coverage  = velocity × coverage_period × safety_buffer
-        suggested_qty       = max(0, (demand_during_lead + order_for_coverage) - effective_stock)
+    Modes (controlled by include_lead_demand):
+        Full mode (include_lead_demand=True, default):
+            demand_during_lead  = velocity × lead_time          (best estimate, NO buffer)
+            order_for_coverage  = velocity × coverage_period × safety_buffer
+            suggested_qty       = max(0, (demand_during_lead + order_for_coverage) - effective_stock)
 
-    Status mapping (F16):
+        Coverage-only mode (include_lead_demand=False):
+            order_for_coverage  = velocity × coverage_period × safety_buffer
+            suggested_qty       = max(0, order_for_coverage - effective_stock)
+            Use this when the supplier replenishes continuously and lead time
+            demand does not need to be separately accounted for.
+
+    Status mapping (F16) — unchanged regardless of mode:
         LOST_SALES   = velocity > 0 AND stock <= 0
         OUT_OF_STOCK = velocity = 0 AND stock <= 0
         DEAD_STOCK   = velocity = 0 AND stock > 0
@@ -132,9 +139,12 @@ def determine_reorder_status(
     # Compute suggested quantity
     suggested_qty = None
     if total_velocity > 0:
-        demand_during_lead = total_velocity * supplier_lead_time  # NO buffer
         order_for_coverage = total_velocity * coverage_period * safety_buffer  # buffer HERE only
-        suggested_qty = max(0, round(demand_during_lead + order_for_coverage - effective_stock))
+        if include_lead_demand:
+            demand_during_lead = total_velocity * supplier_lead_time  # NO buffer
+            suggested_qty = max(0, round(demand_during_lead + order_for_coverage - effective_stock))
+        else:
+            suggested_qty = max(0, round(order_for_coverage - effective_stock))
         if suggested_qty == 0:
             suggested_qty = None
 

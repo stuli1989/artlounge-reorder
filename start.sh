@@ -58,6 +58,17 @@ else:
     else:
         print('uc_004 already applied.')
 
+    # Check if uc_005 needs applying
+    cur.execute(\"SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='suppliers' AND column_name='lead_time_demand_mode')\")
+    if not cur.fetchone()[0]:
+        print('Running uc_005 migration...')
+        with open('db/migrations/uc_005_lead_time_demand_mode.sql') as f:
+            cur.execute(f.read())
+        conn.commit()
+        print('uc_005 applied.')
+    else:
+        print('uc_005 already applied.')
+
 cur.execute('SELECT COUNT(*) FROM transactions')
 print(f'Transactions in DB: {cur.fetchone()[0]}')
 conn.close()
