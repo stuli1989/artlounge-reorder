@@ -449,6 +449,16 @@ suggested_qty      = 415 + 546 − 20   = 941 units`}
         </FormulaBlock>
 
         <FormulaCalculator />
+
+        <CalloutBox type="info" title="Two ordering modes">
+          Each supplier can be set to one of two modes on the Suppliers page:
+          <br /><br />
+          <strong>Full (default):</strong> suggested = demand_lead + order_coverage − stock.
+          Orders enough for the lead time wait plus the coverage period. Larger orders, less frequent reordering.
+          <br /><br />
+          <strong>Coverage only:</strong> suggested = order_coverage − stock.
+          Orders only for the post-arrival coverage period. Smaller orders — useful when capital is tight or lead times are short.
+        </CalloutBox>
       </DocSection>
     </div>
   )
