@@ -17,7 +17,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import TrendIndicator from '@/components/TrendIndicator'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ArrowLeft, Download, Calendar, Flame, AlertTriangle, ClipboardList, ChevronDown, ChevronRight } from 'lucide-react'
 import type { ReorderStatus, ReorderIntent, AbcClass, TrendDirection, SkuMatchResult, SkuMatchSummary, PoDataItem } from '@/lib/types'
 import SkuInputDialog from '@/components/SkuInputDialog'
@@ -44,6 +44,9 @@ interface PoRow {
   included: boolean
   order_qty: number
   notes: string
+  drift: number
+  inventory_blocked: number
+  has_drift: boolean
 }
 
 interface RowOverride {
@@ -168,6 +171,9 @@ export default function PoBuilder() {
         included: o.included ?? true,
         order_qty: o.order_qty ?? (item.suggested_qty || 0),
         notes: o.notes ?? '',
+        drift: item.drift ?? 0,
+        inventory_blocked: item.inventory_blocked ?? 0,
+        has_drift: item.has_drift ?? false,
       }
     })
   }, [poData, overrides, subsetMode, subsetRawData])
@@ -237,6 +243,7 @@ export default function PoBuilder() {
   const { arrivalDate, daysAfterArrival, nextReorderDate, daysUntilNextReorder, effectiveLeadTime } = timeline
 
   const hazardousIncluded = useMemo(() => rows.filter(r => r.included && r.is_hazardous), [rows])
+  const driftingIncluded = useMemo(() => rows.filter(r => r.included && r.has_drift), [rows])
   const hasHazardousConflict = leadTimeType === 'air' && hazardousIncluded.length > 0
 
   const editingRow = editingSkuName ? rows.find(r => r.stock_item_name === editingSkuName) : null
@@ -581,6 +588,13 @@ export default function PoBuilder() {
                     Only {editingRow.total_in_stock_days} days of in-stock data. Velocity may be unreliable.
                   </div>
                 )}
+                {editingRow.has_drift && (
+                  <div className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 border border-amber-200 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    Stock drift: {editingRow.drift > 0 ? '+' : ''}{editingRow.drift} units
+                    {editingRow.inventory_blocked > 0 && ` (${editingRow.inventory_blocked} blocked)`}
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <Checkbox
                     checked={editingRow.included}
@@ -875,6 +889,17 @@ export default function PoBuilder() {
         </Alert>
       )}
 
+      {/* Stock drift warning */}
+      {driftingIncluded.length > 0 && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800 text-sm">
+            <strong>{driftingIncluded.length} item(s)</strong> have a stock count mismatch between the system and the warehouse snapshot.
+            Stock figures marked with <AlertTriangle className="h-3 w-3 text-amber-500 inline mx-0.5" /> may be inaccurate — verify before ordering.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Table */}
       {isPoError ? (
         <div className="flex flex-col items-center justify-center p-12 text-center">
@@ -934,7 +959,24 @@ export default function PoBuilder() {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">{r.current_stock}</TableCell>
+                  <TableCell className="text-right">
+                    <span className="inline-flex items-center gap-1 justify-end">
+                      {r.current_stock}
+                      {r.has_drift && (
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <AlertTriangle className={`h-3 w-3 shrink-0 ${Math.abs(r.drift ?? 0) > 10 ? 'text-red-500' : 'text-amber-400'}`} />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">
+                              Stock drift: {(r.drift ?? 0) > 0 ? '+' : ''}{r.drift} units
+                              {(r.inventory_blocked ?? 0) > 0 && ` (${r.inventory_blocked} blocked)`}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right">
                     <span className="inline-flex items-center gap-1 justify-end">
                       {(r.total_velocity * 30).toFixed(1)}

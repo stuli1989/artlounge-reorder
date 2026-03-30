@@ -146,6 +146,19 @@ const SkuRow = memo(function SkuRow({
                 </TooltipContent>
               </Tooltip>
             )}
+            {s.has_drift && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <AlertTriangle className={`h-3 w-3 shrink-0 ${Math.abs(s.drift ?? 0) > 10 ? 'text-red-500' : 'text-amber-400'}`} />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">
+                    Stock drift: {(s.drift ?? 0) > 0 ? '+' : ''}{s.drift} units
+                    {(s.inventory_blocked ?? 0) > 0 && ` (${s.inventory_blocked} blocked)`}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            )}
           </span>
         </TableCell>
         <TableCell className="text-right font-medium">

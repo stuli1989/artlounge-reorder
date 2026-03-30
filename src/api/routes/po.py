@@ -214,6 +214,30 @@ def po_data(
         target_statuses = set(statuses)
         result = [r for r in result if r["reorder_status"] in target_statuses]
 
+    # Attach latest drift data
+    if result:
+        with get_db() as conn2:
+            with conn2.cursor() as dcur:
+                sku_names = [r["stock_item_name"] for r in result]
+                dcur.execute("""
+                    SELECT DISTINCT ON (stock_item_name)
+                        stock_item_name, drift, inventory_blocked, check_date
+                    FROM drift_log
+                    WHERE stock_item_name = ANY(%s)
+                    ORDER BY stock_item_name, check_date DESC
+                """, (sku_names,))
+                drift_map = {}
+                for drow in dcur.fetchall():
+                    drift_map[drow["stock_item_name"]] = {
+                        "drift": float(drow["drift"]) if drow["drift"] is not None else 0,
+                        "inventory_blocked": float(drow["inventory_blocked"]) if drow["inventory_blocked"] is not None else 0,
+                    }
+        for item in result:
+            di = drift_map.get(item["stock_item_name"], {})
+            item["drift"] = di.get("drift", 0)
+            item["inventory_blocked"] = di.get("inventory_blocked", 0)
+            item["has_drift"] = abs(di.get("drift", 0)) > 0
+
     return result
 
 
@@ -376,6 +400,30 @@ def match_and_build_po(req: SkuMatchRequest, user: dict = Depends(require_role("
                 vel_by_sku = fetch_batch_velocities(cur, sku_names_list, range_start, range_end)
 
     po_result = _compute_po_items(rows, lead_time, coverage_days, req.buffer, vel_by_sku)
+
+    # Attach drift data
+    if po_result:
+        with get_db() as conn2:
+            with conn2.cursor() as dcur:
+                sku_names = [r["stock_item_name"] for r in po_result]
+                dcur.execute("""
+                    SELECT DISTINCT ON (stock_item_name)
+                        stock_item_name, drift, inventory_blocked, check_date
+                    FROM drift_log
+                    WHERE stock_item_name = ANY(%s)
+                    ORDER BY stock_item_name, check_date DESC
+                """, (sku_names,))
+                drift_map = {}
+                for drow in dcur.fetchall():
+                    drift_map[drow["stock_item_name"]] = {
+                        "drift": float(drow["drift"]) if drow["drift"] is not None else 0,
+                        "inventory_blocked": float(drow["inventory_blocked"]) if drow["inventory_blocked"] is not None else 0,
+                    }
+        for item in po_result:
+            di = drift_map.get(item["stock_item_name"], {})
+            item["drift"] = di.get("drift", 0)
+            item["inventory_blocked"] = di.get("inventory_blocked", 0)
+            item["has_drift"] = abs(di.get("drift", 0)) > 0
 
     summary = {
         "total_input": len(matches),

@@ -93,6 +93,10 @@ export interface SkuMetrics {
   trend_ratio: number | null
   safety_buffer: number
   use_xyz_buffer: boolean | null
+  // Drift fields
+  drift: number
+  inventory_blocked: number
+  has_drift: boolean
 }
 
 export interface SkuCounts {
@@ -368,6 +372,9 @@ export interface PoDataItem {
   trend_direction: TrendDirection | null
   total_in_stock_days: number
   category_name?: string
+  drift: number
+  inventory_blocked: number
+  has_drift: boolean
 }
 
 export interface SkuMatchResult {

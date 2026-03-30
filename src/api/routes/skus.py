@@ -197,6 +197,25 @@ def list_skus(
                     supplier_demand_mode = srow["lead_time_demand_mode"] or "full"
             include_lead_demand = supplier_demand_mode != "coverage_only"
 
+            # Fetch latest drift for these SKUs
+            drift_map = {}
+            sku_names_for_drift = [r["stock_item_name"] for r in rows]
+            if sku_names_for_drift:
+                with conn.cursor() as cur3:
+                    cur3.execute("""
+                        SELECT DISTINCT ON (stock_item_name)
+                            stock_item_name, drift, inventory_blocked, check_date
+                        FROM drift_log
+                        WHERE stock_item_name = ANY(%s)
+                        ORDER BY stock_item_name, check_date DESC
+                    """, (sku_names_for_drift,))
+                    for row in cur3.fetchall():
+                        drift_map[row["stock_item_name"]] = {
+                            "drift": float(row["drift"]) if row["drift"] is not None else 0,
+                            "inventory_blocked": float(row["inventory_blocked"]) if row["inventory_blocked"] is not None else 0,
+                            "drift_date": str(row["check_date"]),
+                        }
+
     today = date.today()
     results = []
     for r in rows:
@@ -256,6 +275,12 @@ def list_skus(
         d["is_slow_mover"] = (eff_stock > 0 and eff_vel > 0
                               and eff_vel < slow_mover_threshold
                               and not d["is_dead_stock"])
+
+        # Drift data
+        drift_info = drift_map.get(d["stock_item_name"], {})
+        d["drift"] = drift_info.get("drift", 0)
+        d["inventory_blocked"] = drift_info.get("inventory_blocked", 0)
+        d["has_drift"] = abs(drift_info.get("drift", 0)) > 0
 
         # Clean up internal join columns
         for key in ("stock_override_value", "stock_override_note", "total_vel_override_value",
