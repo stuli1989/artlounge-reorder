@@ -322,7 +322,7 @@ function CollapsibleSection({
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg overflow-hidden">
       <button
         type="button"
         className="flex items-center justify-between w-full px-4 py-3 text-left hover:bg-muted/30 transition-colors rounded-lg"
@@ -360,7 +360,7 @@ function MethodologySection({
         </span>
         <span className="text-sm font-medium">{title}</span>
       </div>
-      <div className="px-3 py-3 space-y-3">{children}</div>
+      <div className="px-3 py-3 space-y-3 overflow-x-auto">{children}</div>
     </div>
   )
 }
