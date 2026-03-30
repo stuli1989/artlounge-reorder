@@ -48,6 +48,7 @@ interface PoRow {
   drift: number
   inventory_blocked: number
   has_drift: boolean
+  category_name: string
 }
 
 interface RowOverride {
@@ -180,6 +181,7 @@ export default function PoBuilder() {
         drift: item.drift ?? 0,
         inventory_blocked: item.inventory_blocked ?? 0,
         has_drift: item.has_drift ?? false,
+        category_name: (item as any).category_name || decodedName || '',
       }
     })
   }, [poData, overrides, subsetMode, subsetRawData])
@@ -637,7 +639,7 @@ export default function PoBuilder() {
                     </summary>
                     <div className="px-3 pb-3 pt-1">
                       <CalculationBreakdown
-                        categoryName={decodedName}
+                        categoryName={editingRow.category_name || decodedName}
                         stockItemName={editingRow.stock_item_name}
                         fromDate={fromDate || undefined}
                         toDate={toDate || undefined}
@@ -1045,11 +1047,11 @@ export default function PoBuilder() {
                     />
                   </TableCell>
                 </TableRow>
-                {expandedSku === r.stock_item_name && (
+                {expandedSku === r.stock_item_name && (r.category_name || decodedName) && (
                   <TableRow>
                     <TableCell colSpan={11} className="bg-muted/30 p-4 max-w-0 overflow-hidden">
                       <CalculationBreakdown
-                        categoryName={decodedName}
+                        categoryName={r.category_name || decodedName}
                         stockItemName={r.stock_item_name}
                         fromDate={fromDate || undefined}
                         toDate={toDate || undefined}
