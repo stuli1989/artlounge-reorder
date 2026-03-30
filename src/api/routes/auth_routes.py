@@ -42,6 +42,7 @@ def login(request: Request, req: LoginRequest):
         raise HTTPException(401, "Invalid credentials")
 
     if not user["is_active"]:
+        hash_password("dummy")  # timing attack prevention (consistent with not-found path)
         raise HTTPException(401, "Invalid credentials")
 
     if not verify_password(req.password, user["password_hash"]):

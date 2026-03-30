@@ -158,8 +158,14 @@ def list_skus(
         with conn.cursor() as cur:
             # Get thresholds (cached in-memory, 60s TTL)
             _settings = _get_cached_settings(cur)
-            dead_stock_threshold = int(_settings.get("dead_stock_threshold_days", "90"))
-            slow_mover_threshold = float(_settings.get("slow_mover_velocity_threshold", "0.1"))
+            try:
+                dead_stock_threshold = int(_settings.get("dead_stock_threshold_days", "90"))
+            except (ValueError, TypeError):
+                dead_stock_threshold = 90
+            try:
+                slow_mover_threshold = float(_settings.get("slow_mover_velocity_threshold", "0.1"))
+            except (ValueError, TypeError):
+                slow_mover_threshold = 0.1
 
             # Get supplier lead time for status recalculation
             cur.execute(
@@ -324,8 +330,6 @@ def list_skus(
         status_key = row.get("effective_status") or row.get("reorder_status")
         if status_key in counts:
             counts[status_key] += 1
-        if row.get("is_dead_stock"):
-            counts["dead_stock"] += 1
 
     total = len(results)
     page_items = results[offset: offset + limit]

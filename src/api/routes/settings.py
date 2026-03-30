@@ -61,6 +61,24 @@ def update_setting(key: str, body: SettingUpdate, background_tasks: BackgroundTa
     if key not in VALID_SETTINGS_KEYS:
         raise HTTPException(status_code=400, detail=f"Unknown setting key: {key}")
 
+    # Validate numeric settings
+    NUMERIC_INT_KEYS = {"dead_stock_threshold_days", "min_velocity_sample_days"}
+    NUMERIC_FLOAT_KEYS = {"slow_mover_velocity_threshold"} | BUFFER_KEYS - {"use_xyz_buffer"}
+    if key in NUMERIC_INT_KEYS:
+        try:
+            v = int(body.value)
+            if v < 0:
+                raise ValueError("must be non-negative")
+        except ValueError:
+            raise HTTPException(400, f"Setting '{key}' must be a non-negative integer")
+    elif key in NUMERIC_FLOAT_KEYS:
+        try:
+            v = float(body.value)
+            if v < 0:
+                raise ValueError("must be non-negative")
+        except ValueError:
+            raise HTTPException(400, f"Setting '{key}' must be a non-negative number")
+
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

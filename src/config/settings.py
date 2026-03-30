@@ -31,13 +31,20 @@ NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "")
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-in-production")
 JWT_EXPIRY_HOURS = int(os.environ.get("JWT_EXPIRY_HOURS", "24"))
 
-# Financial year
-FY_START = "20250401"  # Apr 1, 2025
-FY_END = "20260331"    # Mar 31, 2026
-
+# Financial year — dynamically computed based on Indian FY (April–March)
 from datetime import date
-FY_START_DATE = date(int(FY_START[:4]), int(FY_START[4:6]), int(FY_START[6:8]))
-FY_END_DATE = date(int(FY_END[:4]), int(FY_END[4:6]), int(FY_END[6:8]))
+
+def _get_fy_dates() -> tuple[date, date]:
+    """Calculate current Indian financial year dates."""
+    today = date.today()
+    if today.month >= 4:  # Apr–Dec: current year's FY
+        return date(today.year, 4, 1), date(today.year + 1, 3, 31)
+    else:  # Jan–Mar: previous year's FY
+        return date(today.year - 1, 4, 1), date(today.year, 3, 31)
+
+FY_START_DATE, FY_END_DATE = _get_fy_dates()
+FY_START = FY_START_DATE.strftime("%Y%m%d")
+FY_END = FY_END_DATE.strftime("%Y%m%d")
 
 # Company
 COMPANY_NAME = "Platinum Painting Essentials & Trading Pvt. Ltd."

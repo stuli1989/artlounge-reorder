@@ -105,12 +105,10 @@ def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: Bac
         "lead_time_demand_mode",
     }
 
-    # buffer_override can be explicitly set to None (to clear it), so include
-    # it whenever the client sends the field (even as null).
+    # Use exclude_unset to distinguish "field not sent" from "field sent as null".
+    # All sent fields (including null) are included if they're in ALLOWED_SUPPLIER_COLUMNS.
     sent_fields = req.model_dump(exclude_unset=True)
-    updates = {k: v for k, v in req.model_dump().items() if v is not None and k in ALLOWED_SUPPLIER_COLUMNS}
-    if "buffer_override" in sent_fields:
-        updates["buffer_override"] = sent_fields["buffer_override"]
+    updates = {k: v for k, v in sent_fields.items() if k in ALLOWED_SUPPLIER_COLUMNS}
     if not updates:
         raise HTTPException(400, "No valid fields to update")
 

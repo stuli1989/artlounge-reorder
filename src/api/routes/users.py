@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from api.auth import hash_password, require_role
+from api.auth import hash_password, require_role, ROLE_HIERARCHY
 from api.database import get_db
 
 router = APIRouter(tags=["users"])
@@ -75,6 +75,13 @@ def update_user(user_id: int, req: UserUpdate, user: dict = Depends(_admin)):
     # Prevent admin from deactivating themselves
     if user_id == user["id"] and req.is_active is False:
         raise HTTPException(400, "Cannot deactivate your own account")
+
+    # Prevent admin from demoting themselves
+    if user_id == user["id"] and req.role is not None:
+        current_level = ROLE_HIERARCHY.get(user["role"], 0)
+        new_level = ROLE_HIERARCHY.get(req.role, 0)
+        if new_level < current_level:
+            raise HTTPException(400, "Cannot reduce your own role")
 
     updates, params = [], []
     if req.role is not None:

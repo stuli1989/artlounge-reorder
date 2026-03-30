@@ -48,8 +48,14 @@ def recalculate_all_buffers(db_conn):
     with db_conn.cursor() as cur:
         cur.execute("SELECT key, value FROM app_settings WHERE key IN ('dead_stock_threshold_days', 'slow_mover_velocity_threshold')")
         threshold_settings = {row["key"]: row["value"] for row in cur.fetchall()}
-    dead_stock_threshold = int(threshold_settings.get("dead_stock_threshold_days", "30"))
-    slow_mover_threshold = float(threshold_settings.get("slow_mover_velocity_threshold", "0.1"))
+    try:
+        dead_stock_threshold = int(threshold_settings.get("dead_stock_threshold_days", "30"))
+    except (ValueError, TypeError):
+        dead_stock_threshold = 30
+    try:
+        slow_mover_threshold = float(threshold_settings.get("slow_mover_velocity_threshold", "0.1"))
+    except (ValueError, TypeError):
+        slow_mover_threshold = 0.1
 
     # ── Fetch supplier lead times ──
     supplier_map = {}

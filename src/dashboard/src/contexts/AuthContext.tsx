@@ -24,8 +24,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     fetchMe()
       .then(setUser)
-      .catch(() => {
-        localStorage.removeItem('token')
+      .catch((error) => {
+        // Only remove token for authentication failures (401).
+        // Preserve token for transient errors (network, 500) so a refresh recovers.
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token')
+        }
       })
       .finally(() => setLoading(false))
   }, [])

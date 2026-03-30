@@ -134,7 +134,7 @@ def calculate_recent_velocity(
 def resolve_date_range(from_date: str | None, to_date: str | None) -> tuple[date, date]:
     """Resolve optional date strings to actual range, defaulting to FY start/today."""
     range_start = date.fromisoformat(from_date) if from_date else FY_START_DATE
-    range_end = date.fromisoformat(to_date) if to_date else min(date.today(), FY_END_DATE)
+    range_end = date.fromisoformat(to_date) if to_date else date.today()
     return range_start, range_end
 
 
