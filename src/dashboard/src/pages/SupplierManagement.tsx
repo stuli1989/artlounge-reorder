@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchSuppliers, createSupplier, updateSupplier, deleteSupplier } from '@/lib/api'
+import { fetchSuppliers, createSupplier, updateSupplier, deleteSupplier, fetchBrands } from '@/lib/api'
 import type { Supplier } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Search } from 'lucide-react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
 import { BottomSheet } from '@/components/mobile/BottomSheet'
@@ -23,6 +23,12 @@ const emptyForm: FormData = {
   lead_time_demand_mode: 'full',
 }
 
+const isConfigured = (s: Supplier) =>
+  s.lead_time_sea !== null || s.lead_time_air !== null ||
+  s.lead_time_default !== 90 || s.buffer_override !== null ||
+  s.typical_order_months !== null || s.lead_time_demand_mode !== 'full' ||
+  (s.notes !== '' && s.notes !== 'Auto-seeded')
+
 export default function SupplierManagement() {
   const queryClient = useQueryClient()
   const isMobile = useIsMobile()
@@ -31,11 +37,31 @@ export default function SupplierManagement() {
   const [form, setForm] = useState<FormData>(emptyForm)
   const [error, setError] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
+  const [search, setSearch] = useState('')
 
   const { data: suppliers, isLoading } = useQuery({
     queryKey: ['suppliers'],
     queryFn: fetchSuppliers,
   })
+
+  const { data: brands } = useQuery({
+    queryKey: ['brands'],
+    queryFn: () => fetchBrands(),
+  })
+
+  const skuCountByBrand = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const b of (brands || [])) {
+      map[b.category_name] = b.total_skus
+    }
+    return map
+  }, [brands])
+
+  const filtered = (suppliers || []).filter(s =>
+    !search || s.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const configuredCount = (suppliers || []).filter(isConfigured).length
 
   const handleSubmit = async () => {
     setError(null)
@@ -209,6 +235,7 @@ export default function SupplierManagement() {
             <Button
               variant="ghost"
               className="w-full mt-2 text-red-600"
+              aria-label="Delete supplier"
               onClick={() => { setShowForm(false); setDeleteConfirmId(editingId) }}
             >
               <Trash2 className="h-4 w-4 mr-1" /> Delete Supplier
@@ -243,10 +270,28 @@ export default function SupplierManagement() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Supplier Management</h2>
-        <Button onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true) }}>
-          <Plus className="h-4 w-4 mr-1" /> Add Supplier
-        </Button>
+        <div>
+          <h2 className="text-xl font-semibold">Supplier Management</h2>
+          {!isLoading && (
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {configuredCount} of {(suppliers || []).length} configured
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search suppliers..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
+          <Button onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true) }}>
+            <Plus className="h-4 w-4 mr-1" /> Add Supplier
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -274,6 +319,7 @@ export default function SupplierManagement() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead className="text-right">SKUs</TableHead>
                 <TableHead className="text-right">Sea (days)</TableHead>
                 <TableHead className="text-right">Air (days)</TableHead>
                 <TableHead className="text-right">Default (days)</TableHead>
@@ -286,47 +332,62 @@ export default function SupplierManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(suppliers || []).map(s => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell className="text-right">{s.lead_time_sea ?? '-'}</TableCell>
-                  <TableCell className="text-right">{s.lead_time_air ?? '-'}</TableCell>
-                  <TableCell className="text-right">{s.lead_time_default}</TableCell>
-                  <TableCell className="text-right">
-                    {s.buffer_override != null ? `${s.buffer_override}x` : '\u2014'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {s.typical_order_months != null
-                      ? `${s.typical_order_months}mo (${s.typical_order_months * 30}d)`
-                      : <span className="text-muted-foreground">auto</span>}
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-xs">
-                      {s.lead_time_demand_mode === 'coverage_only' ? 'Coverage only' : 'Full'}
-                    </span>
-                  </TableCell>
-                  <TableCell>{s.currency}</TableCell>
-                  <TableCell className="text-xs max-w-[200px] truncate">{s.notes}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(s)}>
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        if (window.confirm(`Delete supplier "${s.name}"?`)) {
-                          handleDelete(s.id)
-                        }
-                      }}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {(suppliers || []).length === 0 && (
+              {filtered.map(s => {
+                const configured = isConfigured(s)
+                return (
+                  <TableRow key={s.id} className={configured ? undefined : 'text-muted-foreground'}>
+                    <TableCell className={configured ? 'font-medium' : 'font-medium text-muted-foreground'}>
+                      {configured && (
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 mr-2 align-middle" />
+                      )}
+                      {s.name}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {skuCountByBrand[s.name] ?? <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-right">{s.lead_time_sea ?? '-'}</TableCell>
+                    <TableCell className="text-right">{s.lead_time_air ?? '-'}</TableCell>
+                    <TableCell className="text-right">{s.lead_time_default}</TableCell>
+                    <TableCell className="text-right">
+                      {s.buffer_override != null ? `${s.buffer_override}x` : '\u2014'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {s.typical_order_months != null
+                        ? `${s.typical_order_months} months`
+                        : <span className="text-muted-foreground text-xs">auto</span>}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs">
+                        {s.lead_time_demand_mode === 'coverage_only' ? 'Coverage only' : 'Full'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={s.currency === 'USD' ? 'text-xs text-muted-foreground' : 'text-xs'}>
+                        {s.currency}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs max-w-[200px] truncate">{s.notes}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" aria-label={`Edit ${s.name}`} onClick={() => handleEdit(s)}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="sm" aria-label={`Delete ${s.name}`} onClick={() => {
+                          if (window.confirm(`Delete supplier "${s.name}"?`)) {
+                            handleDelete(s.id)
+                          }
+                        }}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+              {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                    No suppliers configured
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    {search ? `No suppliers matching "${search}"` : 'No suppliers configured'}
                   </TableCell>
                 </TableRow>
               )}
