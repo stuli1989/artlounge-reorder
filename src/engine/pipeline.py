@@ -204,9 +204,11 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
 
             # Reorder status (preliminary — recomputed after classification)
             intent = item.get("reorder_intent", "normal")
+            include_lead = (supplier.get("lead_time_demand_mode", "full") != "coverage_only") if supplier else True
             status, suggested_qty = determine_reorder_status(
                 current_stock, days_to_stockout, lead_time, velocity["total_velocity"],
                 coverage_period=coverage, reorder_intent=intent,
+                include_lead_demand=include_lead,
             )
 
             # Estimated stockout date (cap at 3650 days to avoid overflow)
@@ -383,10 +385,11 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
             days_to_stockout = calculate_days_to_stockout(current_stock, total_vel)
 
             intent = item_data.get("reorder_intent", "normal")
+            include_lead = (supplier.get("lead_time_demand_mode", "full") != "coverage_only") if supplier else True
             status, suggested_qty = determine_reorder_status(
                 current_stock, days_to_stockout, lead_time, total_vel,
                 safety_buffer=buf, coverage_period=coverage,
-                reorder_intent=intent,
+                reorder_intent=intent, include_lead_demand=include_lead,
             )
 
             m["days_to_stockout"] = days_to_stockout
@@ -501,7 +504,7 @@ def fetch_all_supplier_mappings(db_conn) -> dict[str, dict]:
         cur.execute("""
             SELECT sc.name AS category_name,
                    s.name, s.lead_time_default, s.lead_time_sea, s.lead_time_air,
-                   s.buffer_override, s.typical_order_months
+                   s.buffer_override, s.typical_order_months, s.lead_time_demand_mode
             FROM stock_categories sc
             JOIN suppliers s ON UPPER(s.name) = UPPER(sc.name)
         """)
@@ -513,6 +516,7 @@ def fetch_all_supplier_mappings(db_conn) -> dict[str, dict]:
                 "lead_time_air": row[4],
                 "buffer_override": float(row[5]) if row[5] is not None else None,
                 "typical_order_months": row[6],
+                "lead_time_demand_mode": row[7],
             }
     return mapping
 
