@@ -12,6 +12,7 @@ import argparse
 import logging
 import os
 import glob
+import threading
 from datetime import datetime, timedelta, date
 
 import psycopg2.extras
@@ -24,6 +25,29 @@ from extraction.data_loader import get_db_connection
 from config.settings import UC_FACILITIES_FALLBACK
 
 logger = logging.getLogger(__name__)
+
+# In-memory sync progress — read by the status endpoint
+_sync_progress = {
+    "running": False,
+    "step": None,
+    "error": None,
+}
+_sync_lock = threading.Lock()
+
+
+def get_sync_progress() -> dict:
+    """Read current sync progress (thread-safe)."""
+    with _sync_lock:
+        return dict(_sync_progress)
+
+
+def _set_progress(step: str | None, running: bool = True, error: str | None = None):
+    """Update sync progress (called from run_nightly_sync)."""
+    with _sync_lock:
+        _sync_progress["running"] = running
+        _sync_progress["step"] = step
+        _sync_progress["error"] = error
+
 
 OVERLAP_DAYS = 3
 BACKFILL_WINDOW_DAYS = 90  # Export Job API max is 92
@@ -326,94 +350,107 @@ def run_validation_check(client, db_conn, sample_size=50):
 
 def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
     """Main nightly sync: pull ledger, load transactions, run pipeline."""
-    print("=== NIGHTLY LEDGER SYNC ===")
-
-    client = UnicommerceClient()
-    client.authenticate()
-    client.discover_facilities()
-
-    # 1. Pull catalog
-    print("Step 1: Pulling catalog...")
     try:
-        skus = pull_all_skus(client)
-        if skus and not dry_run:
-            load_catalog(db_conn, skus)
-            print(f"  Catalog: {len(skus)} SKUs loaded")
-    except Exception as e:
-        print(f"  Catalog pull failed: {e} (continuing)")
+        _set_progress("Starting sync...")
+        print("=== NIGHTLY LEDGER SYNC ===")
 
-    # 2. Pull ledger per facility
-    print(f"Step 2: Pulling ledger (last {days_back} days)...")
-    end_dt = datetime.now().replace(hour=23, minute=59, second=59)
-    start_dt = (end_dt - timedelta(days=days_back)).replace(hour=0, minute=0, second=0)
+        client = UnicommerceClient()
+        client.authenticate()
+        client.discover_facilities()
 
-    rules = _fetch_channel_rules(db_conn)
-    total_loaded = 0
-    facilities_ok = 0
+        # 1. Pull catalog
+        _set_progress("Pulling catalog...")
+        print("Step 1: Pulling catalog...")
+        try:
+            skus = pull_all_skus(client)
+            if skus and not dry_run:
+                load_catalog(db_conn, skus)
+                print(f"  Catalog: {len(skus)} SKUs loaded")
+        except Exception as e:
+            print(f"  Catalog pull failed: {e} (continuing)")
 
-    for facility in client.facilities:
-        rows = pull_ledger_for_facility(client, facility, start_dt, end_dt)
-        if rows:
-            if not dry_run:
-                loaded = _load_transactions(db_conn, rows, rules)
-                total_loaded += loaded
+        # 2. Pull ledger per facility
+        _set_progress("Pulling transaction ledger...")
+        print(f"Step 2: Pulling ledger (last {days_back} days)...")
+        end_dt = datetime.now().replace(hour=23, minute=59, second=59)
+        start_dt = (end_dt - timedelta(days=days_back)).replace(hour=0, minute=0, second=0)
+
+        rules = _fetch_channel_rules(db_conn)
+        total_loaded = 0
+        facilities_ok = 0
+
+        for facility in client.facilities:
+            rows = pull_ledger_for_facility(client, facility, start_dt, end_dt)
+            if rows:
+                if not dry_run:
+                    loaded = _load_transactions(db_conn, rows, rules)
+                    total_loaded += loaded
+                else:
+                    total_loaded += len(rows)
+                facilities_ok += 1
+                print(f"  {facility}: {len(rows)} rows")
             else:
-                total_loaded += len(rows)
-            facilities_ok += 1
-            print(f"  {facility}: {len(rows)} rows")
-        else:
-            print(f"  {facility}: FAILED or empty")
+                print(f"  {facility}: FAILED or empty")
 
-    print(f"  Total: {total_loaded} rows loaded, {facilities_ok}/{len(client.facilities)} facilities OK")
+        print(f"  Total: {total_loaded} rows loaded, {facilities_ok}/{len(client.facilities)} facilities OK")
 
-    # 3. Pull KG shipping packages (demand)
-    if not dry_run:
-        print("Step 3: Pulling KG shipping packages...")
+        # 3. Pull KG shipping packages (demand)
+        if not dry_run:
+            _set_progress("Pulling KG shipping packages...")
+            print("Step 3: Pulling KG shipping packages...")
+            try:
+                kg_count = pull_and_store_kg_demand(client, db_conn)
+                print(f"  KG demand: {kg_count} rows")
+            except Exception as e:
+                print(f"  KG demand pull failed: {e} (continuing)")
+
+        # 4. Pull inventory snapshots
+        if not dry_run:
+            _set_progress("Pulling inventory snapshots...")
+            print("Step 4: Pulling inventory snapshots...")
+            try:
+                snap_count = pull_and_store_snapshots(client, db_conn)
+                print(f"  Snapshots: {snap_count} SKUs")
+            except Exception as e:
+                print(f"  Snapshot pull failed: {e} (continuing)")
+
+        # 5. Run pipeline
+        if not dry_run:
+            _set_progress("Running computation pipeline...")
+            print("Step 5: Running pipeline...")
+            run_computation_pipeline(db_conn)
+            print("  Pipeline complete")
+
+        # 6. Log sync
+        if not dry_run:
+            _set_progress("Logging sync results...")
+            with db_conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO sync_log (source, sync_started, sync_completed, status,
+                                          ledger_rows_loaded, facilities_synced)
+                    VALUES ('ledger', NOW() - INTERVAL '1 minute', NOW(), 'completed', %s, %s)
+                """, (total_loaded, facilities_ok))
+            db_conn.commit()
+
+        # 7. Validation check (compare ledger stock vs UC snapshot for sample)
+        if not dry_run:
+            try:
+                run_validation_check(client, db_conn)
+            except Exception as e:
+                logger.warning("Validation check failed: %s", e)
+
+        # 8. Email notification
         try:
-            kg_count = pull_and_store_kg_demand(client, db_conn)
-            print(f"  KG demand: {kg_count} rows")
+            _send_sync_email(total_loaded, facilities_ok, len(client.facilities))
         except Exception as e:
-            print(f"  KG demand pull failed: {e} (continuing)")
+            logger.warning("Email notification failed: %s", e)
 
-    # 4. Pull inventory snapshots
-    if not dry_run:
-        print("Step 4: Pulling inventory snapshots...")
-        try:
-            snap_count = pull_and_store_snapshots(client, db_conn)
-            print(f"  Snapshots: {snap_count} SKUs")
-        except Exception as e:
-            print(f"  Snapshot pull failed: {e} (continuing)")
+        _set_progress(None, running=False)
+        print("=== SYNC COMPLETE ===")
 
-    # 5. Run pipeline
-    if not dry_run:
-        print("Step 5: Running pipeline...")
-        run_computation_pipeline(db_conn)
-        print("  Pipeline complete")
-
-    # 6. Log sync
-    if not dry_run:
-        with db_conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO sync_log (source, sync_started, sync_completed, status,
-                                      ledger_rows_loaded, facilities_synced)
-                VALUES ('ledger', NOW() - INTERVAL '1 minute', NOW(), 'completed', %s, %s)
-            """, (total_loaded, facilities_ok))
-        db_conn.commit()
-
-    # 7. Validation check (compare ledger stock vs UC snapshot for sample)
-    if not dry_run:
-        try:
-            run_validation_check(client, db_conn)
-        except Exception as e:
-            logger.warning("Validation check failed: %s", e)
-
-    # 8. Email notification
-    try:
-        _send_sync_email(total_loaded, facilities_ok, len(client.facilities))
-    except Exception as e:
-        logger.warning("Email notification failed: %s", e)
-
-    print("=== SYNC COMPLETE ===")
+    except Exception:
+        _set_progress(None, running=False, error="Sync failed")
+        raise
 
 
 def run_backfill(db_conn, from_csv_dir=None):
