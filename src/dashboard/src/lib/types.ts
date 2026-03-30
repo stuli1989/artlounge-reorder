@@ -145,6 +145,9 @@ export interface SyncStatus {
   new_parties_found: number
   freshness: 'fresh' | 'stale' | 'critical'
   unclassified_parties_count: number
+  is_running: boolean
+  current_step: string | null
+  sync_error: string | null
 }
 
 export interface Party {

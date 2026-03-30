@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { fetchSyncStatus, fetchOverrides } from '@/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchSyncStatus, fetchOverrides, triggerSync } from '@/lib/api'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAlert, ClipboardList, Settings, LogOut, UserCog } from 'lucide-react'
+import { LayoutDashboard, Package, Users, Truck, AlertTriangle, Pencil, ShieldAlert, ClipboardList, Settings, LogOut, UserCog, RefreshCw, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import HelpMenu from '@/components/HelpMenu'
 import { useAuth } from '@/contexts/AuthContext'
 import GuidedTour, { isTourCompleted, resetTour } from '@/components/GuidedTour'
@@ -21,7 +22,9 @@ export default function Layout() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { user, logout } = useAuth()
+  const queryClient = useQueryClient()
   const [tourRunning, setTourRunning] = useState(() => !isTourCompleted())
+  const [syncRunning, setSyncRunning] = useState(false)
 
   const handleReplayTour = () => {
     resetTour()
@@ -34,9 +37,19 @@ export default function Layout() {
   const { data: sync } = useQuery({
     queryKey: ['syncStatus'],
     queryFn: fetchSyncStatus,
-    refetchInterval: 60000,
+    refetchInterval: syncRunning ? 3000 : 60000,
     refetchIntervalInBackground: false,
   })
+
+  useEffect(() => {
+    if (sync?.is_running) {
+      setSyncRunning(true)
+    } else if (syncRunning && sync && !sync.is_running) {
+      // Sync just finished — refresh all data
+      setSyncRunning(false)
+      queryClient.invalidateQueries()
+    }
+  }, [sync?.is_running])
 
   const { data: staleOverrides } = useQuery({
     queryKey: ['overrides', 'stale'],
@@ -95,6 +108,33 @@ export default function Layout() {
               <div data-tour="sync-indicator" className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className={`h-1.5 w-1.5 rounded-full ${freshnessColors[sync.freshness]}`} />
                 {syncLabel ? `Synced ${syncLabel}` : 'Never synced'}
+              </div>
+            )}
+            {user?.role === 'admin' && sync && !sync.is_running && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
+                onClick={async () => {
+                  try {
+                    await triggerSync()
+                    setSyncRunning(true)
+                    queryClient.invalidateQueries({ queryKey: ['syncStatus'] })
+                  } catch (e: any) {
+                    if (e.response?.status !== 409) {
+                      console.error('Sync trigger failed:', e)
+                    }
+                  }
+                }}
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Sync
+              </Button>
+            )}
+            {sync?.is_running && (
+              <div className="flex items-center gap-1.5 text-xs text-amber-600 animate-pulse">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span className="truncate max-w-[160px]">{sync.current_step || 'Syncing...'}</span>
               </div>
             )}
             <a href="/docs" target="_blank" rel="noopener" className="text-xs text-muted-foreground hover:text-foreground transition-colors">

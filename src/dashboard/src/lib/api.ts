@@ -114,6 +114,9 @@ export const exportPo = (data: Record<string, unknown>): Promise<Blob> =>
 export const fetchSyncStatus = (): Promise<SyncStatus> =>
   api.get('/api/sync/status').then(r => r.data)
 
+export const triggerSync = (): Promise<{ status: string }> =>
+  api.post('/api/sync/trigger').then(r => r.data)
+
 export const fetchUnclassifiedParties = (): Promise<Party[]> =>
   api.get('/api/parties/unclassified').then(r => r.data)
 

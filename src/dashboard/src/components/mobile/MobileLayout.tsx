@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import type { SyncStatus, Override } from '@/lib/types'
 import {
   LayoutDashboard,
@@ -16,6 +17,8 @@ import {
   X,
   LogOut,
   UserCog,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react'
 import {
   Sheet,
@@ -23,10 +26,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
 import GuidedTour, { resetTour } from '@/components/GuidedTour'
 import HelpMenu from '@/components/HelpMenu'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { triggerSync } from '@/lib/api'
 
 const freshnessColors: Record<string, string> = {
   fresh: 'bg-green-500',
@@ -76,8 +81,20 @@ export default function MobileLayout({ tourRunning, setTourRunning, sync, staleO
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const queryClient = useQueryClient()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [warningDismissed, setWarningDismissed] = useState(false)
+  const [syncRunning, setSyncRunning] = useState(false)
+
+  useEffect(() => {
+    if (sync?.is_running) {
+      setSyncRunning(true)
+    } else if (syncRunning && sync && !sync.is_running) {
+      // Sync just finished — refresh all data
+      setSyncRunning(false)
+      queryClient.invalidateQueries()
+    }
+  }, [sync?.is_running])
 
   const handleReplayTour = () => {
     resetTour()
@@ -140,6 +157,29 @@ export default function MobileLayout({ tourRunning, setTourRunning, sync, staleO
                   : 'Never synced'
               }
             />
+          )}
+          {user?.role === 'admin' && sync && !sync.is_running && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
+              onClick={async () => {
+                try {
+                  await triggerSync()
+                  setSyncRunning(true)
+                  queryClient.invalidateQueries({ queryKey: ['syncStatus'] })
+                } catch (e: any) {
+                  if (e.response?.status !== 409) {
+                    console.error('Sync trigger failed:', e)
+                  }
+                }
+              }}
+            >
+              <RefreshCw className="h-3 w-3" />
+            </Button>
+          )}
+          {sync?.is_running && (
+            <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
           )}
           <div data-tour="help-menu">
             <HelpMenu onReplayTour={handleReplayTour} />
