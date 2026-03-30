@@ -933,19 +933,22 @@ def get_breakdown(
         if include_lead_demand_bd:
             demand_during_lead = round(eff_total_vel * lead_time, 1)  # NO buffer on lead
             reorder_formula = (
-                f"Lead time demand   = {eff_total_vel}/day × {lead_time}d = {demand_during_lead} units  (no buffer)\n"
-                f"Coverage demand    = {eff_total_vel}/day × {coverage_days}d × {buffer_multiplier}x buffer = {order_for_coverage} units\n"
-                f"Current stock      = {eff_stock} units\n"
+                f"While you wait     = {eff_total_vel}/day × {lead_time}d lead time = {demand_during_lead} units\n"
+                f"                     (sales expected during the {lead_time}-day wait for shipment)\n"
+                f"After arrival      = {eff_total_vel}/day × {coverage_days}d coverage × {buffer_multiplier}x buffer = {order_for_coverage} units\n"
+                f"                     (stock to last until your next order cycle)\n"
+                f"Already in stock   = {eff_stock} units\n"
                 f"─────────────────\n"
-                f"Suggested qty      = {demand_during_lead} + {order_for_coverage} − {eff_stock} = {suggested_qty} units"
+                f"Order qty          = {demand_during_lead} + {order_for_coverage} − {eff_stock} = {suggested_qty} units"
             )
         else:
             reorder_formula = (
-                f"Coverage only mode (lead time demand excluded)\n"
-                f"Coverage demand    = {eff_total_vel}/day × {coverage_days}d × {buffer_multiplier}x buffer = {order_for_coverage} units\n"
-                f"Current stock      = {eff_stock} units\n"
+                f"Coverage only mode (wait period excluded from order)\n"
+                f"After arrival      = {eff_total_vel}/day × {coverage_days}d coverage × {buffer_multiplier}x buffer = {order_for_coverage} units\n"
+                f"                     (stock to last until your next order cycle)\n"
+                f"Already in stock   = {eff_stock} units\n"
                 f"─────────────────\n"
-                f"Suggested qty      = {order_for_coverage} − {eff_stock} = {suggested_qty} units"
+                f"Order qty          = {order_for_coverage} − {eff_stock} = {suggested_qty} units"
             )
     else:
         reorder_formula = "No demand data — suggested quantity cannot be calculated"
