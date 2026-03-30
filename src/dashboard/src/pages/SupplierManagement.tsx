@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
@@ -19,7 +20,7 @@ const emptyForm: FormData = {
   name: '', tally_party: '', lead_time_sea: null, lead_time_air: null,
   lead_time_default: 90, currency: 'USD', min_order_value: null,
   typical_order_months: null, notes: '', buffer_override: null,
-  
+  lead_time_demand_mode: 'full',
 }
 
 export default function SupplierManagement() {
@@ -127,6 +128,24 @@ export default function SupplierManagement() {
             onChange={e => updateField('typical_order_months', e.target.value ? Number(e.target.value) : null)}
           />
           <p className="text-xs text-muted-foreground">How many months of stock each order covers. Leave empty to auto-calculate from lead time.</p>
+        </div>
+        <div className="space-y-1">
+          <Label>Order Quantity Mode</Label>
+          <Select
+            value={form.lead_time_demand_mode || 'full'}
+            onValueChange={(v) => updateField('lead_time_demand_mode', v)}
+          >
+            <SelectTrigger className="w-[220px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="full">Full (lead + coverage)</SelectItem>
+              <SelectItem value="coverage_only">Coverage only</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Full: orders include demand during lead time wait. Coverage only: orders for post-arrival period only.
+          </p>
         </div>
       </div>
       <div className="space-y-1">
@@ -270,6 +289,7 @@ export default function SupplierManagement() {
                 <TableHead className="text-right">Default (days)</TableHead>
                 <TableHead className="text-right">Buffer</TableHead>
                 <TableHead className="text-right">Coverage</TableHead>
+                <TableHead>Order Mode</TableHead>
                 <TableHead>Backdate</TableHead>
                 <TableHead>Currency</TableHead>
                 <TableHead>Notes</TableHead>
@@ -293,7 +313,12 @@ export default function SupplierManagement() {
                       : <span className="text-muted-foreground">auto</span>}
                   </TableCell>
                   <TableCell>
-                    
+                    <span className="text-xs">
+                      {s.lead_time_demand_mode === 'coverage_only' ? 'Coverage only' : 'Full'}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+
                   </TableCell>
                   <TableCell>{s.currency}</TableCell>
                   <TableCell className="text-xs max-w-[200px] truncate">{s.notes}</TableCell>
@@ -315,7 +340,7 @@ export default function SupplierManagement() {
               ))}
               {(suppliers || []).length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     No suppliers configured
                   </TableCell>
                 </TableRow>

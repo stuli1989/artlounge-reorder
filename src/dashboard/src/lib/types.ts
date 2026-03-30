@@ -166,8 +166,7 @@ export interface Supplier {
   typical_order_months: number | null
   notes: string
   buffer_override: number | null
-  
-  
+  lead_time_demand_mode: string
 }
 
 export interface OverrideInfo {

@@ -67,6 +67,7 @@ export default function PoBuilder() {
   const [bufferOverride, setBufferOverride] = useState(false)
   const [bufferValue, setBufferValue] = useState(1.3)
   const [coverageDays, setCoverageDays] = useState<number | null>(null)
+  const [demandMode, setDemandMode] = useState<string | null>(null)
   const [includeWarning, setIncludeWarning] = useState(true)
   const [includeOk, setIncludeOk] = useState(false)
 
@@ -133,7 +134,7 @@ export default function PoBuilder() {
   const leadTime = leadTimeType === 'sea' ? 180 : leadTimeType === 'air' ? 30 : customLeadTime
 
   const { data: poData, isLoading, isError: isPoError } = useQuery({
-    queryKey: ['poData', decodedName, leadTime, coverageDays, bufferOverride, bufferValue, includeWarning, includeOk, fromDate, toDate],
+    queryKey: ['poData', decodedName, leadTime, coverageDays, bufferOverride, bufferValue, includeWarning, includeOk, fromDate, toDate, demandMode],
     queryFn: () => {
       const params: Record<string, string | number | boolean> = {
         lead_time: leadTime,
@@ -144,6 +145,7 @@ export default function PoBuilder() {
       if (bufferOverride) params.buffer = bufferValue
       if (fromDate) params.from_date = fromDate
       if (toDate) params.to_date = toDate
+      if (demandMode !== null) params.demand_mode = demandMode
       return fetchPoData(decodedName, params)
     },
     enabled: !!decodedName,
@@ -359,6 +361,20 @@ export default function PoBuilder() {
                       Reset to auto
                     </button>
                   )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Order Mode</Label>
+                  <Select value={demandMode ?? 'supplier_default'} onValueChange={v => setDemandMode(v === 'supplier_default' ? null : v)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="supplier_default">Supplier Default</SelectItem>
+                      <SelectItem value="full">Full (lead + coverage)</SelectItem>
+                      <SelectItem value="coverage_only">Coverage only</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -687,6 +703,21 @@ export default function PoBuilder() {
                   Reset
                 </button>
               )}
+            </div>
+
+            {/* Demand Mode */}
+            <div className="space-y-1.5 min-w-[160px]">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Order Mode</Label>
+              <Select value={demandMode ?? 'supplier_default'} onValueChange={v => setDemandMode(v === 'supplier_default' ? null : v)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="supplier_default">Supplier Default</SelectItem>
+                  <SelectItem value="full">Full (lead + coverage)</SelectItem>
+                  <SelectItem value="coverage_only">Coverage only</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Safety Buffer */}

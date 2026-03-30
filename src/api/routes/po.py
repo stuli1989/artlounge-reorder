@@ -47,6 +47,7 @@ def _compute_po_items(
     coverage_period: int,
     buffer: float | None,
     vel_by_sku: dict,
+    include_lead_demand: bool = True,
 ) -> list[dict]:
     """Shared computation: turn DB rows into PO result items.
 
@@ -86,9 +87,12 @@ def _compute_po_items(
         sku_buffer = float(d.get("safety_buffer") or 1.3)
         effective_buffer = buffer if buffer is not None else sku_buffer
         if vals["eff_total"] > 0:
-            demand_during_lead = vals["eff_total"] * lead_time  # NO buffer on lead
             order_for_coverage = vals["eff_total"] * coverage_period * effective_buffer
-            suggested = max(0, round((demand_during_lead + order_for_coverage) - vals["eff_stock"]))
+            if include_lead_demand:
+                demand_during_lead = vals["eff_total"] * lead_time  # NO buffer on lead
+                suggested = max(0, round((demand_during_lead + order_for_coverage) - vals["eff_stock"]))
+            else:
+                suggested = max(0, round(order_for_coverage - vals["eff_stock"]))
             if suggested == 0:
                 suggested = None
         elif d.get("reorder_intent") == "must_stock":
@@ -132,6 +136,7 @@ def po_data(
     include_ok: bool = Query(False),
     from_date: str = Query(None, description="Analysis period start (YYYY-MM-DD)"),
     to_date: str = Query(None, description="Analysis period end (YYYY-MM-DD)"),
+    demand_mode: str = Query(None, description="Override: 'full' or 'coverage_only'. Defaults to supplier setting."),
     user: dict = Depends(get_current_user),
 ):
     """SKUs needing reorder with suggested quantities."""
@@ -148,20 +153,32 @@ def po_data(
                 row = cur.fetchone()
                 lead_time = row["supplier_lead_time"] if row and row["supplier_lead_time"] else 180
 
-            # Get coverage period
-            if coverage_days is None:
+            # Get coverage period and demand mode from supplier
+            supplier_demand_mode = "full"
+            if coverage_days is None or demand_mode is None:
                 cur.execute("""
-                    SELECT s.lead_time_default, s.typical_order_months
+                    SELECT s.lead_time_default, s.typical_order_months, s.lead_time_demand_mode
                     FROM suppliers s
                     WHERE UPPER(s.name) = UPPER(%s)
                 """, (category_name,))
                 srow = cur.fetchone()
-                if srow and srow["typical_order_months"]:
-                    # Explicit supplier setting — use it regardless of lead_time override
-                    coverage_days = compute_coverage_days(srow["lead_time_default"], srow["typical_order_months"])
+                if srow:
+                    if coverage_days is None:
+                        if srow["typical_order_months"]:
+                            # Explicit supplier setting — use it regardless of lead_time override
+                            coverage_days = compute_coverage_days(srow["lead_time_default"], srow["typical_order_months"])
+                        else:
+                            # Auto-calculate from the ACTIVE lead_time (which may be user-overridden)
+                            coverage_days = compute_coverage_days(lead_time, None)
+                    if demand_mode is None:
+                        supplier_demand_mode = srow["lead_time_demand_mode"] or "full"
                 else:
-                    # Auto-calculate from the ACTIVE lead_time (which may be user-overridden)
-                    coverage_days = compute_coverage_days(lead_time, None)
+                    if coverage_days is None:
+                        coverage_days = compute_coverage_days(lead_time, None)
+            if coverage_days is None:
+                coverage_days = compute_coverage_days(lead_time, None)
+            effective_demand_mode = demand_mode if demand_mode is not None else supplier_demand_mode
+            include_lead_demand = effective_demand_mode != "coverage_only"
 
             # Build status filter — skip SQL filter when custom range (status recalculated)
             statuses = ["urgent", "lost_sales"]
@@ -190,7 +207,7 @@ def po_data(
                 sku_names = [r["stock_item_name"] for r in rows]
                 vel_by_sku = fetch_batch_velocities(cur, sku_names, range_start, range_end)
 
-    result = _compute_po_items(rows, lead_time, coverage_days, buffer, vel_by_sku)
+    result = _compute_po_items(rows, lead_time, coverage_days, buffer, vel_by_sku, include_lead_demand=include_lead_demand)
 
     # Post-recalculation status filter when custom range is active
     if custom_range:

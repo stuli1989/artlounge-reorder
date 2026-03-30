@@ -179,11 +179,12 @@ def list_skus(
                 sku_names = [r["stock_item_name"] for r in rows]
                 vel_by_sku = fetch_batch_velocities(cur, sku_names, range_start, range_end)
 
-            # Get supplier coverage for this brand
+            # Get supplier coverage and demand mode for this brand
             coverage_period = 90  # fallback
+            supplier_demand_mode = "full"
             with conn.cursor() as cur2:
                 cur2.execute("""
-                    SELECT s.lead_time_default, s.typical_order_months
+                    SELECT s.lead_time_default, s.typical_order_months, s.lead_time_demand_mode
                     FROM suppliers s
                     WHERE UPPER(s.name) = UPPER(%s)
                 """, (category_name,))
@@ -193,6 +194,8 @@ def list_skus(
                         srow["lead_time_default"],
                         srow["typical_order_months"],
                     )
+                    supplier_demand_mode = srow["lead_time_demand_mode"] or "full"
+            include_lead_demand = supplier_demand_mode != "coverage_only"
 
     today = date.today()
     results = []
@@ -221,7 +224,7 @@ def list_skus(
             store_ovr=opt_float(d["store_vel_override_value"]),
             total_ovr=opt_float(d["total_vel_override_value"]),
         )
-        st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time, float(d["safety_buffer"] or 1.3), coverage_period=coverage_period)
+        st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time, float(d["safety_buffer"] or 1.3), coverage_period=coverage_period, include_lead_demand=include_lead_demand)
 
         d["effective_stock"] = vals["eff_stock"]
         d["effective_wholesale_velocity"] = vals["eff_wholesale"]
@@ -721,7 +724,7 @@ def get_breakdown(
             # 5. Supplier lookup
             cur.execute("""
                 SELECT name, lead_time_default, lead_time_sea, lead_time_air,
-                       buffer_override, typical_order_months
+                       buffer_override, typical_order_months, lead_time_demand_mode
                 FROM suppliers
                 WHERE UPPER(name) = UPPER(%s)
                 LIMIT 1
@@ -912,27 +915,38 @@ def get_breakdown(
     supplier_name = supplier_row["name"] if supplier_row else None
     lead_time = supplier_row["lead_time_default"] if supplier_row else DEFAULT_LEAD_TIME
     typical_months = supplier_row["typical_order_months"] if supplier_row else None
+    supplier_demand_mode_bd = (supplier_row["lead_time_demand_mode"] or "full") if supplier_row else "full"
+    include_lead_demand_bd = supplier_demand_mode_bd != "coverage_only"
     coverage_days = compute_coverage_days(lead_time, typical_months)
     total_coverage = lead_time + coverage_days
 
     status, suggested_qty = determine_reorder_status(
         eff_stock, days_to_so, lead_time, eff_total_vel,
         safety_buffer=buffer_multiplier, coverage_period=coverage_days,
+        include_lead_demand=include_lead_demand_bd,
     )
     warning_buffer = max(30, int(lead_time * 0.5))
     threshold_warning = lead_time + warning_buffer
 
     if eff_total_vel > 0:
-        demand_during_lead = round(eff_total_vel * lead_time * buffer_multiplier, 1)
-        stock_at_arrival = max(0, round(eff_stock - demand_during_lead, 1))
         order_for_coverage = round(eff_total_vel * coverage_days * buffer_multiplier, 1)
-        reorder_formula = (
-            f"Stock at arrival: max(0, {eff_stock} - {eff_total_vel}/day x "
-            f"{lead_time}d lead x {buffer_multiplier} buffer) = {stock_at_arrival} units. "
-            f"Order for {coverage_days}d coverage: {eff_total_vel}/day x {coverage_days}d x "
-            f"{buffer_multiplier} buffer = {order_for_coverage} - {stock_at_arrival} "
-            f"= {suggested_qty} units"
-        )
+        if include_lead_demand_bd:
+            demand_during_lead = round(eff_total_vel * lead_time * buffer_multiplier, 1)
+            stock_at_arrival = max(0, round(eff_stock - demand_during_lead, 1))
+            reorder_formula = (
+                f"Stock at arrival: max(0, {eff_stock} - {eff_total_vel}/day x "
+                f"{lead_time}d lead x {buffer_multiplier} buffer) = {stock_at_arrival} units. "
+                f"Order for {coverage_days}d coverage: {eff_total_vel}/day x {coverage_days}d x "
+                f"{buffer_multiplier} buffer = {order_for_coverage} - {stock_at_arrival} "
+                f"= {suggested_qty} units"
+            )
+        else:
+            reorder_formula = (
+                f"Coverage only mode (lead time demand excluded). "
+                f"Order for {coverage_days}d coverage: {eff_total_vel}/day x {coverage_days}d x "
+                f"{buffer_multiplier} buffer = {order_for_coverage} - {eff_stock} stock "
+                f"= {suggested_qty} units"
+            )
     else:
         reorder_formula = "No demand data — suggested quantity cannot be calculated"
 

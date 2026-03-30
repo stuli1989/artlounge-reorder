@@ -18,12 +18,20 @@ class SupplierCreate(BaseModel):
     typical_order_months: int | None = None
     notes: str = ""
     buffer_override: float | None = None
+    lead_time_demand_mode: str = "full"
 
     @field_validator('lead_time_default', 'lead_time_sea', 'lead_time_air')
     @classmethod
     def validate_lead_time(cls, v):
         if v is not None and v <= 0:
             raise ValueError('Lead time must be positive')
+        return v
+
+    @field_validator('lead_time_demand_mode')
+    @classmethod
+    def validate_demand_mode(cls, v):
+        if v not in ('full', 'coverage_only'):
+            raise ValueError('lead_time_demand_mode must be "full" or "coverage_only"')
         return v
 
 
@@ -37,6 +45,7 @@ class SupplierUpdate(BaseModel):
     typical_order_months: int | None = None
     notes: str | None = None
     buffer_override: float | None = None
+    lead_time_demand_mode: str | None = None
 
     @field_validator('lead_time_default', 'lead_time_sea', 'lead_time_air')
     @classmethod
@@ -70,12 +79,13 @@ def create_supplier(req: SupplierCreate, background_tasks: BackgroundTasks, user
             cur.execute("""
                 INSERT INTO suppliers (name, lead_time_sea, lead_time_air,
                     lead_time_default, currency, min_order_value, typical_order_months,
-                    notes, buffer_override)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    notes, buffer_override, lead_time_demand_mode)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING *
             """, (req.name, req.lead_time_sea, req.lead_time_air,
                   req.lead_time_default, req.currency, req.min_order_value,
-                  req.typical_order_months, req.notes, req.buffer_override))
+                  req.typical_order_months, req.notes, req.buffer_override,
+                  req.lead_time_demand_mode))
             row = cur.fetchone()
         conn.commit()
 
@@ -92,6 +102,7 @@ def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: Bac
         "name", "lead_time_sea", "lead_time_air",
         "lead_time_default", "currency", "min_order_value",
         "typical_order_months", "notes", "buffer_override",
+        "lead_time_demand_mode",
     }
 
     # buffer_override can be explicitly set to None (to clear it), so include
@@ -107,7 +118,7 @@ def update_supplier(supplier_id: int, req: SupplierUpdate, background_tasks: Bac
     values = list(updates.values())
     values.append(supplier_id)
 
-    recalc_fields = {"buffer_override", "lead_time_default", "lead_time_sea", "lead_time_air", "typical_order_months"}
+    recalc_fields = {"buffer_override", "lead_time_default", "lead_time_sea", "lead_time_air", "typical_order_months", "lead_time_demand_mode"}
     needs_recalc = bool(recalc_fields & set(sent_fields.keys()))
 
     with get_db() as conn:
