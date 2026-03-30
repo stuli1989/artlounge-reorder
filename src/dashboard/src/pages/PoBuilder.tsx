@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, Fragment } from 'react'
 import { cn } from '@/lib/utils'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -23,6 +23,7 @@ import type { ReorderStatus, ReorderIntent, AbcClass, TrendDirection, SkuMatchRe
 import SkuInputDialog from '@/components/SkuInputDialog'
 import SkuMatchReview from '@/components/SkuMatchReview'
 import HelpTip from '@/components/HelpTip'
+import CalculationBreakdown from '@/components/CalculationBreakdown'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/MobileListRow'
 import { BottomSheet } from '@/components/mobile/BottomSheet'
@@ -85,6 +86,11 @@ export default function PoBuilder() {
   useEffect(() => {
     if (!decodedName && !subsetMode) setShowSkuInput(true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear expanded row when brand changes
+  useEffect(() => {
+    setExpandedSku(null)
+  }, [decodedName])
 
   const matchMutation = useMutation({
     mutationFn: matchSkusForPo,
@@ -202,6 +208,7 @@ export default function PoBuilder() {
   const isMobile = useIsMobile()
   const [configExpanded, setConfigExpanded] = useState(!isMobile)
   const [editingSkuName, setEditingSkuName] = useState<string | null>(null)
+  const [expandedSku, setExpandedSku] = useState<string | null>(null)
 
   const includedRows = rows.filter(r => r.included)
   const totalItems = includedRows.length
@@ -622,6 +629,22 @@ export default function PoBuilder() {
                   />
                 </div>
                 <Button className="w-full" onClick={() => setEditingSkuName(null)}>Done</Button>
+                {editingRow && (
+                  <details className="border rounded-lg overflow-hidden">
+                    <summary className="flex items-center gap-2 px-3 py-2 text-sm font-medium cursor-pointer hover:bg-muted/50 list-none">
+                      <ChevronRight className="h-4 w-4 shrink-0" />
+                      View Calculation Breakdown
+                    </summary>
+                    <div className="px-3 pb-3 pt-1">
+                      <CalculationBreakdown
+                        categoryName={decodedName}
+                        stockItemName={editingRow.stock_item_name}
+                        fromDate={fromDate || undefined}
+                        toDate={toDate || undefined}
+                      />
+                    </div>
+                  </details>
+                )}
               </div>
             )}
           </BottomSheet>
@@ -915,6 +938,7 @@ export default function PoBuilder() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8 px-2"></TableHead>
                 <TableHead className="w-10"></TableHead>
                 <TableHead className="w-[80px]">Status</TableHead>
                 <TableHead className="w-[110px]">Part No</TableHead>
@@ -929,7 +953,22 @@ export default function PoBuilder() {
             </TableHeader>
             <TableBody>
               {rows.map(r => (
-                <TableRow key={r.stock_item_name} className={cn(!r.included && 'opacity-40', hasHazardousConflict && r.is_hazardous && r.included && 'bg-amber-50', r.reorder_intent === 'must_stock' && 'border-l-2 border-l-purple-400')}>
+                <Fragment key={r.stock_item_name}>
+                <TableRow className={cn(!r.included && 'opacity-40', hasHazardousConflict && r.is_hazardous && r.included && 'bg-amber-50', r.reorder_intent === 'must_stock' && 'border-l-2 border-l-purple-400')}>
+                  <TableCell className="w-8 px-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setExpandedSku(expandedSku === r.stock_item_name ? null : r.stock_item_name)
+                      }}
+                      className="p-0.5 hover:bg-muted rounded"
+                    >
+                      {expandedSku === r.stock_item_name
+                        ? <ChevronDown className="h-4 w-4" />
+                        : <ChevronRight className="h-4 w-4" />
+                      }
+                    </button>
+                  </TableCell>
                   <TableCell>
                     <Checkbox checked={r.included} onCheckedChange={() => toggleRow(r.stock_item_name)} />
                   </TableCell>
@@ -1006,10 +1045,23 @@ export default function PoBuilder() {
                     />
                   </TableCell>
                 </TableRow>
+                {expandedSku === r.stock_item_name && (
+                  <TableRow>
+                    <TableCell colSpan={11} className="bg-muted/30 p-4 max-w-0 overflow-hidden">
+                      <CalculationBreakdown
+                        categoryName={decodedName}
+                        stockItemName={r.stock_item_name}
+                        fromDate={fromDate || undefined}
+                        toDate={toDate || undefined}
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+                </Fragment>
               ))}
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                     No items need reordering
                   </TableCell>
                 </TableRow>
