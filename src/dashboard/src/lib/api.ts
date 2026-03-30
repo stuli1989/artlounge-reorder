@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Party, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse, CriticalSkusResponse, AuthUser, LoginResponse, SearchResults } from './types'
+import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse, CriticalSkusResponse, AuthUser, LoginResponse, SearchResults } from './types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
@@ -117,14 +117,23 @@ export const fetchSyncStatus = (): Promise<SyncStatus> =>
 export const triggerSync = (): Promise<{ status: string }> =>
   api.post('/api/sync/trigger').then(r => r.data)
 
-export const fetchUnclassifiedParties = (): Promise<Party[]> =>
-  api.get('/api/parties/unclassified').then(r => r.data)
+export const fetchChannelRules = (): Promise<any[]> =>
+  api.get('/api/channel-rules').then(r => r.data)
 
-export const fetchAllParties = (params?: { channel?: string; search?: string }): Promise<(Party & { channel: string; classified_at: string | null })[]> =>
-  api.get('/api/parties', { params }).then(r => r.data)
+export const createChannelRule = (data: {
+  rule_type: string
+  match_value: string
+  facility_filter?: string | null
+  channel: string
+  priority: number
+}): Promise<any> =>
+  api.post('/api/channel-rules', data).then(r => r.data)
 
-export const classifyParty = (tallyName: string, channel: string) =>
-  api.post('/api/parties/classify', { tally_name: tallyName, channel }).then(r => r.data)
+export const updateChannelRule = (id: number, data: Record<string, any>): Promise<any> =>
+  api.put(`/api/channel-rules/${id}`, data).then(r => r.data)
+
+export const deleteChannelRule = (id: number): Promise<any> =>
+  api.delete(`/api/channel-rules/${id}`).then(r => r.data)
 
 export const fetchSuppliers = (): Promise<Supplier[]> =>
   api.get('/api/suppliers').then(r => r.data)
