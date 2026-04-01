@@ -41,6 +41,14 @@
 - Inventory entry fields: `STOCKITEMNAME`, `ACTUALQTY`, `RATE`, `AMOUNT` (inside `ALLINVENTORYENTRIES.LIST`)
 - Party name is the ONLY way to distinguish sales channels (wholesale vs online vs store)
 
+## SKU Field Names (IMPORTANT)
+
+- **`item_code`** = the SKU code from Unicommerce (`skuCode`), e.g. "0102004", "DRW-191713". Used as PK across all tables.
+- **`display_name`** = the human-readable product name from Unicommerce (`name`), e.g. "WN PWC 5ML ALIZ CRIMSON".
+- **Do NOT use `stock_item_name` or `part_no`** — these were renamed in migration `uc_004_rename_fields.sql`.
+- **`src/constants.py`** has `SKU_FIELDS` class with `ITEM_CODE`, `DISPLAY_NAME`, `CATEGORY` constants. Use these for DRY.
+- **Prefix search** matches on `item_code` (the code), not `display_name` (the description).
+
 ## Railway Deployment
 
 - **Project:** artlounge-reorder
