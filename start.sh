@@ -11,6 +11,21 @@ if [ "$MODE" = "sync" ]; then
     exit 0
 fi
 
+# If MODE=pipeline, recompute metrics only (no data pull)
+if [ "$MODE" = "pipeline" ]; then
+    echo "Running computation pipeline only..."
+    PYTHONPATH=. python -c "
+from extraction.data_loader import get_db_connection
+from engine.pipeline import run_computation_pipeline
+conn = get_db_connection()
+run_computation_pipeline(conn, incremental=False)
+conn.close()
+print('Pipeline complete.')
+"
+    echo "Exiting."
+    exit 0
+fi
+
 # Step 1: Run schema migrations if needed
 PYTHONPATH=. python -c "
 from extraction.data_loader import get_db_connection
