@@ -329,9 +329,10 @@ export default function SkuDetail() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeSearch, setActiveSearch] = useState<string | null>(null)
 
-  // Capture highlight param into local state whenever URL changes, then clean URL
+  // Capture highlight or search param into local state whenever URL changes, then clean URL
   // Runs on mount AND when navigating to same route with new highlight (same-brand SKU click)
   const highlightParam = searchParams.get('highlight')
+  const searchParam = searchParams.get('search')
   const prevCategoryRef = useRef(categoryName)
   useEffect(() => {
     if (highlightParam) {
@@ -341,13 +342,20 @@ export default function SkuDetail() {
         prev.delete('highlight')
         return prev
       }, { replace: true })
+    } else if (searchParam) {
+      setActiveSearch(searchParam)
+      setPage(0)
+      setSearchParams(prev => {
+        prev.delete('search')
+        return prev
+      }, { replace: true })
     } else if (prevCategoryRef.current !== categoryName) {
       // Navigated to a different brand without highlight — clear stale search
       setActiveSearch(null)
       setPage(0)
     }
     prevCategoryRef.current = categoryName
-  }, [highlightParam, categoryName, setSearchParams])
+  }, [highlightParam, searchParam, categoryName, setSearchParams])
 
   const [statusFilter, setStatusFilter] = useState('all')
   const [page, setPage] = useState(0)

@@ -157,7 +157,11 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
                         setOpen(false)
                         setQuery('')
                         setDebouncedQuery('')
-                        navigate(`/skus?prefix=${encodeURIComponent(pg.prefix)}`)
+                        if (pg.brands.length === 1) {
+                          navigate(`/brands/${encodeURIComponent(pg.brands[0])}/skus?search=${encodeURIComponent(pg.prefix)}`)
+                        } else {
+                          navigate(`/skus?prefix=${encodeURIComponent(pg.prefix)}`)
+                        }
                       }}
                     >
                       View SKUs
