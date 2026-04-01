@@ -18,6 +18,7 @@ const OverrideReview = lazy(() => import('./pages/OverrideReview'))
 const DeadStock = lazy(() => import('./pages/DeadStock'))
 const CriticalSkus = lazy(() => import('./pages/CriticalSkus'))
 const Settings = lazy(() => import('./pages/Settings'))
+const SkuListByPrefix = lazy(() => import('./pages/SkuListByPrefix'))
 
 const DocsLayout = lazy(() => import('./pages/docs/components/DocsLayout'))
 const DocsOverview = lazy(() => import('./pages/docs/Overview'))
@@ -95,6 +96,7 @@ export default function App() {
               <Route path="/brands/:categoryName/skus" element={<SuspenseWrapper><SkuDetail /></SuspenseWrapper>} />
               <Route path="/brands/:categoryName/po" element={<SuspenseWrapper><PoBuilder /></SuspenseWrapper>} />
               <Route path="/po" element={<SuspenseWrapper><PoBuilder /></SuspenseWrapper>} />
+              <Route path="/skus" element={<SuspenseWrapper><SkuListByPrefix /></SuspenseWrapper>} />
               <Route path="/brands/:categoryName/dead-stock" element={<SuspenseWrapper><DeadStock /></SuspenseWrapper>} />
               <Route path="/parties" element={<SuspenseWrapper><PartyClassification /></SuspenseWrapper>} />
               <Route path="/suppliers" element={<SuspenseWrapper><SupplierManagement /></SuspenseWrapper>} />
