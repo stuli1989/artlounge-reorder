@@ -16,7 +16,7 @@ from engine.velocity import (
 from engine.reorder import calculate_days_to_stockout, determine_reorder_status, DEFAULT_LEAD_TIME, must_stock_fallback_qty, compute_coverage_days
 from engine.effective_values import compute_effective_values, compute_effective_status
 from engine.classification import compute_safety_buffer, fetch_buffer_settings, fetch_use_xyz_global
-from config.settings import FY_START_DATE, FY_END_DATE
+from engine.velocity import DEFAULT_LOOKBACK_DAYS
 
 router = APIRouter(tags=["skus"])
 
@@ -795,7 +795,7 @@ def get_breakdown(
         "closing_balance_from_ledger": closing_balance,
         "last_computed": computed_at,
         "data_as_of": data_as_of.isoformat() if data_as_of else None,
-        "fy_period": f"Apr 1, {FY_START_DATE.year} — Mar 31, {FY_END_DATE.year}",
+        "fy_period": f"{range_start.strftime('%b %d, %Y')} — {range_end.strftime('%b %d, %Y')} ({DEFAULT_LOOKBACK_DAYS}d lookback)",
         "overrides": overrides_by_field,
     }
 

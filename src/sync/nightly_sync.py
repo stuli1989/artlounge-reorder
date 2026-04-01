@@ -12,7 +12,8 @@ import sys
 import traceback
 from datetime import datetime, date, timedelta
 
-from config.settings import DATABASE_URL, FY_START_DATE
+from config.settings import DATABASE_URL
+from engine.velocity import DEFAULT_LOOKBACK_DAYS
 from extraction.data_loader import (
     get_db_connection,
     load_all_master_data,
@@ -171,7 +172,7 @@ def run_sync(full: bool = False, dry_run: bool = False, offline: bool = False):
                 items_synced=summary.get("items_synced", 0),
                 transactions_synced=summary.get("transactions_synced", 0),
                 new_parties_found=summary.get("new_parties_found", 0),
-                txn_from_date=FY_START_DATE,
+                txn_from_date=today - timedelta(days=DEFAULT_LOOKBACK_DAYS),
                 txn_to_date=today,
             )
             send_sync_notification("completed", summary)

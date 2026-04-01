@@ -80,6 +80,7 @@ export default function PoBuilder() {
   const [showSkuInput, setShowSkuInput] = useState(false)
   const [subsetMode, setSubsetMode] = useState(false)
   const [subsetRawData, setSubsetRawData] = useState<PoDataItem[] | null>(null)
+  const [subsetSkuNames, setSubsetSkuNames] = useState<string[]>([])
   const [matchResults, setMatchResults] = useState<{ matches: SkuMatchResult[]; summary: SkuMatchSummary } | null>(null)
   const [showMatchReview, setShowMatchReview] = useState(false)
 
@@ -96,15 +97,22 @@ export default function PoBuilder() {
   const matchMutation = useMutation({
     mutationFn: matchSkusForPo,
     onSuccess: (data) => {
-      setMatchResults({ matches: data.matches, summary: data.summary })
-      if (data.summary.fuzzy === 0 && data.summary.unmatched === 0) {
-        // All exact — skip review, go straight to PO table
-        setSubsetMode(true)
-        setSubsetRawData(data.po_data)
-        setShowSkuInput(false)
+      if (subsetMode) {
+        // Config-change re-fetch: just update the data, keep subset active
+        const kept = new Set(subsetSkuNames)
+        setSubsetRawData(data.po_data.filter((d: PoDataItem) => kept.has(d.stock_item_name)))
       } else {
-        setShowMatchReview(true)
-        setShowSkuInput(false)
+        setMatchResults({ matches: data.matches, summary: data.summary })
+        if (data.summary.fuzzy === 0 && data.summary.unmatched === 0) {
+          // All exact — skip review, go straight to PO table
+          setSubsetMode(true)
+          setSubsetRawData(data.po_data)
+          setSubsetSkuNames(data.po_data.map((d: PoDataItem) => d.stock_item_name))
+          setShowSkuInput(false)
+        } else {
+          setShowMatchReview(true)
+          setShowSkuInput(false)
+        }
       }
     },
   })
@@ -127,12 +135,14 @@ export default function PoBuilder() {
     )
     setSubsetMode(true)
     setSubsetRawData(filtered)
+    setSubsetSkuNames(filtered.map(d => d.stock_item_name))
     setShowMatchReview(false)
   }
 
   const clearSubsetMode = () => {
     setSubsetMode(false)
     setSubsetRawData(null)
+    setSubsetSkuNames([])
     setMatchResults(null)
     setShowMatchReview(false)
     setOverrides({})
@@ -142,6 +152,32 @@ export default function PoBuilder() {
   const isLowConfidence = (row: PoRow) => row.total_in_stock_days > 0 && row.total_in_stock_days < LOW_CONFIDENCE_DAYS
 
   const leadTime = leadTimeType === 'sea' ? 180 : leadTimeType === 'air' ? 30 : customLeadTime
+
+  // Re-fetch subset data when config params change
+  useEffect(() => {
+    if (subsetMode && subsetSkuNames.length > 0) {
+      matchMutation.mutate({
+        sku_names: subsetSkuNames,
+        lead_time: leadTime,
+        coverage_days: coverageDays ?? undefined,
+        buffer: bufferOverride ? bufferValue : undefined,
+        from_date: fromDate ?? undefined,
+        to_date: toDate ?? undefined,
+      })
+    }
+  }, [leadTime, coverageDays, bufferOverride, bufferValue, fromDate, toDate]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear order_qty overrides when config changes so new API values take effect
+  useEffect(() => {
+    setOverrides(prev => {
+      const cleaned: Record<string, RowOverride> = {}
+      for (const [k, v] of Object.entries(prev)) {
+        const { order_qty, ...rest } = v
+        if (Object.keys(rest).length > 0) cleaned[k] = rest
+      }
+      return cleaned
+    })
+  }, [leadTime, coverageDays, bufferOverride, bufferValue, fromDate, toDate, demandMode])
 
   const { data: poData, isLoading, isError: isPoError } = useQuery({
     queryKey: ['poData', decodedName, leadTime, coverageDays, bufferOverride, bufferValue, includeWarning, includeOk, fromDate, toDate, demandMode],

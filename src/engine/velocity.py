@@ -8,8 +8,6 @@ F10: trend = recent_velocity / flat_velocity with edge case fixes
 """
 from datetime import date, timedelta
 
-from config.settings import FY_START_DATE, FY_END_DATE
-
 MIN_SAMPLE_DAYS = 14  # Minimum in-stock days for reliable velocity
 
 
