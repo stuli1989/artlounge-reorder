@@ -146,14 +146,12 @@ def universal_search(
 
             # --- Prefix group ---
             # Check if q looks like a part_no prefix (count SKUs whose part_no starts with q)
-            escaped_prefix = _escape_ilike(q)
-            prefix_like = f"{escaped_prefix}%"
             cur.execute(
                 "SELECT COUNT(*) AS cnt FROM sku_metrics sm "
                 "LEFT JOIN stock_items si ON si.name = sm.stock_item_name "
-                "WHERE si.part_no ILIKE %(prefix_like)s "
+                "WHERE COALESCE(si.part_no, '') ILIKE %(prefix_like)s "
                 "  AND " + _SKU_ACTIVE,
-                {"prefix_like": prefix_like},
+                {"prefix_like": prefix_pattern},
             )
             prefix_count = cur.fetchone()["cnt"]
 
@@ -163,10 +161,10 @@ def universal_search(
                     "SELECT DISTINCT sm.category_name "
                     "FROM sku_metrics sm "
                     "LEFT JOIN stock_items si ON si.name = sm.stock_item_name "
-                    "WHERE si.part_no ILIKE %(prefix_like)s "
+                    "WHERE COALESCE(si.part_no, '') ILIKE %(prefix_like)s "
                     "  AND " + _SKU_ACTIVE + " "
                     "ORDER BY sm.category_name",
-                    {"prefix_like": prefix_like},
+                    {"prefix_like": prefix_pattern},
                 )
                 prefix_brands = [r["category_name"] for r in cur.fetchall()]
                 prefix_group = {"prefix": q, "total": prefix_count, "brands": prefix_brands}
@@ -196,33 +194,21 @@ def prefix_search(
     if len(q) > 50:
         raise HTTPException(400, "Query must be at most 50 characters")
 
-    escaped_prefix = _escape_ilike(q)
-    prefix_like = f"{escaped_prefix}%"
+    escaped = _escape_ilike(q)
+    prefix_like = f"{escaped}%"
 
     with get_db() as conn:
         with conn.cursor() as cur:
-            # Fetch all SKUs whose part_no starts with prefix
             cur.execute(
                 f"{_SKU_SELECT} "
-                f"WHERE si.part_no ILIKE %(prefix_like)s "
+                f"WHERE COALESCE(si.part_no, '') ILIKE %(prefix_like)s "
                 f"  AND {_SKU_ACTIVE} "
                 f"ORDER BY si.part_no, sm.stock_item_name",
                 {"prefix_like": prefix_like},
             )
             skus = [_clean_row(r) for r in cur.fetchall()]
 
-            # Distinct brands for those SKUs
-            cur.execute(
-                "SELECT DISTINCT sm.category_name "
-                "FROM sku_metrics sm "
-                "LEFT JOIN stock_items si ON si.name = sm.stock_item_name "
-                "WHERE si.part_no ILIKE %(prefix_like)s "
-                "  AND " + _SKU_ACTIVE + " "
-                "ORDER BY sm.category_name",
-                {"prefix_like": prefix_like},
-            )
-            brands = [r["category_name"] for r in cur.fetchall()]
-
+    brands = sorted({s["category_name"] for s in skus if s.get("category_name")})
     return {
         "prefix": q,
         "total": len(skus),

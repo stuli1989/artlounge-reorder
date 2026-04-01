@@ -1,10 +1,5 @@
 """Tests for prefix_group in /api/search and the /api/search/prefix endpoint."""
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
-
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 from contextlib import contextmanager
 
 from fastapi.testclient import TestClient
@@ -251,23 +246,18 @@ class TestUniversalSearchPrefixGroup:
 class TestPrefixEndpoint:
     """Tests for GET /api/search/prefix."""
 
-    def _prefix_side_effects(self, skus=None, brands=None):
+    def _prefix_side_effects(self, skus=None):
         """
         Order of DB calls in prefix_search:
-          1. fetchall  -> skus
-          2. fetchall  -> distinct brands
+          1. fetchall  -> skus (brands derived in Python from skus)
         """
         return [
             skus or [],
-            [{"category_name": b} for b in (brands or [])],
         ]
 
     def test_prefix_returns_correct_shape(self):
         """Response must include prefix, total, brands, skus."""
-        effects = self._prefix_side_effects(
-            skus=[],
-            brands=[],
-        )
+        effects = self._prefix_side_effects(skus=[])
         fake_db, _ = _build_db_mock(effects)
 
         with patch("api.routes.search.get_db", fake_db):
@@ -299,7 +289,7 @@ class TestPrefixEndpoint:
             )
             for i in range(4)
         ]
-        effects = [sku_rows, [{"category_name": "WINSOR & NEWTON"}]]
+        effects = [sku_rows]
         fake_db, _ = _build_db_mock(effects)
 
         with patch("api.routes.search.get_db", fake_db):
@@ -311,11 +301,14 @@ class TestPrefixEndpoint:
         assert len(data["skus"]) == 4
 
     def test_prefix_brands_correct(self):
-        """brands list should reflect distinct categories from DB."""
-        effects = self._prefix_side_effects(
-            skus=[],
-            brands=["BRAND A", "BRAND B", "BRAND C"],
-        )
+        """brands list should reflect distinct categories derived from SKUs."""
+        sku_rows = [
+            _make_row(stock_item_name="SKU A1", part_no="XX01", category_name="BRAND A", reorder_status="ok", current_stock=10),
+            _make_row(stock_item_name="SKU B1", part_no="XX02", category_name="BRAND B", reorder_status="ok", current_stock=20),
+            _make_row(stock_item_name="SKU C1", part_no="XX03", category_name="BRAND C", reorder_status="ok", current_stock=30),
+            _make_row(stock_item_name="SKU A2", part_no="XX04", category_name="BRAND A", reorder_status="ok", current_stock=15),
+        ]
+        effects = self._prefix_side_effects(skus=sku_rows)
         fake_db, _ = _build_db_mock(effects)
 
         with patch("api.routes.search.get_db", fake_db):
@@ -376,7 +369,7 @@ class TestPrefixEndpoint:
             reorder_status="critical",
             current_stock=5.0,
         )
-        effects = [[sku], [{"category_name": "WINSOR & NEWTON"}]]
+        effects = [[sku]]
         fake_db, _ = _build_db_mock(effects)
 
         with patch("api.routes.search.get_db", fake_db):
