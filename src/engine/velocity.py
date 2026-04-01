@@ -131,10 +131,21 @@ def calculate_recent_velocity(
     }
 
 
-def resolve_date_range(from_date: str | None, to_date: str | None) -> tuple[date, date]:
-    """Resolve optional date strings to actual range, defaulting to FY start/today."""
-    range_start = date.fromisoformat(from_date) if from_date else FY_START_DATE
+DEFAULT_LOOKBACK_DAYS = 365
+
+
+def resolve_date_range(from_date: str | None, to_date: str | None, lookback_days: int | None = None) -> tuple[date, date]:
+    """Resolve optional date strings to actual range.
+
+    Default: rolling window of lookback_days (default 365) ending today.
+    Override via app_settings key 'velocity_lookback_days'.
+    """
     range_end = date.fromisoformat(to_date) if to_date else date.today()
+    if from_date:
+        range_start = date.fromisoformat(from_date)
+    else:
+        days = lookback_days if lookback_days is not None else DEFAULT_LOOKBACK_DAYS
+        range_start = range_end - timedelta(days=days)
     return range_start, range_end
 
 

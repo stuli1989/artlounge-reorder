@@ -63,10 +63,10 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
         None = run all phases.
     scope: optional dict with 'sku' or 'brand' key to limit processing.
     """
-    from config.settings import FY_START_DATE
+    from engine.velocity import DEFAULT_LOOKBACK_DAYS
 
-    fy_start = FY_START_DATE
     today = date.today()
+    fy_start = today - timedelta(days=DEFAULT_LOOKBACK_DAYS)
 
     # Determine which items to process
     changed_items = None

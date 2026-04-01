@@ -9,7 +9,7 @@ Skips ABC/XYZ classification (relative rankings need all items — updated on ne
 from collections import defaultdict
 from datetime import date, timedelta
 
-from config.settings import FY_START_DATE
+from engine.velocity import DEFAULT_LOOKBACK_DAYS
 from engine.stock_position import (
     build_daily_positions_from_snapshots_and_txns,
     upsert_daily_positions,
@@ -71,7 +71,7 @@ def find_affected_categories(db_conn, sku_names: list[str]) -> set[str]:
 def recompute_skus_for_party(db_conn, party_name: str) -> dict:
     """Recompute positions + metrics for all SKUs affected by a party reclassification."""
     today = date.today()
-    fy_start = FY_START_DATE
+    fy_start = today - timedelta(days=DEFAULT_LOOKBACK_DAYS)
 
     sku_names = find_affected_skus(db_conn, party_name)
     if not sku_names:
@@ -359,7 +359,7 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
     # party lookup by calling it with a fake empty party — instead, we inline
     # the same logic directly using sku_names we already have.
     today = date.today()
-    fy_start = FY_START_DATE
+    fy_start = today - timedelta(days=DEFAULT_LOOKBACK_DAYS)
 
     with db_conn.cursor() as cur:
         cur.execute("""
