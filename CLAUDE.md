@@ -13,9 +13,10 @@
 
 - **Superuser:** postgres / admin
 - **App user:** reorder_app / password
-- **Database:** artlounge_reorder
-- **Connection string:** `postgresql://reorder_app:password@localhost:5432/artlounge_reorder`
-- **Quick connect:** `PGPASSWORD=password "/c/Program Files/PostgreSQL/17/bin/psql" -U reorder_app -d artlounge_reorder`
+- **Database:** artlounge_reorder_uc (Unicommerce — the only database)
+- **Connection string:** `postgresql://reorder_app:password@localhost:5432/artlounge_reorder_uc`
+- **Quick connect:** `PGPASSWORD=password "/c/Program Files/PostgreSQL/17/bin/psql" -U reorder_app -d artlounge_reorder_uc`
+- **Note:** The old Tally database (`artlounge_reorder`) was dropped. Do not recreate it.
 
 ## Project Paths
 
