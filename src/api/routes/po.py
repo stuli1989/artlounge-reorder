@@ -1,6 +1,7 @@
 """Purchase Order data and Excel export endpoints."""
 import io
 import math
+from collections import defaultdict
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -40,6 +41,38 @@ _PO_FROM_JOINS = f"""\
     LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.stock_item_name = sm.stock_item_name"""
 
 _PO_ORDER = "ORDER BY sm.days_to_stockout ASC NULLS LAST"
+
+
+def _escape_ilike(s: str) -> str:
+    """Escape special ILIKE pattern characters in a user-supplied string."""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _attach_drift(result: list[dict]) -> None:
+    """Attach latest drift data (in-place) to a list of PO result items."""
+    if not result:
+        return
+    with get_db() as conn2:
+        with conn2.cursor() as dcur:
+            sku_names = [r["stock_item_name"] for r in result]
+            dcur.execute("""
+                SELECT DISTINCT ON (stock_item_name)
+                    stock_item_name, drift, inventory_blocked, check_date
+                FROM drift_log
+                WHERE stock_item_name = ANY(%s)
+                ORDER BY stock_item_name, check_date DESC
+            """, (sku_names,))
+            drift_map = {}
+            for drow in dcur.fetchall():
+                drift_map[drow["stock_item_name"]] = {
+                    "drift": float(drow["drift"]) if drow["drift"] is not None else 0,
+                    "inventory_blocked": float(drow["inventory_blocked"]) if drow["inventory_blocked"] is not None else 0,
+                }
+    for item in result:
+        di = drift_map.get(item["stock_item_name"], {})
+        item["drift"] = di.get("drift", 0)
+        item["inventory_blocked"] = di.get("inventory_blocked", 0)
+        item["has_drift"] = abs(di.get("drift", 0)) > 0
 
 
 def _compute_po_items(
@@ -219,28 +252,7 @@ def po_data(
         result = [r for r in result if r["reorder_status"] in target_statuses]
 
     # Attach latest drift data
-    if result:
-        with get_db() as conn2:
-            with conn2.cursor() as dcur:
-                sku_names = [r["stock_item_name"] for r in result]
-                dcur.execute("""
-                    SELECT DISTINCT ON (stock_item_name)
-                        stock_item_name, drift, inventory_blocked, check_date
-                    FROM drift_log
-                    WHERE stock_item_name = ANY(%s)
-                    ORDER BY stock_item_name, check_date DESC
-                """, (sku_names,))
-                drift_map = {}
-                for drow in dcur.fetchall():
-                    drift_map[drow["stock_item_name"]] = {
-                        "drift": float(drow["drift"]) if drow["drift"] is not None else 0,
-                        "inventory_blocked": float(drow["inventory_blocked"]) if drow["inventory_blocked"] is not None else 0,
-                    }
-        for item in result:
-            di = drift_map.get(item["stock_item_name"], {})
-            item["drift"] = di.get("drift", 0)
-            item["inventory_blocked"] = di.get("inventory_blocked", 0)
-            item["has_drift"] = abs(di.get("drift", 0)) > 0
+    _attach_drift(result)
 
     return result
 
@@ -406,28 +418,7 @@ def match_and_build_po(req: SkuMatchRequest, user: dict = Depends(require_role("
     po_result = _compute_po_items(rows, lead_time, coverage_days, req.buffer, vel_by_sku)
 
     # Attach drift data
-    if po_result:
-        with get_db() as conn2:
-            with conn2.cursor() as dcur:
-                sku_names = [r["stock_item_name"] for r in po_result]
-                dcur.execute("""
-                    SELECT DISTINCT ON (stock_item_name)
-                        stock_item_name, drift, inventory_blocked, check_date
-                    FROM drift_log
-                    WHERE stock_item_name = ANY(%s)
-                    ORDER BY stock_item_name, check_date DESC
-                """, (sku_names,))
-                drift_map = {}
-                for drow in dcur.fetchall():
-                    drift_map[drow["stock_item_name"]] = {
-                        "drift": float(drow["drift"]) if drow["drift"] is not None else 0,
-                        "inventory_blocked": float(drow["inventory_blocked"]) if drow["inventory_blocked"] is not None else 0,
-                    }
-        for item in po_result:
-            di = drift_map.get(item["stock_item_name"], {})
-            item["drift"] = di.get("drift", 0)
-            item["inventory_blocked"] = di.get("inventory_blocked", 0)
-            item["has_drift"] = abs(di.get("drift", 0)) > 0
+    _attach_drift(po_result)
 
     summary = {
         "total_input": len(matches),
@@ -440,6 +431,122 @@ def match_and_build_po(req: SkuMatchRequest, user: dict = Depends(require_role("
         "matches": [m.model_dump() for m in matches],
         "po_data": po_result,
         "summary": summary,
+    }
+
+
+class PrefixPoRequest(BaseModel):
+    prefix: str
+    coverage_days: int | None = None
+    buffer: float | None = None
+    from_date: str | None = None
+    to_date: str | None = None
+    include_warning: bool = True
+    include_ok: bool = False
+
+
+@router.post("/po-data/prefix")
+def po_data_by_prefix(req: PrefixPoRequest, user: dict = Depends(require_role("purchaser"))):
+    """Return PO data for all SKUs whose part_no starts with the given prefix.
+
+    Each brand group uses its own supplier lead time, coverage, and demand mode
+    settings. The caller may override coverage_days and buffer globally.
+    """
+    prefix = req.prefix.strip()
+    if len(prefix) < 2:
+        raise HTTPException(400, "Prefix must be at least 2 characters.")
+
+    custom_range = req.from_date is not None or req.to_date is not None
+    escaped = _escape_ilike(prefix)
+
+    statuses = ["urgent", "lost_sales"]
+    if req.include_warning:
+        statuses.append("reorder")
+    if req.include_ok:
+        statuses.append("healthy")
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            # Pull all matching active SKUs with their brand supplier settings
+            status_clause = "AND sm.reorder_status = ANY(%s)" if not custom_range else ""
+            query_params: list = [f"{escaped}%"]
+            if not custom_range:
+                query_params.append(statuses)
+
+            cur.execute(f"""
+                SELECT {_PO_SELECT_COLS},
+                       si.category_name,
+                       COALESCE(bm.supplier_lead_time, 180) AS brand_lead_time,
+                       s.typical_order_months,
+                       s.lead_time_default AS supplier_lead_time_default,
+                       COALESCE(s.lead_time_demand_mode, 'full') AS lead_time_demand_mode
+                {_PO_FROM_JOINS}
+                LEFT JOIN brand_metrics bm ON bm.category_name = si.category_name
+                LEFT JOIN suppliers s ON UPPER(s.name) = UPPER(si.category_name)
+                WHERE si.is_active = TRUE
+                  AND COALESCE(si.part_no, '') ILIKE %s ESCAPE '\\'
+                  {status_clause}
+                {_PO_ORDER}
+            """, query_params)
+            rows = cur.fetchall()
+
+            # Batch velocity recalculation when custom date range is active
+            vel_by_sku: dict = {}
+            if custom_range and rows:
+                range_start, range_end = resolve_date_range(req.from_date, req.to_date)
+                sku_names_list = [r["stock_item_name"] for r in rows]
+                vel_by_sku = fetch_batch_velocities(cur, sku_names_list, range_start, range_end)
+
+    # Group rows by category (brand) and compute PO items per brand
+    by_brand: dict[str, list] = defaultdict(list)
+    brand_settings: dict[str, dict] = {}
+
+    for r in rows:
+        cat = r["category_name"] or ""
+        by_brand[cat].append(r)
+        if cat not in brand_settings:
+            brand_lead_time = int(r["brand_lead_time"] or 180)
+            if req.coverage_days is not None:
+                brand_coverage = req.coverage_days
+            else:
+                brand_coverage = compute_coverage_days(
+                    r["supplier_lead_time_default"] or brand_lead_time,
+                    r["typical_order_months"],
+                )
+            brand_settings[cat] = {
+                "lead_time": brand_lead_time,
+                "coverage_days": brand_coverage,
+                "include_lead_demand": (r["lead_time_demand_mode"] or "full") != "coverage_only",
+            }
+
+    all_items: list[dict] = []
+    brands_seen: list[str] = []
+
+    for cat, cat_rows in by_brand.items():
+        bs = brand_settings[cat]
+        items = _compute_po_items(
+            cat_rows,
+            bs["lead_time"],
+            bs["coverage_days"],
+            req.buffer,
+            vel_by_sku,
+            include_lead_demand=bs["include_lead_demand"],
+        )
+        all_items.extend(items)
+        if items:
+            brands_seen.append(cat)
+
+    # Post-recalculation status filter when custom range is active
+    if custom_range:
+        target_statuses = set(statuses)
+        all_items = [r for r in all_items if r["reorder_status"] in target_statuses]
+
+    _attach_drift(all_items)
+
+    return {
+        "po_data": all_items,
+        "brands": sorted(set(brands_seen)),
+        "prefix": prefix,
+        "total": len(all_items),
     }
 
 
