@@ -343,6 +343,168 @@ def list_skus(
     }
 
 
+@router.get("/skus")
+def list_skus_cross_brand(
+    prefix: str = Query(..., min_length=2, max_length=50, description="Part number prefix"),
+    status: str = Query(None),
+    min_velocity: float = Query(None),
+    sort: str = Query("days_to_stockout"),
+    sort_dir: str = Query("asc"),
+    search: str = Query(None),
+    hazardous: bool = Query(None),
+    dead_stock: bool = Query(None),
+    reorder_intent: str = Query(None),
+    abc_class: str = Query(None),
+    xyz_class: str = Query(None),
+    hide_inactive: bool = Query(True),
+    paginated: bool = Query(False),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    user: dict = Depends(get_current_user),
+):
+    """Cross-brand SKU list filtered by part_no prefix."""
+    # Sanitize sort column
+    sort_col = sort if sort in ALLOWED_SORT_COLS else "days_to_stockout"
+    direction = "DESC" if sort_dir.lower() == "desc" else "ASC"
+
+    escaped_prefix = _escape_ilike(prefix)
+    conditions = [f"COALESCE(si.part_no, '') ILIKE %s"]
+    params: list = [f"{escaped_prefix}%"]
+
+    if hide_inactive:
+        conditions.append("COALESCE(si.is_active, TRUE) = TRUE")
+
+    if status:
+        statuses = [s.strip() for s in status.split(",")]
+        conditions.append("sm.reorder_status = ANY(%s)")
+        params.append(statuses)
+
+    if min_velocity is not None:
+        conditions.append("sm.total_velocity >= %s")
+        params.append(min_velocity)
+
+    if search:
+        escaped_search = _escape_ilike(search)
+        conditions.append("(sm.stock_item_name ILIKE %s OR COALESCE(si.part_no, '') ILIKE %s)")
+        params.append(f"%{escaped_search}%")
+        params.append(f"%{escaped_search}%")
+
+    if hazardous is not None:
+        conditions.append("COALESCE(si.is_hazardous, FALSE) = %s")
+        params.append(hazardous)
+
+    if dead_stock is not None:
+        # dead_stock=True: has stock but no recent sales (proxy via last_sale_date)
+        # We filter post-query (like list_skus) since it requires threshold settings
+        pass  # handled in post-processing below
+
+    if reorder_intent is not None:
+        conditions.append("COALESCE(si.reorder_intent, 'normal') = %s")
+        params.append(reorder_intent)
+
+    if abc_class is not None:
+        conditions.append("sm.abc_class = %s")
+        params.append(abc_class.upper())
+
+    if xyz_class is not None:
+        conditions.append("sm.xyz_class = %s")
+        params.append(xyz_class.upper())
+
+    where = " AND ".join(conditions)
+
+    sql = f"""
+        SELECT sm.stock_item_name, sm.category_name, sm.current_stock,
+               sm.wholesale_velocity, sm.online_velocity, sm.store_velocity,
+               sm.total_velocity, sm.total_in_stock_days,
+               sm.days_to_stockout, sm.estimated_stockout_date,
+               sm.reorder_status, sm.reorder_qty_suggested,
+               sm.abc_class, sm.xyz_class, sm.demand_cv, sm.total_revenue,
+               sm.wma_wholesale_velocity, sm.wma_online_velocity, sm.wma_total_velocity,
+               sm.trend_direction, sm.trend_ratio, sm.safety_buffer,
+               sm.velocity_start_date, sm.velocity_end_date,
+               sm.last_import_date, sm.last_import_qty, sm.last_import_supplier,
+               sm.computed_at,
+               si.part_no, si.is_hazardous, si.reorder_intent, si.is_active,
+               COALESCE(si.use_xyz_buffer, NULL) AS use_xyz_buffer
+        FROM sku_metrics sm
+        LEFT JOIN stock_items si ON si.name = sm.stock_item_name
+        WHERE {where}
+        ORDER BY sm.{sort_col} {direction} NULLS LAST
+    """
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            # Get dead stock threshold from settings (cached)
+            _settings = _get_cached_settings(cur)
+            try:
+                dead_stock_threshold = int(_settings.get("dead_stock_threshold_days", "90"))
+            except (ValueError, TypeError):
+                dead_stock_threshold = 90
+
+            # Count query
+            count_sql = f"""
+                SELECT COUNT(*) AS cnt
+                FROM sku_metrics sm
+                LEFT JOIN stock_items si ON si.name = sm.stock_item_name
+                WHERE {where}
+            """
+            cur.execute(count_sql, params)
+            total = cur.fetchone()["cnt"]
+
+            # Data query
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+
+    today = date.today()
+    results = []
+    for r in rows:
+        d = dict(r)
+        # Convert Decimal to float for numeric fields
+        for key in (
+            "current_stock", "wholesale_velocity", "online_velocity", "store_velocity",
+            "total_velocity", "days_to_stockout", "total_revenue", "demand_cv",
+            "wma_wholesale_velocity", "wma_online_velocity", "wma_total_velocity",
+            "trend_ratio", "safety_buffer", "reorder_qty_suggested",
+            "last_import_qty",
+        ):
+            if d.get(key) is not None:
+                d[key] = float(d[key])
+
+        # Dead stock computed fields
+        last_sale_date = d.get("last_sale_date")
+        days_since = (today - last_sale_date).days if last_sale_date else None
+        current_stock = d.get("current_stock") or 0
+        d["last_sale_date"] = last_sale_date.isoformat() if last_sale_date else None
+        d["days_since_last_sale"] = days_since
+        d["is_dead_stock"] = current_stock > 0 and (days_since is None or days_since >= dead_stock_threshold)
+        d["reorder_intent"] = d.get("reorder_intent") or "normal"
+
+        # Serialise dates
+        for date_col in ("estimated_stockout_date", "velocity_start_date", "velocity_end_date",
+                         "last_import_date", "computed_at"):
+            if d.get(date_col) is not None:
+                d[date_col] = str(d[date_col])
+
+        results.append(d)
+
+    # Post-query dead stock filter
+    if dead_stock is not None:
+        results = [r for r in results if r["is_dead_stock"] == dead_stock]
+
+    if not paginated:
+        return results
+
+    # Paginated response
+    total_filtered = len(results) if dead_stock is not None else total
+    page_items = results[offset: offset + limit]
+    return {
+        "items": page_items,
+        "total": total_filtered,
+        "offset": offset,
+        "limit": limit,
+    }
+
+
 @router.get("/critical-skus")
 def list_critical_skus(
     status: str = Query("urgent,reorder", description="Comma-separated statuses"),
