@@ -100,7 +100,7 @@ def _upsert_categories(db_conn, categories):
     sql = """
         INSERT INTO stock_categories (name, source_id)
         VALUES (%(name)s, %(source_id)s)
-        ON CONFLICT (item_code) DO UPDATE SET
+        ON CONFLICT (name) DO UPDATE SET
             source_id = COALESCE(EXCLUDED.source_id, stock_categories.source_id),
             updated_at = NOW()
     """

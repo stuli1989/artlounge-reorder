@@ -367,6 +367,7 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
                 load_catalog(db_conn, skus)
                 print(f"  Catalog: {len(skus)} SKUs loaded")
         except Exception as e:
+            db_conn.rollback()
             print(f"  Catalog pull failed: {e} (continuing)")
 
         # 2. Pull ledger per facility
