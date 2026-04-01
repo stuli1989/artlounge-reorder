@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, Fragment } from 'react'
 import { cn } from '@/lib/utils'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchPoData, exportPo, matchSkusForPo } from '@/lib/api'
+import { fetchPoData, exportPo, matchSkusForPo, fetchPoDataByPrefix } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -19,7 +19,7 @@ import TrendIndicator from '@/components/TrendIndicator'
 import ClassificationExplainer from '@/components/ClassificationExplainer'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ArrowLeft, Download, Calendar, Flame, AlertTriangle, ClipboardList, ChevronDown, ChevronRight } from 'lucide-react'
-import type { ReorderStatus, ReorderIntent, AbcClass, TrendDirection, SkuMatchResult, SkuMatchSummary, PoDataItem } from '@/lib/types'
+import type { ReorderStatus, ReorderIntent, AbcClass, TrendDirection, SkuMatchResult, SkuMatchSummary, PoDataItem, PrefixPoResponse } from '@/lib/types'
 import SkuInputDialog from '@/components/SkuInputDialog'
 import SkuMatchReview from '@/components/SkuMatchReview'
 import HelpTip from '@/components/HelpTip'
@@ -66,6 +66,7 @@ export default function PoBuilder() {
   const [searchParams] = useSearchParams()
   const fromDate = searchParams.get('from_date')
   const toDate = searchParams.get('to_date')
+  const prefixParam = searchParams.get('prefix')
 
   const [leadTimeType, setLeadTimeType] = useState('default')
   const [customLeadTime, setCustomLeadTime] = useState(180)
@@ -84,10 +85,9 @@ export default function PoBuilder() {
   const [matchResults, setMatchResults] = useState<{ matches: SkuMatchResult[]; summary: SkuMatchSummary } | null>(null)
   const [showMatchReview, setShowMatchReview] = useState(false)
 
-  // Auto-open dialog when accessing /po directly (no brand)
-  useEffect(() => {
-    if (!decodedName && !subsetMode) setShowSkuInput(true)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const [prefixMode, setPrefixMode] = useState(false)
+  const [prefixBrands, setPrefixBrands] = useState<string[]>([])
+  const [prefixValue, setPrefixValue] = useState<string>('')
 
   // Clear expanded row when brand changes
   useEffect(() => {
@@ -117,6 +117,36 @@ export default function PoBuilder() {
     },
   })
 
+  const prefixMutation = useMutation({
+    mutationFn: fetchPoDataByPrefix,
+    onSuccess: (data: PrefixPoResponse) => {
+      setPrefixMode(true)
+      setPrefixBrands(data.brands)
+      setPrefixValue(data.prefix)
+      setSubsetMode(true)
+      setSubsetRawData(data.po_data)
+      setSubsetSkuNames(data.po_data.map(d => d.stock_item_name))
+      setShowSkuInput(false)
+    },
+  })
+
+  // Auto-open dialog when accessing /po directly (no brand), or auto-load prefix
+  useEffect(() => {
+    if (prefixParam && !prefixMode && !subsetMode) {
+      prefixMutation.mutate({
+        prefix: prefixParam,
+        coverage_days: coverageDays ?? undefined,
+        buffer: bufferOverride ? bufferValue : undefined,
+        from_date: fromDate ?? undefined,
+        to_date: toDate ?? undefined,
+        include_warning: includeWarning,
+        include_ok: includeOk,
+      })
+    } else if (!decodedName && !subsetMode && !prefixParam) {
+      setShowSkuInput(true)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSkuSubmit = (skuNames: string[]) => {
     matchMutation.mutate({
       sku_names: skuNames.slice(0, 500),
@@ -145,6 +175,9 @@ export default function PoBuilder() {
     setSubsetSkuNames([])
     setMatchResults(null)
     setShowMatchReview(false)
+    setPrefixMode(false)
+    setPrefixBrands([])
+    setPrefixValue('')
     setOverrides({})
   }
 
@@ -156,16 +189,28 @@ export default function PoBuilder() {
   // Re-fetch subset data when config params change
   useEffect(() => {
     if (subsetMode && subsetSkuNames.length > 0) {
-      matchMutation.mutate({
-        sku_names: subsetSkuNames,
-        lead_time: leadTime,
-        coverage_days: coverageDays ?? undefined,
-        buffer: bufferOverride ? bufferValue : undefined,
-        from_date: fromDate ?? undefined,
-        to_date: toDate ?? undefined,
-      })
+      if (prefixMode && prefixValue) {
+        prefixMutation.mutate({
+          prefix: prefixValue,
+          coverage_days: coverageDays ?? undefined,
+          buffer: bufferOverride ? bufferValue : undefined,
+          from_date: fromDate ?? undefined,
+          to_date: toDate ?? undefined,
+          include_warning: includeWarning,
+          include_ok: includeOk,
+        })
+      } else {
+        matchMutation.mutate({
+          sku_names: subsetSkuNames,
+          lead_time: leadTime,
+          coverage_days: coverageDays ?? undefined,
+          buffer: bufferOverride ? bufferValue : undefined,
+          from_date: fromDate ?? undefined,
+          to_date: toDate ?? undefined,
+        })
+      }
     }
-  }, [leadTime, coverageDays, bufferOverride, bufferValue, fromDate, toDate]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leadTime, coverageDays, bufferOverride, bufferValue, fromDate, toDate, includeWarning, includeOk]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clear order_qty overrides when config changes so new API values take effect
   useEffect(() => {
@@ -296,7 +341,7 @@ export default function PoBuilder() {
   const handleExport = async () => {
     try {
       const payload = {
-        category_name: subsetMode ? 'CUSTOM' : decodedName,
+        category_name: prefixMode ? `PREFIX-${prefixValue}` : subsetMode ? 'CUSTOM' : decodedName,
         supplier_name: '',
         lead_time: leadTime,
         coverage_days: coverageDays ?? defaultCoverage,
@@ -338,7 +383,7 @@ export default function PoBuilder() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-lg font-semibold truncate">
-              PO{subsetMode ? ' — Custom' : decodedName ? ` — ${decodedName}` : ''}
+              PO{prefixMode ? ` — Prefix "${prefixValue}"` : subsetMode ? ' — Custom' : decodedName ? ` — ${decodedName}` : ''}
             </h2>
           </div>
 
@@ -707,7 +752,7 @@ export default function PoBuilder() {
           <ArrowLeft className="h-4 w-4 mr-1" /> {categoryName ? 'Back to SKUs' : 'Back to Brands'}
         </Button>
         <h2 className="text-xl font-semibold">
-          Purchase Order{subsetMode ? ' — Custom List' : decodedName ? ` — ${decodedName}` : ''}
+          Purchase Order{prefixMode ? ` — Prefix "${prefixValue}"` : subsetMode ? ' — Custom List' : decodedName ? ` — ${decodedName}` : ''}
         </h2>
         <div className="ml-auto">
           <ClassificationExplainer />
@@ -919,6 +964,33 @@ export default function PoBuilder() {
         </div>
       )}
 
+      {/* Prefix mode banner */}
+      {prefixMode && (
+        <div className="text-sm bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-blue-800">
+              <strong>Prefix &ldquo;{prefixValue}&rdquo;:</strong>{' '}
+              {rows.length} SKU{rows.length !== 1 ? 's' : ''} across {prefixBrands.length} brand{prefixBrands.length !== 1 ? 's' : ''}
+            </span>
+            <Button variant="ghost" size="sm" className="text-blue-700 hover:text-blue-900" onClick={clearSubsetMode}>
+              Clear
+            </Button>
+          </div>
+          {prefixBrands.length > 1 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {prefixBrands.map(b => {
+                const count = rows.filter(r => r.category_name === b).length
+                return (
+                  <Badge key={b} variant="secondary" className="text-xs">
+                    {b} ({count})
+                  </Badge>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Match review (shown after fuzzy/unmatched results) */}
       {showMatchReview && matchResults && (
         <Card>
@@ -1029,6 +1101,11 @@ export default function PoBuilder() {
                         )}
                       </span>
                     </div>
+                    {prefixMode && prefixBrands.length > 1 && (
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        {r.category_name}
+                      </span>
+                    )}
                     {r.abc_class && (
                       <span className="text-[10px] text-muted-foreground">
                         {r.abc_class}
