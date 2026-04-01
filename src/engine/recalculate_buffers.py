@@ -82,13 +82,13 @@ def recalculate_all_buffers(db_conn):
     # ── Fetch all SKU metrics + per-item prefs ──
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT m.stock_item_name, m.category_name,
+            SELECT m.item_code, m.category_name,
                    m.current_stock, m.total_velocity,
                    m.abc_class, m.xyz_class,
                    si.use_xyz_buffer AS item_xyz_pref,
                    si.reorder_intent
             FROM sku_metrics m
-            LEFT JOIN stock_items si ON si.name = m.stock_item_name
+            LEFT JOIN stock_items si ON si.item_code = m.item_code
         """)
         rows = cur.fetchall()
 
@@ -135,7 +135,7 @@ def recalculate_all_buffers(db_conn):
 
         updates.append((
             buf, status, suggested_qty, days_to_stockout, est_date,
-            row["stock_item_name"],
+            row["item_code"],
         ))
 
     # ── Batch update sku_metrics ──
@@ -147,7 +147,7 @@ def recalculate_all_buffers(db_conn):
                 reorder_qty_suggested = %s,
                 days_to_stockout = %s,
                 estimated_stockout_date = %s
-            WHERE stock_item_name = %s
+            WHERE item_code = %s
         """, updates, page_size=1000)
     db_conn.commit()
 
@@ -160,14 +160,14 @@ def recalculate_all_buffers(db_conn):
     by_category = defaultdict(list)
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT sm.stock_item_name, sm.category_name,
+            SELECT sm.item_code, sm.category_name,
                    sm.current_stock, sm.wholesale_velocity, sm.online_velocity,
                    sm.total_velocity, sm.total_in_stock_days, sm.days_to_stockout, sm.reorder_status,
                    sm.reorder_qty_suggested, sm.last_sale_date, sm.abc_class, sm.xyz_class,
                    sm.total_revenue, sm.safety_buffer,
                    si.reorder_intent, si.is_active
             FROM sku_metrics sm
-            JOIN stock_items si ON si.name = sm.stock_item_name
+            JOIN stock_items si ON si.item_code = sm.item_code
         """)
         for r in cur.fetchall():
             d = dict(r)

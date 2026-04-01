@@ -37,12 +37,12 @@ def load_transactions(db_conn, parsed_vouchers: list[dict], channel_cache: dict 
 
     sql = """
         INSERT INTO transactions (txn_date, party_name, voucher_type, voucher_number,
-                                  stock_item_name, quantity, is_inward, rate, amount,
+                                  item_code, quantity, is_inward, rate, amount,
                                   channel, tally_master_id, phys_stock_diff)
         VALUES (%(txn_date)s, %(party_name)s, %(voucher_type)s, %(voucher_number)s,
-                %(stock_item_name)s, %(quantity)s, %(is_inward)s, %(rate)s, %(amount)s,
+                %(item_code)s, %(quantity)s, %(is_inward)s, %(rate)s, %(amount)s,
                 %(channel)s, %(tally_master_id)s, %(phys_stock_diff)s)
-        ON CONFLICT (txn_date, voucher_number, stock_item_name, quantity, is_inward, rate)
+        ON CONFLICT (txn_date, voucher_number, item_code, quantity, is_inward, rate)
         DO NOTHING
     """
 
@@ -56,7 +56,7 @@ def load_transactions(db_conn, parsed_vouchers: list[dict], channel_cache: dict 
             "party_name": v["party"],
             "voucher_type": v["voucher_type"],
             "voucher_number": v["voucher_number"] or "",
-            "stock_item_name": v["stock_item"],
+            "item_code": v["stock_item"],
             "quantity": v["quantity"],
             "is_inward": v["is_inward"],
             "rate": v["rate"],

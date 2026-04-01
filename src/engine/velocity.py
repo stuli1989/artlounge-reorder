@@ -40,7 +40,7 @@ def find_in_stock_periods(daily_positions: list[dict]) -> list[dict]:
     return periods
 
 
-def calculate_velocity(stock_item_name: str, daily_positions: list[dict]) -> dict:
+def calculate_velocity(item_code: str, daily_positions: list[dict]) -> dict:
     """
     Calculate wholesale, online, store, and total velocity from daily positions.
 
@@ -152,17 +152,17 @@ def fetch_batch_velocities(cur, sku_names: list[str], range_start: date, range_e
     if not sku_names:
         return {}
     cur.execute("""
-        SELECT dsp.stock_item_name,
+        SELECT dsp.item_code,
                COUNT(*) FILTER (WHERE dsp.is_in_stock) AS in_stock_days,
                COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.wholesale_out ELSE 0 END), 0) AS wholesale_total,
                COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.online_out ELSE 0 END), 0) AS online_total,
                COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.store_out ELSE 0 END), 0) AS store_total
         FROM daily_stock_positions dsp
-        WHERE dsp.stock_item_name = ANY(%s)
+        WHERE dsp.item_code = ANY(%s)
         AND dsp.position_date >= %s AND dsp.position_date <= %s
-        GROUP BY dsp.stock_item_name
+        GROUP BY dsp.item_code
     """, (sku_names, range_start, range_end))
-    return {row["stock_item_name"]: dict(row) for row in cur.fetchall()}
+    return {row["item_code"]: dict(row) for row in cur.fetchall()}
 
 
 def velocities_from_batch_row(vel_row: dict | None) -> tuple[float, float, float, float]:
@@ -188,15 +188,15 @@ def fetch_batch_wma_velocities(
         return {}
     window_start = range_end - timedelta(days=window_days)
     cur.execute("""
-        SELECT dsp.stock_item_name,
+        SELECT dsp.item_code,
                COUNT(*) FILTER (WHERE dsp.is_in_stock) AS in_stock_days,
                COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.wholesale_out ELSE 0 END), 0) AS wholesale_total,
                COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.online_out ELSE 0 END), 0) AS online_total,
                COALESCE(SUM(CASE WHEN dsp.is_in_stock THEN dsp.store_out ELSE 0 END), 0) AS store_total
         FROM daily_stock_positions dsp
-        WHERE dsp.stock_item_name = ANY(%s)
+        WHERE dsp.item_code = ANY(%s)
         AND dsp.position_date >= %s AND dsp.position_date <= %s
-        GROUP BY dsp.stock_item_name
+        GROUP BY dsp.item_code
     """, (sku_names, window_start, range_end))
     cols = [desc[0] for desc in cur.description]
     result = {}
@@ -205,7 +205,7 @@ def fetch_batch_wma_velocities(
             d = dict(row)
         else:
             d = dict(zip(cols, row))
-        result[d["stock_item_name"]] = d
+        result[d["item_code"]] = d
     return result
 
 

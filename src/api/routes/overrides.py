@@ -13,7 +13,7 @@ VALID_FIELDS = {"current_stock", "total_velocity", "wholesale_velocity",
 
 
 class OverrideCreate(BaseModel):
-    stock_item_name: str
+    item_code: str
     field_name: str
     override_value: float | None = None
     note: str
@@ -37,14 +37,14 @@ class OverrideReview(BaseModel):
 SAFE_COLUMNS = {"current_stock", "total_velocity", "wholesale_velocity", "online_velocity"}
 
 
-def _recalc_for_sku(stock_item_name: str):
+def _recalc_for_sku(item_code: str):
     """Background task: recompute buffer/reorder status for a single SKU (phases 5+6)."""
     from engine.pipeline import run_computation_pipeline
     with get_db() as conn:
-        run_computation_pipeline(conn, phases=[5, 6], scope={"sku": stock_item_name})
+        run_computation_pipeline(conn, phases=[5, 6], scope={"sku": item_code})
 
 
-def _snapshot_computed_value(cur, stock_item_name: str, field_name: str) -> float | None:
+def _snapshot_computed_value(cur, item_code: str, field_name: str) -> float | None:
     """Get the current computed value from sku_metrics for snapshotting."""
     if field_name == "note":
         return None
@@ -52,14 +52,14 @@ def _snapshot_computed_value(cur, stock_item_name: str, field_name: str) -> floa
     if col:
         if col not in SAFE_COLUMNS:
             raise ValueError(f"Invalid column: {col}")
-        cur.execute(f"SELECT {col} FROM sku_metrics WHERE stock_item_name = %s", (stock_item_name,))
+        cur.execute(f"SELECT {col} FROM sku_metrics WHERE item_code = %s", (item_code,))
         row = cur.fetchone()
         return float(row[col]) if row and row[col] is not None else None
     if field_name == "store_velocity":
         # store_velocity is derived: total - wholesale - online
         cur.execute(
-            "SELECT total_velocity, wholesale_velocity, online_velocity FROM sku_metrics WHERE stock_item_name = %s",
-            (stock_item_name,),
+            "SELECT total_velocity, wholesale_velocity, online_velocity FROM sku_metrics WHERE item_code = %s",
+            (item_code,),
         )
         row = cur.fetchone()
         if not row:
@@ -82,21 +82,21 @@ def create_override(req: OverrideCreate, background_tasks: BackgroundTasks, user
     with get_db() as conn:
         with conn.cursor() as cur:
             # Verify SKU exists
-            cur.execute("SELECT 1 FROM stock_items WHERE name = %s", (req.stock_item_name,))
+            cur.execute("SELECT 1 FROM stock_items WHERE item_code = %s", (req.item_code,))
             if not cur.fetchone():
-                raise HTTPException(404, f"Stock item '{req.stock_item_name}' not found")
+                raise HTTPException(404, f"Stock item '{req.item_code}' not found")
 
             # Snapshot computed value
-            computed_val = _snapshot_computed_value(cur, req.stock_item_name, req.field_name)
+            computed_val = _snapshot_computed_value(cur, req.item_code, req.field_name)
 
             # Deactivate prior active override for same field
             cur.execute("""
                 UPDATE overrides
                 SET is_active = FALSE, deactivated_at = NOW(),
                     deactivated_reason = 'Superseded by new override'
-                WHERE stock_item_name = %s AND field_name = %s AND is_active = TRUE
+                WHERE item_code = %s AND field_name = %s AND is_active = TRUE
                 RETURNING id
-            """, (req.stock_item_name, req.field_name))
+            """, (req.item_code, req.field_name))
             old_row = cur.fetchone()
 
             if old_row:
@@ -108,13 +108,13 @@ def create_override(req: OverrideCreate, background_tasks: BackgroundTasks, user
             # Insert new override
             cur.execute("""
                 INSERT INTO overrides (
-                    stock_item_name, field_name, override_value, note,
+                    item_code, field_name, override_value, note,
                     hold_from_po, created_by, expires_at,
                     computed_value_at_creation, computed_value_latest
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING *
             """, (
-                req.stock_item_name, req.field_name, req.override_value,
+                req.item_code, req.field_name, req.override_value,
                 req.note, req.hold_from_po, req.created_by,
                 req.expires_at, computed_val, computed_val,
             ))
@@ -134,7 +134,7 @@ def create_override(req: OverrideCreate, background_tasks: BackgroundTasks, user
         conn.commit()
 
     # Trigger targeted recompute for this SKU (phases 5+6: buffer + reorder)
-    background_tasks.add_task(_recalc_for_sku, req.stock_item_name)
+    background_tasks.add_task(_recalc_for_sku, req.item_code)
 
     return dict(new_row)
 
@@ -142,7 +142,7 @@ def create_override(req: OverrideCreate, background_tasks: BackgroundTasks, user
 @router.get("/overrides")
 def list_overrides(
     is_stale: bool | None = Query(None),
-    stock_item_name: str | None = Query(None),
+    item_code: str | None = Query(None),
     user: dict = Depends(get_current_user),
 ):
     """List active overrides with current computed values from sku_metrics."""
@@ -153,9 +153,9 @@ def list_overrides(
         conditions.append("o.is_stale = %s")
         params.append(is_stale)
 
-    if stock_item_name:
-        conditions.append("o.stock_item_name = %s")
-        params.append(stock_item_name)
+    if item_code:
+        conditions.append("o.item_code = %s")
+        params.append(item_code)
 
     where = " AND ".join(conditions)
 
@@ -169,7 +169,7 @@ def list_overrides(
                        sm.online_velocity AS computed_online_velocity,
                        sm.category_name
                 FROM overrides o
-                LEFT JOIN sku_metrics sm ON sm.stock_item_name = o.stock_item_name
+                LEFT JOIN sku_metrics sm ON sm.item_code = o.item_code
                 WHERE {where}
                 ORDER BY o.is_stale DESC, o.created_at DESC
             """, params)
@@ -222,8 +222,8 @@ def deactivate_override(override_id: int, req: OverrideDeactivate, background_ta
         conn.commit()
 
     # Trigger targeted recompute so reorder status reflects the removed override
-    stock_item_name = row["stock_item_name"]
-    background_tasks.add_task(_recalc_for_sku, stock_item_name)
+    sku_item_code = row["item_code"]
+    background_tasks.add_task(_recalc_for_sku, sku_item_code)
 
     return dict(row)
 
@@ -243,12 +243,12 @@ def review_override(override_id: int, req: OverrideReview, background_tasks: Bac
             if not row:
                 raise HTTPException(404, "Active override not found")
 
-            sku_name = row["stock_item_name"]
+            sku_name = row["item_code"]
 
             if req.action == "keep":
                 # Rebase: update snapshot to current, reset stale flag
                 new_val = req.new_value if req.new_value is not None else row["override_value"]
-                computed_now = _snapshot_computed_value(cur, row["stock_item_name"], row["field_name"])
+                computed_now = _snapshot_computed_value(cur, row["item_code"], row["field_name"])
 
                 cur.execute("""
                     UPDATE overrides

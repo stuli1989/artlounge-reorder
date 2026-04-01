@@ -40,9 +40,9 @@ def load_stock_items(db_conn, items: list[dict]) -> int:
         return 0
     sql = """
         INSERT INTO stock_items (tally_name, stock_group, category_name, base_unit,
-                                 tally_master_id, opening_balance, closing_balance, closing_value, part_no)
+                                 tally_master_id, opening_balance, closing_balance, closing_value, display_name)
         VALUES (%(name)s, %(stock_group)s, %(category)s, %(base_unit)s,
-                %(tally_master_id)s, %(opening_balance)s, %(closing_balance)s, %(closing_value)s, %(part_no)s)
+                %(tally_master_id)s, %(opening_balance)s, %(closing_balance)s, %(closing_value)s, %(display_name)s)
         ON CONFLICT (tally_name) DO UPDATE SET
             stock_group = EXCLUDED.stock_group,
             category_name = EXCLUDED.category_name,
@@ -51,7 +51,7 @@ def load_stock_items(db_conn, items: list[dict]) -> int:
             opening_balance = EXCLUDED.opening_balance,
             closing_balance = EXCLUDED.closing_balance,
             closing_value = EXCLUDED.closing_value,
-            part_no = EXCLUDED.part_no,
+            display_name = EXCLUDED.display_name,
             updated_at = NOW()
     """
     with db_conn.cursor() as cur:

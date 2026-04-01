@@ -79,7 +79,7 @@ def dashboard_summary(user: dict = Depends(get_current_user)):
                   SUM(CASE WHEN trend_direction='down' AND total_velocity>0 THEN 1 ELSE 0 END) AS trending_down,
                   SUM(CASE WHEN trend_direction='flat' AND total_velocity>0 THEN 1 ELSE 0 END) AS trending_flat
                 FROM sku_metrics sm
-                LEFT JOIN stock_items si ON si.name = sm.stock_item_name
+                LEFT JOIN stock_items si ON si.item_code = sm.item_code
                 WHERE COALESCE(si.is_active, TRUE) = TRUE
             """)
             sku_row = dict(cur.fetchone())

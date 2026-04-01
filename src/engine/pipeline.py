@@ -45,7 +45,7 @@ def identify_changed_items(db_conn) -> set[str]:
     """Find items with new transactions since last pipeline run."""
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT DISTINCT stock_item_name FROM transactions
+            SELECT DISTINCT item_code FROM transactions
             WHERE created_at > (SELECT COALESCE(MAX(computed_at), '1970-01-01') FROM sku_metrics)
         """)
         return {row[0] for row in cur.fetchall()}
@@ -74,8 +74,8 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
         changed_items = identify_changed_items(db_conn)
         with db_conn.cursor() as cur:
             cur.execute("""
-                SELECT name FROM stock_items
-                WHERE name NOT IN (SELECT stock_item_name FROM sku_metrics)
+                SELECT item_code FROM stock_items
+                WHERE item_code NOT IN (SELECT item_code FROM sku_metrics)
             """)
             new_items = {row[0] for row in cur.fetchall()}
         changed_items = changed_items | new_items
@@ -93,12 +93,12 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
     # Apply scope filter
     if scope:
         if scope.get("sku"):
-            active_items = [i for i in active_items if i["name"] == scope["sku"]]
+            active_items = [i for i in active_items if i["item_code"] == scope["sku"]]
         elif scope.get("brand"):
             active_items = [i for i in active_items if i["category_name"] == scope["brand"]]
 
     if incremental and changed_items is not None:
-        items_to_process = [i for i in active_items if i["name"] in changed_items]
+        items_to_process = [i for i in active_items if i["item_code"] in changed_items]
     else:
         items_to_process = active_items
 
@@ -140,7 +140,7 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
 
     if phases is None or 1 in phases or 2 in phases:
         for i, item in enumerate(items_to_process):
-            sku_name = item["name"]
+            sku_name = item["item_code"]
             txns = all_txns.get(sku_name, [])
             # Merge KG demand from Shipping Package API
             kg_txns = kg_demand_map.get(sku_name, [])
@@ -160,7 +160,7 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
             if phases is None or 1 in phases:
                 # Build daily positions from transactions (no snapshots)
                 positions = build_daily_positions_from_snapshots_and_txns(
-                    stock_item_name=sku_name,
+                    item_code=sku_name,
                     snapshot_by_date={},
                     transactions=txns,
                     start_date=fy_start,
@@ -218,7 +218,7 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
                 stockout_date = today + timedelta(days=capped_days)
 
             m = {
-                "stock_item_name": sku_name,
+                "item_code": sku_name,
                 "category_name": item["category_name"],
                 "current_stock": current_stock,
                 **velocity,
@@ -261,9 +261,9 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
         for item in all_stock_items:
             if not item.get("is_active", True):
                 current_stock = current_stock_map.get(
-                    item["name"], item.get("closing_balance", 0) or 0
+                    item["item_code"], item.get("closing_balance", 0) or 0
                 )
-                metrics_batch.append(_empty_metrics(item["name"], item["category_name"], current_stock))
+                metrics_batch.append(_empty_metrics(item["item_code"], item["category_name"], current_stock))
 
         db_conn.commit()
         print(f"  {processed} items with data computed.")
@@ -274,7 +274,7 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
             snap_used = 0
             pos_used = 0
             for m in metrics_batch:
-                sku = m["stock_item_name"]
+                sku = m["item_code"]
                 snap = snapshot_map.get(sku)
                 if snap:
                     m["current_stock"] = snap["inventory"]
@@ -311,8 +311,8 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
 
         print("  Computing XYZ classification...")
         if incremental and changed_items:
-            unchanged_skus = [m["stock_item_name"] for m in metrics_batch
-                              if m["stock_item_name"] not in daily_positions_by_sku]
+            unchanged_skus = [m["item_code"] for m in metrics_batch
+                              if m["item_code"] not in daily_positions_by_sku]
             if unchanged_skus:
                 loaded = _fetch_daily_positions_bulk(db_conn, unchanged_skus)
                 daily_positions_by_sku.update(loaded)
@@ -321,7 +321,7 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
     # ── Phase 4: WMA velocity + trend detection ──
     if phases is None or 4 in phases:
         print("  Computing WMA velocities and trends...")
-        sku_names_with_velocity = [m["stock_item_name"] for m in metrics_batch if m.get("total_velocity", 0) > 0]
+        sku_names_with_velocity = [m["item_code"] for m in metrics_batch if m.get("total_velocity", 0) > 0]
         wma_window = int(class_settings.get("wma_window_days", 90))
 
         wma_by_sku = {}
@@ -336,7 +336,7 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
         trend_down = class_settings.get("trend_down_threshold", 0.8)
 
         for m in metrics_batch:
-            sku = m["stock_item_name"]
+            sku = m["item_code"]
             wma_row = wma_by_sku.get(sku)
             if wma_row:
                 wma_w, wma_o, wma_s, wma_t = velocities_from_batch_row(wma_row)
@@ -357,11 +357,11 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
     # ── Phase 5: Safety buffers + reorder recomputation ──
     if phases is None or 5 in phases:
         print("  Computing safety buffers and final reorder status...")
-        stock_items_by_name = {item["name"]: item for item in all_stock_items}
+        stock_items_by_name = {item["item_code"]: item for item in all_stock_items}
         for m in metrics_batch:
             abc = m.get("abc_class")
             xyz = m.get("xyz_class")
-            item_data = stock_items_by_name.get(m["stock_item_name"], {})
+            item_data = stock_items_by_name.get(m["item_code"], {})
 
             # Safety buffer: supplier override is a MULTIPLIER (F14)
             supplier = supplier_map.get(m["category_name"])
@@ -435,10 +435,10 @@ def run_computation_pipeline(db_conn, incremental=False, phases=None, scope=None
 def fetch_all_stock_items(db_conn) -> list[dict]:
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT name, sku_code, category_name, opening_balance, closing_balance,
+            SELECT item_code, sku_code, category_name, opening_balance, closing_balance,
                    reorder_intent, is_active
             FROM stock_items
-            ORDER BY category_name, name
+            ORDER BY category_name, item_code
         """)
         cols = [d[0] for d in cur.description]
         rows = []
@@ -455,9 +455,9 @@ def fetch_all_transactions(db_conn) -> dict[str, list[dict]]:
     result = defaultdict(list)
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT stock_item_name, txn_date, stock_change, txn_type,
+            SELECT item_code, txn_date, stock_change, txn_type,
                    entity, entity_type, channel, is_demand, facility
-            FROM transactions ORDER BY stock_item_name, txn_date
+            FROM transactions ORDER BY item_code, txn_date
         """)
         for row in cur.fetchall():
             result[row[0]].append({
@@ -482,10 +482,10 @@ def fetch_current_stock_from_positions(db_conn) -> dict[str, float]:
     """Get latest closing_qty per SKU from daily_stock_positions."""
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT DISTINCT ON (stock_item_name)
-                stock_item_name, closing_qty
+            SELECT DISTINCT ON (item_code)
+                item_code, closing_qty
             FROM daily_stock_positions
-            ORDER BY stock_item_name, position_date DESC
+            ORDER BY item_code, position_date DESC
         """)
         return {row[0]: float(row[1]) for row in cur.fetchall()}
 
@@ -525,10 +525,10 @@ def fetch_latest_snapshots(db_conn):
     """Get latest inventory snapshot per SKU (aggregated across facilities)."""
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT DISTINCT ON (stock_item_name)
-                stock_item_name, inventory, inventory_blocked, bad_inventory
+            SELECT DISTINCT ON (item_code)
+                item_code, inventory, inventory_blocked, bad_inventory
             FROM inventory_snapshots
-            ORDER BY stock_item_name, snapshot_date DESC
+            ORDER BY item_code, snapshot_date DESC
         """)
         return {row[0]: {"inventory": float(row[1]), "blocked": float(row[2]), "bad": float(row[3])}
                 for row in cur.fetchall()}
@@ -539,9 +539,9 @@ def fetch_kg_demand(db_conn):
     result = defaultdict(list)
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT stock_item_name, txn_date, quantity, channel
+            SELECT item_code, txn_date, quantity, channel
             FROM kg_demand
-            ORDER BY stock_item_name, txn_date
+            ORDER BY item_code, txn_date
         """)
         for row in cur.fetchall():
             result[row[0]].append({
@@ -565,7 +565,7 @@ def log_drift(db_conn, sku_name, check_date, fw_stock, snap_physical, drift, blo
     with db_conn.cursor() as cur:
         cur.execute("""
             INSERT INTO drift_log
-                (stock_item_name, check_date, forward_walk_stock, snapshot_stock, drift, inventory_blocked, bad_inventory)
+                (item_code, check_date, forward_walk_stock, snapshot_stock, drift, inventory_blocked, bad_inventory)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (sku_name, check_date, fw_stock, snap_physical, drift, blocked, bad))
 
@@ -582,13 +582,13 @@ def fetch_sku_metrics_for_category(db_conn, category_name: str) -> list[dict]:
                     "total_revenue", "safety_buffer"}
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT sm.stock_item_name, sm.current_stock, sm.wholesale_velocity, sm.online_velocity,
+            SELECT sm.item_code, sm.current_stock, sm.wholesale_velocity, sm.online_velocity,
                    sm.total_velocity, sm.total_in_stock_days, sm.days_to_stockout, sm.reorder_status,
                    sm.reorder_qty_suggested, sm.last_sale_date, sm.abc_class, sm.xyz_class,
                    sm.total_revenue, sm.safety_buffer,
                    si.reorder_intent, si.is_active
             FROM sku_metrics sm
-            JOIN stock_items si ON si.name = sm.stock_item_name
+            JOIN stock_items si ON si.item_code = sm.item_code
             WHERE sm.category_name = %s
         """, (category_name,))
         cols = [d[0] for d in cur.description]
@@ -611,11 +611,11 @@ def _fetch_daily_positions_bulk(db_conn, sku_names: list[str]) -> dict[str, list
         for batch_start in range(0, len(sku_names), 5000):
             batch = sku_names[batch_start:batch_start + 5000]
             cur.execute("""
-                SELECT stock_item_name, position_date, opening_qty, closing_qty,
+                SELECT item_code, position_date, opening_qty, closing_qty,
                        inward_qty, outward_qty, wholesale_out, online_out, store_out, is_in_stock
                 FROM daily_stock_positions
-                WHERE stock_item_name = ANY(%s)
-                ORDER BY stock_item_name, position_date
+                WHERE item_code = ANY(%s)
+                ORDER BY item_code, position_date
             """, (batch,))
             cols = [desc[0] for desc in cur.description]
             for row in cur.fetchall():
@@ -623,7 +623,7 @@ def _fetch_daily_positions_bulk(db_conn, sku_names: list[str]) -> dict[str, list
                 for k in ("opening_qty", "closing_qty", "inward_qty", "outward_qty",
                            "wholesale_out", "online_out", "store_out"):
                     d[k] = float(d[k])
-                item = d.pop("stock_item_name")
+                item = d.pop("item_code")
                 result[item].append(d)
     return dict(result)
 
@@ -631,18 +631,18 @@ def _fetch_daily_positions_bulk(db_conn, sku_names: list[str]) -> dict[str, list
 def _load_existing_metrics(db_conn, items_to_process, all_stock_items):
     """Load existing sku_metrics when skipping early phases."""
     metrics_batch = []
-    sku_names = [i["name"] for i in items_to_process]
+    sku_names = [i["item_code"] for i in items_to_process]
     # Also include inactive items
     for item in all_stock_items:
         if not item.get("is_active", True):
-            sku_names.append(item["name"])
+            sku_names.append(item["item_code"])
     if not sku_names:
         return metrics_batch
     with db_conn.cursor() as cur:
         for batch_start in range(0, len(sku_names), 5000):
             batch = sku_names[batch_start:batch_start + 5000]
             cur.execute("""
-                SELECT stock_item_name, category_name, current_stock,
+                SELECT item_code, category_name, current_stock,
                        wholesale_velocity, online_velocity, total_velocity,
                        total_in_stock_days, velocity_start_date, velocity_end_date,
                        days_to_stockout, estimated_stockout_date,
@@ -653,7 +653,7 @@ def _load_existing_metrics(db_conn, items_to_process, all_stock_items):
                        wma_wholesale_velocity, wma_online_velocity, wma_total_velocity,
                        trend_direction, trend_ratio, safety_buffer,
                        zero_activity_ratio, min_sample_met
-                FROM sku_metrics WHERE stock_item_name = ANY(%s)
+                FROM sku_metrics WHERE item_code = ANY(%s)
             """, (batch,))
             cols = [desc[0] for desc in cur.description]
             for row in cur.fetchall():
@@ -672,7 +672,7 @@ def _load_existing_metrics(db_conn, items_to_process, all_stock_items):
 
 _SKU_METRICS_UPSERT_SQL = """
     INSERT INTO sku_metrics (
-        stock_item_name, category_name, current_stock,
+        item_code, category_name, current_stock,
         wholesale_velocity, online_velocity, total_velocity,
         total_in_stock_days, velocity_start_date, velocity_end_date,
         days_to_stockout, estimated_stockout_date,
@@ -685,7 +685,7 @@ _SKU_METRICS_UPSERT_SQL = """
         zero_activity_ratio, min_sample_met,
         computed_at
     ) VALUES (
-        %(stock_item_name)s, %(category_name)s, %(current_stock)s,
+        %(item_code)s, %(category_name)s, %(current_stock)s,
         %(wholesale_velocity)s, %(online_velocity)s, %(total_velocity)s,
         %(total_in_stock_days)s, %(velocity_start_date)s, %(velocity_end_date)s,
         %(days_to_stockout)s, %(estimated_stockout_date)s,
@@ -698,7 +698,7 @@ _SKU_METRICS_UPSERT_SQL = """
         %(zero_activity_ratio)s, %(min_sample_met)s,
         NOW()
     )
-    ON CONFLICT (stock_item_name) DO UPDATE SET
+    ON CONFLICT (item_code) DO UPDATE SET
         category_name = EXCLUDED.category_name,
         current_stock = EXCLUDED.current_stock,
         wholesale_velocity = EXCLUDED.wholesale_velocity,
@@ -838,7 +838,7 @@ def _empty_metrics(sku_name: str, category_name: str, current_stock: float) -> d
     """Return empty metrics dict for items with no data."""
     status = "out_of_stock" if current_stock <= 0 else "dead_stock"
     return {
-        "stock_item_name": sku_name,
+        "item_code": sku_name,
         "category_name": category_name,
         "current_stock": current_stock,
         "wholesale_velocity": 0,

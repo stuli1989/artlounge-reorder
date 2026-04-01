@@ -19,7 +19,7 @@ import psycopg2.extras
 
 
 def build_daily_positions_from_snapshots_and_txns(
-    stock_item_name: str,
+    item_code: str,
     snapshot_by_date: dict,
     transactions: list[dict],
     start_date: date,
@@ -116,7 +116,7 @@ def build_daily_positions_from_snapshots_and_txns(
         is_in_stock = closing_qty > 0 or had_demand
 
         positions.append({
-            "stock_item_name": stock_item_name,
+            "item_code": item_code,
             "position_date": current,
             "opening_qty": opening_qty,
             "inward_qty": day_inward,
@@ -139,12 +139,12 @@ def upsert_daily_positions(db_conn, positions: list[dict]):
         return
     sql = """
         INSERT INTO daily_stock_positions
-            (stock_item_name, position_date, opening_qty, inward_qty, outward_qty,
+            (item_code, position_date, opening_qty, inward_qty, outward_qty,
              closing_qty, wholesale_out, online_out, store_out, is_in_stock)
         VALUES
-            (%(stock_item_name)s, %(position_date)s, %(opening_qty)s, %(inward_qty)s, %(outward_qty)s,
+            (%(item_code)s, %(position_date)s, %(opening_qty)s, %(inward_qty)s, %(outward_qty)s,
              %(closing_qty)s, %(wholesale_out)s, %(online_out)s, %(store_out)s, %(is_in_stock)s)
-        ON CONFLICT (stock_item_name, position_date) DO UPDATE SET
+        ON CONFLICT (item_code, position_date) DO UPDATE SET
             opening_qty = EXCLUDED.opening_qty,
             inward_qty = EXCLUDED.inward_qty,
             outward_qty = EXCLUDED.outward_qty,
@@ -158,16 +158,16 @@ def upsert_daily_positions(db_conn, positions: list[dict]):
         psycopg2.extras.execute_batch(cur, sql, positions, page_size=1000)
 
 
-def fetch_transactions_for_item(db_conn, stock_item_name: str) -> list[dict]:
+def fetch_transactions_for_item(db_conn, item_code: str) -> list[dict]:
     """Fetch all transactions for a given stock item, ordered by date."""
     with db_conn.cursor() as cur:
         cur.execute("""
             SELECT txn_date AS date, stock_change, txn_type,
                    entity, entity_type, channel, is_demand, facility
             FROM transactions
-            WHERE stock_item_name = %s
+            WHERE item_code = %s
             ORDER BY txn_date, id
-        """, (stock_item_name,))
+        """, (item_code,))
         rows = []
         for row in cur.fetchall():
             rows.append({

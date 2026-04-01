@@ -52,7 +52,7 @@ def _escape_ilike(s: str) -> str:
 
 ALLOWED_SORT_COLS = {
     "days_to_stockout", "total_velocity", "current_stock",
-    "stock_item_name", "reorder_status", "wholesale_velocity", "online_velocity",
+    "item_code", "reorder_status", "wholesale_velocity", "online_velocity",
     "wma_total_velocity", "total_revenue", "abc_class", "trend_direction",
 }
 
@@ -98,7 +98,7 @@ def list_skus(
 
     if search:
         escaped = _escape_ilike(search)
-        conditions.append("(sm.stock_item_name ILIKE %s OR COALESCE(si.part_no, '') ILIKE %s)")
+        conditions.append("(sm.item_code ILIKE %s OR COALESCE(si.display_name, '') ILIKE %s)")
         params.append(f"%{escaped}%")
         params.append(f"%{escaped}%")
 
@@ -129,7 +129,7 @@ def list_skus(
 
     sql = f"""
         SELECT sm.*,
-               si.part_no,
+               si.display_name,
                si.is_hazardous,
                si.reorder_intent,
                si.use_xyz_buffer,
@@ -148,8 +148,8 @@ def list_skus(
                         ovr.wholesale_vel_hold, ovr.online_vel_hold,
                         ovr.store_vel_hold, FALSE) AS hold_from_po
         FROM sku_metrics sm
-        LEFT JOIN stock_items si ON si.name = sm.stock_item_name
-        LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.stock_item_name = sm.stock_item_name
+        LEFT JOIN stock_items si ON si.item_code = sm.item_code
+        LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.item_code = sm.item_code
         WHERE {where}
         ORDER BY sm.{sort_col} {direction} NULLS LAST
     """
@@ -182,7 +182,7 @@ def list_skus(
             vel_by_sku = {}
             if custom_range:
                 range_start, range_end = resolve_date_range(from_date, to_date)
-                sku_names = [r["stock_item_name"] for r in rows]
+                sku_names = [r["item_code"] for r in rows]
                 vel_by_sku = fetch_batch_velocities(cur, sku_names, range_start, range_end)
 
             # Get supplier coverage and demand mode for this brand
@@ -205,18 +205,18 @@ def list_skus(
 
             # Fetch latest drift for these SKUs
             drift_map = {}
-            sku_names_for_drift = [r["stock_item_name"] for r in rows]
+            sku_names_for_drift = [r["item_code"] for r in rows]
             if sku_names_for_drift:
                 with conn.cursor() as cur3:
                     cur3.execute("""
-                        SELECT DISTINCT ON (stock_item_name)
-                            stock_item_name, drift, inventory_blocked, check_date
+                        SELECT DISTINCT ON (item_code)
+                            item_code, drift, inventory_blocked, check_date
                         FROM drift_log
-                        WHERE stock_item_name = ANY(%s)
-                        ORDER BY stock_item_name, check_date DESC
+                        WHERE item_code = ANY(%s)
+                        ORDER BY item_code, check_date DESC
                     """, (sku_names_for_drift,))
                     for row in cur3.fetchall():
-                        drift_map[row["stock_item_name"]] = {
+                        drift_map[row["item_code"]] = {
                             "drift": float(row["drift"]) if row["drift"] is not None else 0,
                             "inventory_blocked": float(row["inventory_blocked"]) if row["inventory_blocked"] is not None else 0,
                             "drift_date": str(row["check_date"]),
@@ -230,7 +230,7 @@ def list_skus(
         # Base velocities: recalculated from positions or stored metrics
         if vel_by_sku:
             base_wholesale, base_online, base_store, base_total = velocities_from_batch_row(
-                vel_by_sku.get(d["stock_item_name"])
+                vel_by_sku.get(d["item_code"])
             )
         else:
             base_wholesale = float(d["wholesale_velocity"] or 0)
@@ -283,7 +283,7 @@ def list_skus(
                               and not d["is_dead_stock"])
 
         # Drift data
-        drift_info = drift_map.get(d["stock_item_name"], {})
+        drift_info = drift_map.get(d["item_code"], {})
         d["drift"] = drift_info.get("drift", 0)
         d["inventory_blocked"] = drift_info.get("inventory_blocked", 0)
         d["has_drift"] = abs(drift_info.get("drift", 0)) > 0
@@ -362,13 +362,13 @@ def list_skus_cross_brand(
     offset: int = Query(0, ge=0),
     user: dict = Depends(get_current_user),
 ):
-    """Cross-brand SKU list filtered by part_no prefix."""
+    """Cross-brand SKU list filtered by item_code prefix."""
     # Sanitize sort column
     sort_col = sort if sort in ALLOWED_SORT_COLS else "days_to_stockout"
     direction = "DESC" if sort_dir.lower() == "desc" else "ASC"
 
     escaped_prefix = _escape_ilike(prefix)
-    conditions = ["sm.stock_item_name ILIKE %s"]
+    conditions = ["sm.item_code ILIKE %s"]
     params: list = [f"{escaped_prefix}%"]
 
     if hide_inactive:
@@ -385,7 +385,7 @@ def list_skus_cross_brand(
 
     if search:
         escaped_search = _escape_ilike(search)
-        conditions.append("(sm.stock_item_name ILIKE %s OR COALESCE(si.part_no, '') ILIKE %s)")
+        conditions.append("(sm.item_code ILIKE %s OR COALESCE(si.display_name, '') ILIKE %s)")
         params.append(f"%{escaped_search}%")
         params.append(f"%{escaped_search}%")
 
@@ -413,7 +413,7 @@ def list_skus_cross_brand(
     where = " AND ".join(conditions)
 
     sql = f"""
-        SELECT sm.stock_item_name, sm.category_name, sm.current_stock,
+        SELECT sm.item_code, sm.category_name, sm.current_stock,
                sm.wholesale_velocity, sm.online_velocity, sm.store_velocity,
                sm.total_velocity, sm.total_in_stock_days,
                sm.days_to_stockout, sm.estimated_stockout_date,
@@ -424,10 +424,10 @@ def list_skus_cross_brand(
                sm.velocity_start_date, sm.velocity_end_date,
                sm.last_import_date, sm.last_import_qty, sm.last_import_supplier,
                sm.computed_at,
-               si.part_no, si.is_hazardous, si.reorder_intent, si.is_active,
+               si.display_name, si.is_hazardous, si.reorder_intent, si.is_active,
                COALESCE(si.use_xyz_buffer, NULL) AS use_xyz_buffer
         FROM sku_metrics sm
-        LEFT JOIN stock_items si ON si.name = sm.stock_item_name
+        LEFT JOIN stock_items si ON si.item_code = sm.item_code
         WHERE {where}
         ORDER BY sm.{sort_col} {direction} NULLS LAST
     """
@@ -445,7 +445,7 @@ def list_skus_cross_brand(
             count_sql = f"""
                 SELECT COUNT(*) AS cnt
                 FROM sku_metrics sm
-                LEFT JOIN stock_items si ON si.name = sm.stock_item_name
+                LEFT JOIN stock_items si ON si.item_code = sm.item_code
                 WHERE {where}
             """
             cur.execute(count_sql, params)
@@ -531,16 +531,16 @@ def list_critical_skus(
     vel_col = "sm.wma_total_velocity" if velocity_type == "wma" else "sm.total_velocity"
 
     sql = f"""
-        SELECT sm.stock_item_name, sm.category_name, sm.current_stock,
+        SELECT sm.item_code, sm.category_name, sm.current_stock,
                sm.wholesale_velocity, sm.online_velocity, sm.total_velocity,
                sm.wma_wholesale_velocity, sm.wma_online_velocity, sm.wma_total_velocity,
                sm.days_to_stockout, sm.reorder_status, sm.reorder_qty_suggested,
                sm.abc_class, sm.xyz_class, sm.trend_direction, sm.trend_ratio,
                sm.safety_buffer, sm.total_revenue, sm.demand_cv,
                sm.estimated_stockout_date, sm.last_import_date,
-               si.part_no, si.is_hazardous
+               si.display_name, si.is_hazardous
         FROM sku_metrics sm
-        LEFT JOIN stock_items si ON si.name = sm.stock_item_name
+        LEFT JOIN stock_items si ON si.item_code = sm.item_code
         WHERE {where}
         ORDER BY sm.days_to_stockout ASC NULLS LAST
         LIMIT %s OFFSET %s
@@ -551,7 +551,7 @@ def list_critical_skus(
     with get_db() as conn:
         with conn.cursor() as cur:
             # Get total count
-            count_sql = f"SELECT COUNT(*) AS cnt FROM sku_metrics sm LEFT JOIN stock_items si ON si.name = sm.stock_item_name WHERE {where}"
+            count_sql = f"SELECT COUNT(*) AS cnt FROM sku_metrics sm LEFT JOIN stock_items si ON si.item_code = sm.item_code WHERE {where}"
             cur.execute(count_sql, count_params)
             total = cur.fetchone()["cnt"]
 
@@ -570,14 +570,14 @@ class HazardousUpdate(BaseModel):
     is_hazardous: bool
 
 
-@router.patch("/skus/{stock_item_name}/hazardous")
-def toggle_hazardous(stock_item_name: str, req: HazardousUpdate, user: dict = Depends(require_role("purchaser"))):
+@router.patch("/skus/{item_code}/hazardous")
+def toggle_hazardous(item_code: str, req: HazardousUpdate, user: dict = Depends(require_role("purchaser"))):
     """Toggle hazardous flag on a stock item."""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE stock_items SET is_hazardous = %s, updated_at = NOW() WHERE name = %s RETURNING name, is_hazardous",
-                (req.is_hazardous, stock_item_name),
+                "UPDATE stock_items SET is_hazardous = %s, updated_at = NOW() WHERE item_code = %s RETURNING item_code, is_hazardous",
+                (req.is_hazardous, item_code),
             )
             row = cur.fetchone()
             if not row:
@@ -595,27 +595,27 @@ def _recompute_for_sku(sku_name: str):
     from engine.targeted_recompute import run_targeted_recompute
     with get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT category_name FROM stock_items WHERE name = %s", (sku_name,))
+            cur.execute("SELECT category_name FROM stock_items WHERE item_code = %s", (sku_name,))
             row = cur.fetchone()
         if row:
             run_targeted_recompute(conn, [row["category_name"]])
 
 
-@router.patch("/skus/{stock_item_name}/reorder-intent")
-def update_reorder_intent(stock_item_name: str, req: ReorderIntentUpdate, background_tasks: BackgroundTasks, user: dict = Depends(require_role("purchaser"))):
+@router.patch("/skus/{item_code}/reorder-intent")
+def update_reorder_intent(item_code: str, req: ReorderIntentUpdate, background_tasks: BackgroundTasks, user: dict = Depends(require_role("purchaser"))):
     """Update reorder intent classification on a stock item."""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 "UPDATE stock_items SET reorder_intent = %s, updated_at = NOW() "
-                "WHERE name = %s RETURNING name, reorder_intent",
-                (req.reorder_intent, stock_item_name),
+                "WHERE item_code = %s RETURNING item_code, reorder_intent",
+                (req.reorder_intent, item_code),
             )
             row = cur.fetchone()
             if not row:
                 raise HTTPException(404, "Stock item not found")
         conn.commit()
-    background_tasks.add_task(_recompute_for_sku, stock_item_name)
+    background_tasks.add_task(_recompute_for_sku, item_code)
     return dict(row)
 
 
@@ -623,16 +623,16 @@ class XyzBufferUpdate(BaseModel):
     use_xyz_buffer: bool | None = None
 
 
-@router.patch("/skus/{stock_item_name}/xyz-buffer")
-def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate, user: dict = Depends(require_role("purchaser"))):
+@router.patch("/skus/{item_code}/xyz-buffer")
+def update_xyz_buffer(item_code: str, req: XyzBufferUpdate, user: dict = Depends(require_role("purchaser"))):
     """Toggle per-item XYZ buffer preference and recompute metrics instantly."""
     with get_db() as conn:
         with conn.cursor() as cur:
             # Update the stock_items toggle and fetch intent in one query
             cur.execute(
                 "UPDATE stock_items SET use_xyz_buffer = %s, updated_at = NOW() "
-                "WHERE name = %s RETURNING name, reorder_intent",
-                (req.use_xyz_buffer, stock_item_name),
+                "WHERE item_code = %s RETURNING item_code, reorder_intent",
+                (req.use_xyz_buffer, item_code),
             )
             row = cur.fetchone()
             if not row:
@@ -643,13 +643,13 @@ def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate, user: dict = D
             cur.execute(
                 "SELECT abc_class, xyz_class, current_stock, total_velocity, category_name, "
                 "reorder_status, reorder_qty_suggested, safety_buffer "
-                "FROM sku_metrics WHERE stock_item_name = %s",
-                (stock_item_name,),
+                "FROM sku_metrics WHERE item_code = %s",
+                (item_code,),
             )
             sm = cur.fetchone()
             if not sm:
                 conn.commit()
-                return {"name": stock_item_name, "use_xyz_buffer": req.use_xyz_buffer}
+                return {"name": item_code, "use_xyz_buffer": req.use_xyz_buffer}
 
             # Determine effective use_xyz
             use_xyz_global = fetch_use_xyz_global(conn)
@@ -704,14 +704,14 @@ def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate, user: dict = D
                 "UPDATE sku_metrics SET safety_buffer = %s, reorder_status = %s, "
                 "reorder_qty_suggested = %s, days_to_stockout = %s, "
                 "estimated_stockout_date = %s, computed_at = NOW() "
-                "WHERE stock_item_name = %s",
+                "WHERE item_code = %s",
                 (new_buffer, status, suggested_qty, days_to_so,
-                 stockout_date, stock_item_name),
+                 stockout_date, item_code),
             )
         conn.commit()
 
     return {
-        "name": stock_item_name,
+        "name": item_code,
         "use_xyz_buffer": req.use_xyz_buffer,
         "safety_buffer": new_buffer,
         "reorder_status": status,
@@ -719,10 +719,10 @@ def update_xyz_buffer(stock_item_name: str, req: XyzBufferUpdate, user: dict = D
     }
 
 
-@router.get("/brands/{category_name}/skus/{stock_item_name}/positions")
+@router.get("/brands/{category_name}/skus/{item_code}/positions")
 def get_positions(
     category_name: str,
-    stock_item_name: str,
+    item_code: str,
     from_date: str = Query(None),
     to_date: str = Query(None),
     user: dict = Depends(get_current_user),
@@ -739,8 +739,8 @@ def get_positions(
         except ValueError:
             raise HTTPException(400, f"Invalid to_date format: {to_date}. Use YYYY-MM-DD.")
 
-    conditions = ["stock_item_name = %s"]
-    params = [stock_item_name]
+    conditions = ["item_code = %s"]
+    params = [item_code]
 
     if from_date:
         conditions.append("position_date >= %s")
@@ -764,10 +764,10 @@ def get_positions(
     return [dict(r) for r in rows]
 
 
-@router.get("/brands/{category_name}/skus/{stock_item_name}/transactions")
+@router.get("/brands/{category_name}/skus/{item_code}/transactions")
 def get_transactions(
     category_name: str,
-    stock_item_name: str,
+    item_code: str,
     limit: int = Query(50, ge=1, le=500),
     user: dict = Depends(get_current_user),
 ):
@@ -785,10 +785,10 @@ def get_transactions(
                        facility,
                        entity_type
                 FROM transactions
-                WHERE stock_item_name = %s
+                WHERE item_code = %s
                 ORDER BY txn_date DESC, id DESC
                 LIMIT %s
-            """, (stock_item_name, limit))
+            """, (item_code, limit))
             rows = cur.fetchall()
 
     # Also include KG shipping package demand
@@ -803,10 +803,10 @@ def get_transactions(
                        'PPETPLKALAGHODA' AS facility,
                        'KG_DISPATCH' AS entity_type
                 FROM kg_demand
-                WHERE stock_item_name = %s
+                WHERE item_code = %s
                 ORDER BY txn_date DESC
                 LIMIT %s
-            """, (stock_item_name, limit))
+            """, (item_code, limit))
             kg_rows = cur.fetchall()
 
     # Merge and sort
@@ -836,10 +836,10 @@ _DEMAND_CHANNELS = {"wholesale", "online", "store"}
 
 
 
-@router.get("/brands/{category_name}/skus/{stock_item_name}/breakdown")
+@router.get("/brands/{category_name}/skus/{item_code}/breakdown")
 def get_breakdown(
     category_name: str,
-    stock_item_name: str,
+    item_code: str,
     from_date: str = Query(None),
     to_date: str = Query(None),
     user: dict = Depends(get_current_user),
@@ -852,8 +852,8 @@ def get_breakdown(
         with conn.cursor() as cur:
             # 1. Closing balance + XYZ pref from stock_items
             cur.execute(
-                "SELECT closing_balance, use_xyz_buffer FROM stock_items WHERE name = %s",
-                (stock_item_name,),
+                "SELECT closing_balance, use_xyz_buffer FROM stock_items WHERE item_code = %s",
+                (item_code,),
             )
             si_row = cur.fetchone()
             closing_balance = float(si_row["closing_balance"]) if si_row else None
@@ -861,8 +861,8 @@ def get_breakdown(
 
             # 2. Computed_at, current_stock, and safety_buffer from sku_metrics
             cur.execute(
-                "SELECT current_stock, computed_at, safety_buffer FROM sku_metrics WHERE stock_item_name = %s",
-                (stock_item_name,),
+                "SELECT current_stock, computed_at, safety_buffer FROM sku_metrics WHERE item_code = %s",
+                (item_code,),
             )
             sm_row = cur.fetchone()
             current_stock = float(sm_row["current_stock"]) if sm_row else 0.0
@@ -881,9 +881,9 @@ def get_breakdown(
                 SELECT position_date, opening_qty, closing_qty, inward_qty, outward_qty,
                        wholesale_out, online_out, store_out, is_in_stock
                 FROM daily_stock_positions
-                WHERE stock_item_name = %s AND position_date >= %s AND position_date <= %s
+                WHERE item_code = %s AND position_date >= %s AND position_date <= %s
                 ORDER BY position_date
-            """, (stock_item_name, range_start, range_end))
+            """, (item_code, range_start, range_end))
             positions = [dict(r) for r in cur.fetchall()]
             # Convert Decimals to float
             for p in positions:
@@ -906,11 +906,11 @@ def get_breakdown(
                        COUNT(*) AS cnt,
                        SUM(ABS(stock_change)) AS total_qty
                 FROM transactions
-                WHERE stock_item_name = %s
+                WHERE item_code = %s
                   AND txn_date >= %s AND txn_date <= %s
                 GROUP BY channel, (txn_type = 'IN')
                 ORDER BY channel, (txn_type = 'IN')
-            """, (stock_item_name, range_start, range_end))
+            """, (item_code, range_start, range_end))
             txn_groups = [dict(r) for r in cur.fetchall()]
 
             # 5. Supplier lookup
@@ -929,8 +929,8 @@ def get_breakdown(
                        is_stale, stale_since, computed_value_at_creation,
                        computed_value_latest, drift_pct, created_at, created_by
                 FROM overrides
-                WHERE stock_item_name = %s AND is_active = TRUE
-            """, (stock_item_name,))
+                WHERE item_code = %s AND is_active = TRUE
+            """, (item_code,))
             active_overrides_rows = [dict(r) for r in cur.fetchall()]
 
     # Index overrides by field_name
@@ -999,7 +999,7 @@ def get_breakdown(
     }
 
     # Velocity
-    vel = calculate_velocity(stock_item_name, positions)
+    vel = calculate_velocity(item_code, positions)
     in_stock_periods = find_in_stock_periods(positions)
     in_stock_count = vel["total_in_stock_days"]
     oos_count = total_days - in_stock_count
@@ -1193,7 +1193,7 @@ def get_breakdown(
     }
 
     return {
-        "stock_item_name": stock_item_name,
+        "item_code": item_code,
         "data_source": data_source,
         "effective_values": effective_values,
         "position_reconstruction": position_reconstruction,

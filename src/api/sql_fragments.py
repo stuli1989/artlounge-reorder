@@ -3,9 +3,9 @@
 # Pre-aggregated override subquery — consolidates 6 LEFT JOINs into 1.
 # Used by skus.py (full detail) and po.py (PO builder).
 # skus.py selects additional columns (stale, note) from this subquery;
-# po.py selects a subset. Both JOIN on ovr.stock_item_name.
+# po.py selects a subset. Both JOIN on ovr.item_code.
 OVERRIDE_AGG_SUBQUERY = """(
-    SELECT stock_item_name,
+    SELECT item_code,
            MAX(CASE WHEN field_name='current_stock' THEN override_value END) AS stock_override_value,
            MAX(CASE WHEN field_name='current_stock' THEN note END) AS stock_override_note,
            BOOL_OR(CASE WHEN field_name='current_stock' THEN is_stale END) AS stock_override_stale,
@@ -22,5 +22,5 @@ OVERRIDE_AGG_SUBQUERY = """(
            MAX(CASE WHEN field_name='note' THEN note END) AS override_note,
            BOOL_OR(CASE WHEN field_name='note' THEN is_stale END) AS note_override_stale
     FROM overrides WHERE is_active = TRUE
-    GROUP BY stock_item_name
+    GROUP BY item_code
 )"""

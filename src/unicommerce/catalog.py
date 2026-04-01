@@ -100,7 +100,7 @@ def _upsert_categories(db_conn, categories):
     sql = """
         INSERT INTO stock_categories (name, source_id)
         VALUES (%(name)s, %(source_id)s)
-        ON CONFLICT (name) DO UPDATE SET
+        ON CONFLICT (item_code) DO UPDATE SET
             source_id = COALESCE(EXCLUDED.source_id, stock_categories.source_id),
             updated_at = NOW()
     """
@@ -115,14 +115,14 @@ def _upsert_items(db_conn, items):
     if not items:
         return 0
     sql = """
-        INSERT INTO stock_items (name, sku_code, part_no, category_name, stock_group, brand,
+        INSERT INTO stock_items (item_code, sku_code, display_name, category_name, stock_group, brand,
                                  cost_price, mrp, ean, hsn_code, is_active)
         VALUES (%(sku_code)s, %(sku_code)s, %(display_name)s, %(category_code)s,
                 %(product_category)s, %(brand)s, %(cost_price)s, %(mrp)s, %(ean)s,
                 %(hsn_code)s, %(enabled)s)
-        ON CONFLICT (name) DO UPDATE SET
+        ON CONFLICT (item_code) DO UPDATE SET
             sku_code = EXCLUDED.sku_code,
-            part_no = EXCLUDED.part_no,
+            display_name = EXCLUDED.display_name,
             category_name = EXCLUDED.category_name,
             stock_group = EXCLUDED.stock_group,
             brand = EXCLUDED.brand,

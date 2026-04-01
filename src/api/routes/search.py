@@ -1,7 +1,7 @@
 """Universal search endpoint — searches brands and SKUs in one call.
 
-IMPORTANT: sku_metrics does NOT have part_no or is_active columns.
-These live on stock_items, so all SKU queries JOIN stock_items si ON si.name = sm.stock_item_name.
+IMPORTANT: sku_metrics does NOT have display_name or is_active columns.
+These live on stock_items, so all SKU queries JOIN stock_items si ON si.item_code = sm.item_code.
 This matches the pattern in skus.py list_skus().
 """
 from decimal import Decimal
@@ -38,16 +38,16 @@ def _clean_row(row):
     return {k: _to_float(v) for k, v in dict(row).items()}
 
 
-# Common SQL fragments for SKU search (JOIN stock_items for part_no and is_active)
+# Common SQL fragments for SKU search (JOIN stock_items for display_name and is_active)
 _SKU_SELECT = (
-    "SELECT sm.stock_item_name, si.part_no, sm.category_name, "
+    "SELECT sm.item_code, si.display_name, sm.category_name, "
     "  sm.reorder_status, sm.current_stock "
     "FROM sku_metrics sm "
-    "LEFT JOIN stock_items si ON si.name = sm.stock_item_name"
+    "LEFT JOIN stock_items si ON si.item_code = sm.item_code"
 )
 
 _SKU_MATCH = (
-    "(sm.stock_item_name ILIKE %(pattern)s OR COALESCE(si.part_no, '') ILIKE %(pattern)s)"
+    "(sm.item_code ILIKE %(pattern)s OR COALESCE(si.display_name, '') ILIKE %(pattern)s)"
 )
 
 _SKU_ACTIVE = "COALESCE(si.is_active, TRUE) = TRUE"
@@ -97,20 +97,20 @@ def universal_search(
             scoped_sku_count = 0
             global_limit = 10
             if scope:
-                sku_rank = _rank_expr("sm.stock_item_name")
+                sku_rank = _rank_expr("sm.item_code")
                 cur.execute(
                     f"{_SKU_SELECT} "
                     f"WHERE sm.category_name = %(scope)s "
                     f"  AND {_SKU_MATCH} "
                     f"  AND {_SKU_ACTIVE} "
-                    f"ORDER BY {sku_rank}, sm.stock_item_name "
+                    f"ORDER BY {sku_rank}, sm.item_code "
                     f"LIMIT 10",
                     {**params, "scope": scope},
                 )
                 scoped_skus = [_clean_row(r) for r in cur.fetchall()]
                 cur.execute(
                     f"SELECT COUNT(*) AS cnt FROM sku_metrics sm "
-                    f"LEFT JOIN stock_items si ON si.name = sm.stock_item_name "
+                    f"LEFT JOIN stock_items si ON si.item_code = sm.item_code "
                     f"WHERE sm.category_name = %(scope)s "
                     f"  AND {_SKU_MATCH} "
                     f"  AND {_SKU_ACTIVE}",
@@ -120,7 +120,7 @@ def universal_search(
                 global_limit = 5  # Reduce global when scoped results shown
 
             # --- Global SKUs ---
-            sku_rank = _rank_expr("sm.stock_item_name")
+            sku_rank = _rank_expr("sm.item_code")
             exclude_scope = ""
             if scope:
                 exclude_scope = "AND sm.category_name != %(scope)s "
@@ -129,14 +129,14 @@ def universal_search(
                 f"WHERE {_SKU_MATCH} "
                 f"  AND {_SKU_ACTIVE} "
                 f"  {exclude_scope}"
-                f"ORDER BY {sku_rank}, sm.stock_item_name "
+                f"ORDER BY {sku_rank}, sm.item_code "
                 f"LIMIT %(glimit)s",
                 {**params, "scope": scope, "glimit": global_limit},
             )
             skus = [_clean_row(r) for r in cur.fetchall()]
             cur.execute(
                 f"SELECT COUNT(*) AS cnt FROM sku_metrics sm "
-                f"LEFT JOIN stock_items si ON si.name = sm.stock_item_name "
+                f"LEFT JOIN stock_items si ON si.item_code = sm.item_code "
                 f"WHERE {_SKU_MATCH} "
                 f"  AND {_SKU_ACTIVE} "
                 f"  {exclude_scope}",
@@ -145,11 +145,11 @@ def universal_search(
             sku_count = cur.fetchone()["cnt"]
 
             # --- Prefix group ---
-            # Check if q matches as a stock_item_name prefix (item codes like 0102004)
+            # Check if q matches as an item_code prefix (item codes like 0102004)
             cur.execute(
                 "SELECT COUNT(*) AS cnt FROM sku_metrics sm "
-                "LEFT JOIN stock_items si ON si.name = sm.stock_item_name "
-                "WHERE sm.stock_item_name ILIKE %(prefix_like)s "
+                "LEFT JOIN stock_items si ON si.item_code = sm.item_code "
+                "WHERE sm.item_code ILIKE %(prefix_like)s "
                 "  AND " + _SKU_ACTIVE,
                 {"prefix_like": prefix_pattern},
             )
@@ -160,8 +160,8 @@ def universal_search(
                 cur.execute(
                     "SELECT DISTINCT sm.category_name "
                     "FROM sku_metrics sm "
-                    "LEFT JOIN stock_items si ON si.name = sm.stock_item_name "
-                    "WHERE sm.stock_item_name ILIKE %(prefix_like)s "
+                    "LEFT JOIN stock_items si ON si.item_code = sm.item_code "
+                    "WHERE sm.item_code ILIKE %(prefix_like)s "
                     "  AND " + _SKU_ACTIVE + " "
                     "ORDER BY sm.category_name",
                     {"prefix_like": prefix_pattern},
@@ -187,7 +187,7 @@ def prefix_search(
     q: str = Query(None),
     user: dict = Depends(get_current_user),
 ):
-    """Return all active SKUs whose stock_item_name starts with the given prefix."""
+    """Return all active SKUs whose item_code starts with the given prefix."""
     if not q or len(q.strip()) < 2:
         raise HTTPException(400, "Query must be at least 2 characters")
     q = q.strip()
@@ -201,9 +201,9 @@ def prefix_search(
         with conn.cursor() as cur:
             cur.execute(
                 f"{_SKU_SELECT} "
-                f"WHERE sm.stock_item_name ILIKE %(prefix_like)s "
+                f"WHERE sm.item_code ILIKE %(prefix_like)s "
                 f"  AND {_SKU_ACTIVE} "
-                f"ORDER BY sm.stock_item_name",
+                f"ORDER BY sm.item_code",
                 {"prefix_like": prefix_like},
             )
             skus = [_clean_row(r) for r in cur.fetchall()]

@@ -50,7 +50,7 @@ def find_affected_skus(db_conn, party_name: str) -> list[str]:
     """Find all SKUs that have transactions with the given entity."""
     with db_conn.cursor() as cur:
         cur.execute(
-            "SELECT DISTINCT stock_item_name FROM transactions WHERE entity = %s",
+            "SELECT DISTINCT item_code FROM transactions WHERE entity = %s",
             (party_name,),
         )
         return [row[0] for row in cur.fetchall()]
@@ -62,7 +62,7 @@ def find_affected_categories(db_conn, sku_names: list[str]) -> set[str]:
         return set()
     with db_conn.cursor() as cur:
         cur.execute(
-            "SELECT DISTINCT category_name FROM stock_items WHERE name = ANY(%s)",
+            "SELECT DISTINCT category_name FROM stock_items WHERE item_code = ANY(%s)",
             (sku_names,),
         )
         return {row[0] for row in cur.fetchall()}
@@ -79,10 +79,10 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
 
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT name, category_name, opening_balance, closing_balance,
+            SELECT item_code, category_name, opening_balance, closing_balance,
                    reorder_intent, is_active
             FROM stock_items
-            WHERE name = ANY(%s)
+            WHERE item_code = ANY(%s)
         """, (sku_names,))
         cols = [d[0] for d in cur.description]
         items = []
@@ -96,11 +96,11 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
     all_txns = defaultdict(list)
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT stock_item_name, txn_date, stock_change, txn_type,
+            SELECT item_code, txn_date, stock_change, txn_type,
                    entity, entity_type, channel, is_demand, facility
             FROM transactions
-            WHERE stock_item_name = ANY(%s)
-            ORDER BY stock_item_name, txn_date, id
+            WHERE item_code = ANY(%s)
+            ORDER BY item_code, txn_date, id
         """, (sku_names,))
         for row in cur.fetchall():
             all_txns[row[0]].append({
@@ -151,7 +151,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
 
     metrics_batch = []
     for item in items:
-        sku_name = item["name"]
+        sku_name = item["item_code"]
         txns = all_txns.get(sku_name, [])
 
         current_stock = current_stock_map.get(sku_name, item["closing_balance"])
@@ -162,7 +162,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
 
         # Build positions from transactions (no snapshots)
         positions = build_daily_positions_from_snapshots_and_txns(
-            stock_item_name=sku_name,
+            item_code=sku_name,
             snapshot_by_date={},
             transactions=txns,
             start_date=fy_start,
@@ -203,7 +203,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
             stockout_date = today + timedelta(days=int(days_to_stockout))
 
         m = {
-            "stock_item_name": sku_name,
+            "item_code": sku_name,
             "category_name": item["category_name"],
             "current_stock": current_stock,
             **velocity,
@@ -225,14 +225,14 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
     trend_up = class_settings.get("trend_up_threshold", 1.2)
     trend_down = class_settings.get("trend_down_threshold", 0.8)
 
-    sku_names_with_velocity = [m["stock_item_name"] for m in metrics_batch if m.get("total_velocity", 0) > 0]
+    sku_names_with_velocity = [m["item_code"] for m in metrics_batch if m.get("total_velocity", 0) > 0]
     wma_by_sku = {}
     if sku_names_with_velocity:
         with db_conn.cursor() as cur:
             wma_by_sku = fetch_batch_wma_velocities(cur, sku_names_with_velocity, today, wma_window)
 
     for m in metrics_batch:
-        wma_row = wma_by_sku.get(m["stock_item_name"])
+        wma_row = wma_by_sku.get(m["item_code"])
         if wma_row:
             wma_w, wma_o, wma_s, wma_t = velocities_from_batch_row(wma_row)
             m["wma_wholesale_velocity"] = round(wma_w, 4)
@@ -253,8 +253,8 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
     existing_class = {}
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT stock_item_name, abc_class, xyz_class, demand_cv, total_revenue
-            FROM sku_metrics WHERE stock_item_name = ANY(%s)
+            SELECT item_code, abc_class, xyz_class, demand_cv, total_revenue
+            FROM sku_metrics WHERE item_code = ANY(%s)
         """, (sku_names,))
         for row in cur.fetchall():
             existing_class[row[0]] = {
@@ -263,9 +263,9 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
                 "total_revenue": float(row[4]) if row[4] else 0,
             }
 
-    stock_items_by_name = {item["name"]: item for item in items}
+    stock_items_by_name = {item["item_code"]: item for item in items}
     for m in metrics_batch:
-        ec = existing_class.get(m["stock_item_name"], {})
+        ec = existing_class.get(m["item_code"], {})
         m["abc_class"] = ec.get("abc_class", "C")
         m["xyz_class"] = ec.get("xyz_class")
         m["demand_cv"] = ec.get("demand_cv")
@@ -285,7 +285,7 @@ def recompute_skus_for_party(db_conn, party_name: str) -> dict:
         # Final reorder status with safety buffer
         current_stock = m["current_stock"]
         total_vel = m["total_velocity"]
-        item_data = stock_items_by_name.get(m["stock_item_name"], {})
+        item_data = stock_items_by_name.get(m["item_code"], {})
         lead_time = supplier["lead_time_default"] if supplier else DEFAULT_LEAD_TIME
         coverage = compute_coverage_days(
             lead_time,
@@ -346,7 +346,7 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
 
     with db_conn.cursor() as cur:
         cur.execute(
-            "SELECT DISTINCT name FROM stock_items WHERE category_name = ANY(%s) AND COALESCE(is_active, TRUE) = TRUE",
+            "SELECT DISTINCT item_code FROM stock_items WHERE category_name = ANY(%s) AND COALESCE(is_active, TRUE) = TRUE",
             (list(category_names),),
         )
         sku_names = [row[0] for row in cur.fetchall()]
@@ -363,10 +363,10 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
 
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT name, category_name, opening_balance, closing_balance,
+            SELECT item_code, category_name, opening_balance, closing_balance,
                    reorder_intent, is_active
             FROM stock_items
-            WHERE name = ANY(%s)
+            WHERE item_code = ANY(%s)
         """, (sku_names,))
         cols = [d[0] for d in cur.description]
         items = []
@@ -379,11 +379,11 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
     all_txns = defaultdict(list)
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT stock_item_name, txn_date, stock_change, txn_type,
+            SELECT item_code, txn_date, stock_change, txn_type,
                    entity, entity_type, channel, is_demand, facility
             FROM transactions
-            WHERE stock_item_name = ANY(%s)
-            ORDER BY stock_item_name, txn_date, id
+            WHERE item_code = ANY(%s)
+            ORDER BY item_code, txn_date, id
         """, (sku_names,))
         for row in cur.fetchall():
             all_txns[row[0]].append({
@@ -432,7 +432,7 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
 
     metrics_batch = []
     for item in items:
-        sku_name = item["name"]
+        sku_name = item["item_code"]
         txns = all_txns.get(sku_name, [])
         current_stock = current_stock_map.get(sku_name, item["closing_balance"])
 
@@ -441,7 +441,7 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
             continue
 
         positions = build_daily_positions_from_snapshots_and_txns(
-            stock_item_name=sku_name,
+            item_code=sku_name,
             snapshot_by_date={},
             transactions=txns,
             start_date=fy_start,
@@ -480,7 +480,7 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
             stockout_date = today + timedelta(days=int(days_to_stockout))
 
         m = {
-            "stock_item_name": sku_name,
+            "item_code": sku_name,
             "category_name": item["category_name"],
             "current_stock": current_stock,
             **velocity,
@@ -501,14 +501,14 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
     trend_up = class_settings.get("trend_up_threshold", 1.2)
     trend_down = class_settings.get("trend_down_threshold", 0.8)
 
-    sku_names_with_velocity = [m["stock_item_name"] for m in metrics_batch if m.get("total_velocity", 0) > 0]
+    sku_names_with_velocity = [m["item_code"] for m in metrics_batch if m.get("total_velocity", 0) > 0]
     wma_by_sku = {}
     if sku_names_with_velocity:
         with db_conn.cursor() as cur:
             wma_by_sku = fetch_batch_wma_velocities(cur, sku_names_with_velocity, today, wma_window)
 
     for m in metrics_batch:
-        wma_row = wma_by_sku.get(m["stock_item_name"])
+        wma_row = wma_by_sku.get(m["item_code"])
         if wma_row:
             wma_w, wma_o, wma_s, wma_t = velocities_from_batch_row(wma_row)
             m["wma_wholesale_velocity"] = round(wma_w, 4)
@@ -528,8 +528,8 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
     existing_class = {}
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT stock_item_name, abc_class, xyz_class, demand_cv, total_revenue
-            FROM sku_metrics WHERE stock_item_name = ANY(%s)
+            SELECT item_code, abc_class, xyz_class, demand_cv, total_revenue
+            FROM sku_metrics WHERE item_code = ANY(%s)
         """, (sku_names,))
         for row in cur.fetchall():
             existing_class[row[0]] = {
@@ -538,9 +538,9 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
                 "total_revenue": float(row[4]) if row[4] else 0,
             }
 
-    stock_items_by_name = {item["name"]: item for item in items}
+    stock_items_by_name = {item["item_code"]: item for item in items}
     for m in metrics_batch:
-        ec = existing_class.get(m["stock_item_name"], {})
+        ec = existing_class.get(m["item_code"], {})
         m["abc_class"] = ec.get("abc_class", "C")
         m["xyz_class"] = ec.get("xyz_class")
         m["demand_cv"] = ec.get("demand_cv")
@@ -557,7 +557,7 @@ def run_targeted_recompute(db_conn, category_names: list[str]) -> dict:
 
         current_stock = m["current_stock"]
         total_vel = m["total_velocity"]
-        item_data = stock_items_by_name.get(m["stock_item_name"], {})
+        item_data = stock_items_by_name.get(m["item_code"], {})
         lead_time = supplier["lead_time_default"] if supplier else DEFAULT_LEAD_TIME
         coverage = compute_coverage_days(
             lead_time,

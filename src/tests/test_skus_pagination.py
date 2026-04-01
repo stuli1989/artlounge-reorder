@@ -84,7 +84,7 @@ class SkuPaginationTests(unittest.TestCase):
         today = date.today()
         rows = [
             {
-                "stock_item_name": "SKU-001",
+                "item_code": "SKU-001",
                 "category_name": "WINSOR & NEWTON",
                 "current_stock": -2,
                 "wholesale_velocity": 0.0,
@@ -93,7 +93,7 @@ class SkuPaginationTests(unittest.TestCase):
                 "total_velocity": 0.2,
                 "reorder_status": "out_of_stock",
                 "days_to_stockout": 0,
-                "part_no": "P1",
+                "display_name": "P1",
                 "is_hazardous": False,
                 "reorder_intent": "normal",
                 "stock_override_value": None,
@@ -125,7 +125,7 @@ class SkuPaginationTests(unittest.TestCase):
                 "wma_online_velocity": 0,
             },
             {
-                "stock_item_name": "SKU-002",
+                "item_code": "SKU-002",
                 "category_name": "WINSOR & NEWTON",
                 "current_stock": 2,
                 "wholesale_velocity": 0.0,
@@ -134,7 +134,7 @@ class SkuPaginationTests(unittest.TestCase):
                 "total_velocity": 0.3,
                 "reorder_status": "urgent",
                 "days_to_stockout": 5,
-                "part_no": "P2",
+                "display_name": "P2",
                 "is_hazardous": False,
                 "reorder_intent": "normal",
                 "stock_override_value": None,
@@ -166,7 +166,7 @@ class SkuPaginationTests(unittest.TestCase):
                 "wma_online_velocity": 0,
             },
             {
-                "stock_item_name": "SKU-003",
+                "item_code": "SKU-003",
                 "category_name": "WINSOR & NEWTON",
                 "current_stock": 12,
                 "wholesale_velocity": 0.0,
@@ -175,7 +175,7 @@ class SkuPaginationTests(unittest.TestCase):
                 "total_velocity": 0.4,
                 "reorder_status": "reorder",
                 "days_to_stockout": 20,
-                "part_no": "P3",
+                "display_name": "P3",
                 "is_hazardous": False,
                 "reorder_intent": "normal",
                 "stock_override_value": None,
@@ -238,8 +238,8 @@ class SkuPaginationTests(unittest.TestCase):
         self.assertEqual(result["offset"], 1)
         self.assertEqual(result["limit"], 2)
         self.assertEqual(len(result["items"]), 2)
-        self.assertEqual(result["items"][0]["stock_item_name"], "SKU-002")
-        self.assertEqual(result["items"][1]["stock_item_name"], "SKU-003")
+        self.assertEqual(result["items"][0]["item_code"], "SKU-002")
+        self.assertEqual(result["items"][1]["item_code"], "SKU-003")
         self.assertEqual(result["counts"]["urgent"], 1)
         self.assertEqual(result["counts"]["reorder"], 1)
         self.assertEqual(result["counts"]["out_of_stock"], 1)

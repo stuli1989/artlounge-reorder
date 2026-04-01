@@ -63,8 +63,8 @@ class TestSearchResults:
         assert resp.status_code == 200
         data = resp.json()
         for s in data["skus"]:
-            assert "part_no" in s
-            assert "stock_item_name" in s
+            assert "display_name" in s
+            assert "item_code" in s
             assert "category_name" in s
             assert "reorder_status" in s
             assert "current_stock" in s

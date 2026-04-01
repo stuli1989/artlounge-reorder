@@ -20,12 +20,12 @@ router = APIRouter(tags=["po"])
 
 
 _PO_SELECT_COLS = """\
-    sm.stock_item_name, sm.current_stock, sm.total_velocity,
+    sm.item_code, sm.current_stock, sm.total_velocity,
     sm.wholesale_velocity, sm.online_velocity,
     sm.days_to_stockout, sm.reorder_status,
     sm.abc_class, sm.trend_direction, sm.safety_buffer,
     sm.total_in_stock_days,
-    si.part_no, si.is_hazardous, si.reorder_intent,
+    si.display_name, si.is_hazardous, si.reorder_intent,
     ovr.stock_override_value AS stock_override,
     ovr.total_vel_override_value AS total_vel_override,
     ovr.wholesale_vel_override_value AS wholesale_vel_override,
@@ -37,8 +37,8 @@ _PO_SELECT_COLS = """\
 
 _PO_FROM_JOINS = f"""\
     FROM sku_metrics sm
-    LEFT JOIN stock_items si ON si.name = sm.stock_item_name
-    LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.stock_item_name = sm.stock_item_name"""
+    LEFT JOIN stock_items si ON si.item_code = sm.item_code
+    LEFT JOIN {OVERRIDE_AGG_SUBQUERY} ovr ON ovr.item_code = sm.item_code"""
 
 _PO_ORDER = "ORDER BY sm.days_to_stockout ASC NULLS LAST"
 
@@ -54,22 +54,22 @@ def _attach_drift(result: list[dict]) -> None:
         return
     with get_db() as conn2:
         with conn2.cursor() as dcur:
-            sku_names = [r["stock_item_name"] for r in result]
+            sku_names = [r["item_code"] for r in result]
             dcur.execute("""
-                SELECT DISTINCT ON (stock_item_name)
-                    stock_item_name, drift, inventory_blocked, check_date
+                SELECT DISTINCT ON (item_code)
+                    item_code, drift, inventory_blocked, check_date
                 FROM drift_log
-                WHERE stock_item_name = ANY(%s)
-                ORDER BY stock_item_name, check_date DESC
+                WHERE item_code = ANY(%s)
+                ORDER BY item_code, check_date DESC
             """, (sku_names,))
             drift_map = {}
             for drow in dcur.fetchall():
-                drift_map[drow["stock_item_name"]] = {
+                drift_map[drow["item_code"]] = {
                     "drift": float(drow["drift"]) if drow["drift"] is not None else 0,
                     "inventory_blocked": float(drow["inventory_blocked"]) if drow["inventory_blocked"] is not None else 0,
                 }
     for item in result:
-        di = drift_map.get(item["stock_item_name"], {})
+        di = drift_map.get(item["item_code"], {})
         item["drift"] = di.get("drift", 0)
         item["inventory_blocked"] = di.get("inventory_blocked", 0)
         item["has_drift"] = abs(di.get("drift", 0)) > 0
@@ -98,7 +98,7 @@ def _compute_po_items(
         # Base velocities: recalculated from positions or stored metrics
         if vel_by_sku:
             base_wholesale, base_online, _, base_total = velocities_from_batch_row(
-                vel_by_sku.get(d["stock_item_name"])
+                vel_by_sku.get(d["item_code"])
             )
         else:
             base_wholesale = float(d["wholesale_velocity"] or 0)
@@ -138,8 +138,8 @@ def _compute_po_items(
             suggested = None
 
         item = {
-            "stock_item_name": d["stock_item_name"],
-            "part_no": d.get("part_no"),
+            "item_code": d["item_code"],
+            "display_name": d.get("display_name"),
             "current_stock": vals["eff_stock"],
             "total_velocity": vals["eff_total"],
             "days_to_stockout": st["eff_days"],
@@ -241,7 +241,7 @@ def po_data(
             vel_by_sku = {}
             if custom_range:
                 range_start, range_end = resolve_date_range(from_date, to_date)
-                sku_names = [r["stock_item_name"] for r in rows]
+                sku_names = [r["item_code"] for r in rows]
                 vel_by_sku = fetch_batch_velocities(cur, sku_names, range_start, range_end)
 
     result = _compute_po_items(rows, lead_time, coverage_days, buffer, vel_by_sku, include_lead_demand=include_lead_demand)
@@ -258,8 +258,8 @@ def po_data(
 
 
 class PoItem(BaseModel):
-    stock_item_name: str
-    part_no: str = ""
+    item_code: str
+    display_name: str = ""
     order_qty: int
     current_stock: float = 0
     velocity_per_month: float = 0
@@ -297,9 +297,9 @@ def _match_sku_names(cur, input_names: list[str]) -> list[MatchedSku]:
     if not input_names:
         return []
 
-    # Pre-fetch all names for exact/ilike matching
-    cur.execute("SELECT name FROM stock_items")
-    all_names = {row["name"] for row in cur.fetchall()}
+    # Pre-fetch all item_codes for exact/ilike matching
+    cur.execute("SELECT item_code FROM stock_items")
+    all_names = {row["item_code"] for row in cur.fetchall()}
     all_names_lower = {n.lower(): n for n in all_names}
 
     results: list[MatchedSku] = []
@@ -331,19 +331,19 @@ def _match_sku_names(cur, input_names: list[str]) -> list[MatchedSku]:
         cur.execute("""
             SELECT DISTINCT ON (input.name)
                    input.name AS input_name,
-                   si.name,
-                   similarity(si.name, input.name) AS sim
+                   si.item_code,
+                   similarity(si.item_code, input.name) AS sim
             FROM unnest(%s::text[]) AS input(name)
             LEFT JOIN stock_items si
-              ON similarity(si.name, input.name) >= 0.25
+              ON similarity(si.item_code, input.name) >= 0.25
             ORDER BY input.name, sim DESC NULLS LAST
         """, (unmatched_inputs,))
 
         for row in cur.fetchall():
-            if row["name"]:
+            if row["item_code"]:
                 results.append(MatchedSku(
                     input_name=row["input_name"],
-                    matched_name=row["name"],
+                    matched_name=row["item_code"],
                     match_type="fuzzy",
                     similarity=round(float(row["sim"]), 3),
                 ))
@@ -390,7 +390,7 @@ def match_and_build_po(req: SkuMatchRequest, user: dict = Depends(require_role("
                     SELECT bm.supplier_lead_time
                     FROM stock_items si
                     JOIN brand_metrics bm ON bm.category_name = si.category_name
-                    WHERE si.name = %s
+                    WHERE si.item_code = %s
                 """, (matched_names[0],))
                 row = cur.fetchone()
                 lead_time = row["supplier_lead_time"] if row and row["supplier_lead_time"] else 180
@@ -404,7 +404,7 @@ def match_and_build_po(req: SkuMatchRequest, user: dict = Depends(require_role("
                 SELECT {_PO_SELECT_COLS},
                        si.category_name
                 {_PO_FROM_JOINS}
-                WHERE sm.stock_item_name IN ({placeholders})
+                WHERE sm.item_code IN ({placeholders})
                 {_PO_ORDER}
             """, matched_names)
             rows = cur.fetchall()
@@ -412,7 +412,7 @@ def match_and_build_po(req: SkuMatchRequest, user: dict = Depends(require_role("
             vel_by_sku = {}
             if custom_range:
                 range_start, range_end = resolve_date_range(req.from_date, req.to_date)
-                sku_names_list = [r["stock_item_name"] for r in rows]
+                sku_names_list = [r["item_code"] for r in rows]
                 vel_by_sku = fetch_batch_velocities(cur, sku_names_list, range_start, range_end)
 
     po_result = _compute_po_items(rows, lead_time, coverage_days, req.buffer, vel_by_sku)
@@ -446,7 +446,7 @@ class PrefixPoRequest(BaseModel):
 
 @router.post("/po-data/prefix")
 def po_data_by_prefix(req: PrefixPoRequest, user: dict = Depends(require_role("purchaser"))):
-    """Return PO data for all SKUs whose part_no starts with the given prefix.
+    """Return PO data for all SKUs whose item_code starts with the given prefix.
 
     Each brand group uses its own supplier lead time, coverage, and demand mode
     settings. The caller may override coverage_days and buffer globally.
@@ -483,7 +483,7 @@ def po_data_by_prefix(req: PrefixPoRequest, user: dict = Depends(require_role("p
                 LEFT JOIN brand_metrics bm ON bm.category_name = si.category_name
                 LEFT JOIN suppliers s ON UPPER(s.name) = UPPER(si.category_name)
                 WHERE COALESCE(si.is_active, TRUE) = TRUE
-                  AND sm.stock_item_name ILIKE %s ESCAPE '\\'
+                  AND sm.item_code ILIKE %s ESCAPE '\\'
                   {status_clause}
                 {_PO_ORDER}
             """, query_params)
@@ -493,7 +493,7 @@ def po_data_by_prefix(req: PrefixPoRequest, user: dict = Depends(require_role("p
             vel_by_sku: dict = {}
             if custom_range and rows:
                 range_start, range_end = resolve_date_range(req.from_date, req.to_date)
-                sku_names_list = [r["stock_item_name"] for r in rows]
+                sku_names_list = [r["item_code"] for r in rows]
                 vel_by_sku = fetch_batch_velocities(cur, sku_names_list, range_start, range_end)
 
     # Group rows by category (brand) and compute PO items per brand
@@ -607,8 +607,8 @@ def export_po(req: PoExportRequest, user: dict = Depends(require_role("purchaser
     for i, item in enumerate(req.items, 1):
         row = 7 + i
         ws.cell(row=row, column=1, value=i).border = thin_border
-        ws.cell(row=row, column=2, value=item.part_no or "").border = thin_border
-        ws.cell(row=row, column=3, value=item.stock_item_name).border = thin_border
+        ws.cell(row=row, column=2, value=item.display_name or "").border = thin_border
+        ws.cell(row=row, column=3, value=item.item_code).border = thin_border
         ws.cell(row=row, column=4, value=item.order_qty).border = thin_border
         ws.cell(row=row, column=5, value="Nos").border = thin_border
         ws.cell(row=row, column=6, value=item.current_stock).border = thin_border

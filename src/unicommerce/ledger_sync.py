@@ -81,13 +81,13 @@ def _load_transactions(db_conn, parsed_rows, rules):
 
     sql = """
         INSERT INTO transactions
-            (stock_item_name, txn_date, entity, entity_type, entity_code,
+            (item_code, txn_date, entity, entity_type, entity_code,
              txn_type, units, stock_change, facility, channel, is_demand, sale_order_code)
         VALUES
             (%(sku_code)s, %(txn_date)s, %(entity)s, %(entity_type)s, %(entity_code)s,
              %(txn_type)s, %(units)s, %(stock_change)s, %(facility)s, %(channel)s,
              %(is_demand)s, %(sale_order_code)s)
-        ON CONFLICT (entity_code, stock_item_name, txn_type, txn_date, units, facility)
+        ON CONFLICT (entity_code, item_code, txn_type, txn_date, units, facility)
         DO NOTHING
     """
     with db_conn.cursor() as cur:
@@ -113,7 +113,7 @@ def pull_and_store_snapshots(client, db_conn):
 
     rows = [
         {
-            "stock_item_name": sku,
+            "item_code": sku,
             "snapshot_date": today,
             "inventory": data["inventory"],
             "inventory_blocked": data["blocked"],
@@ -124,9 +124,9 @@ def pull_and_store_snapshots(client, db_conn):
 
     sql = """
         INSERT INTO inventory_snapshots
-            (stock_item_name, snapshot_date, inventory, inventory_blocked, bad_inventory)
-        VALUES (%(stock_item_name)s, %(snapshot_date)s, %(inventory)s, %(inventory_blocked)s, %(bad_inventory)s)
-        ON CONFLICT (stock_item_name, snapshot_date) DO UPDATE SET
+            (item_code, snapshot_date, inventory, inventory_blocked, bad_inventory)
+        VALUES (%(item_code)s, %(snapshot_date)s, %(inventory)s, %(inventory_blocked)s, %(bad_inventory)s)
+        ON CONFLICT (item_code, snapshot_date) DO UPDATE SET
             inventory = EXCLUDED.inventory,
             inventory_blocked = EXCLUDED.inventory_blocked,
             bad_inventory = EXCLUDED.bad_inventory
@@ -183,7 +183,7 @@ def pull_and_store_kg_demand(client, db_conn):
                 if not sku or qty <= 0:
                     continue
                 rows.append({
-                    "stock_item_name": sku,
+                    "item_code": sku,
                     "txn_date": dispatch_date,
                     "quantity": float(qty),
                     "channel": channel,
@@ -193,9 +193,9 @@ def pull_and_store_kg_demand(client, db_conn):
     if rows:
         sql = """
             INSERT INTO kg_demand
-                (stock_item_name, txn_date, quantity, channel, shipping_package_code)
-            VALUES (%(stock_item_name)s, %(txn_date)s, %(quantity)s, %(channel)s, %(shipping_package_code)s)
-            ON CONFLICT (stock_item_name, shipping_package_code) DO NOTHING
+                (item_code, txn_date, quantity, channel, shipping_package_code)
+            VALUES (%(item_code)s, %(txn_date)s, %(quantity)s, %(channel)s, %(shipping_package_code)s)
+            ON CONFLICT (item_code, shipping_package_code) DO NOTHING
         """
         with db_conn.cursor() as cur:
             psycopg2.extras.execute_batch(cur, sql, rows, page_size=1000)
@@ -272,7 +272,7 @@ def run_validation_check(client, db_conn, sample_size=50):
     # Get a sample of active SKUs from our metrics
     with db_conn.cursor() as cur:
         cur.execute("""
-            SELECT stock_item_name, current_stock
+            SELECT item_code, current_stock
             FROM sku_metrics
             WHERE current_stock IS NOT NULL AND current_stock != 0
             ORDER BY RANDOM() LIMIT %s
@@ -475,7 +475,7 @@ def run_backfill(db_conn, from_csv_dir=None):
             for brand in brands:
                 with db_conn.cursor() as cur:
                     cur.execute("""INSERT INTO suppliers (name, lead_time_default, typical_order_months, notes)
-                                  VALUES (%s, 90, 3, 'Auto-seeded') ON CONFLICT (name) DO NOTHING""", (brand,))
+                                  VALUES (%s, 90, 3, 'Auto-seeded') ON CONFLICT (item_code) DO NOTHING""", (brand,))
             db_conn.commit()
             print(f"  Suppliers: {len(brands)} seeded")
     except Exception as e:

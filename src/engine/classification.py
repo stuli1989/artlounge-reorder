@@ -28,7 +28,7 @@ def compute_abc_classification(
     """
     revenue_by_sku = {}
     for m in metrics_batch:
-        sku = m["stock_item_name"]
+        sku = m["item_code"]
         txns = all_txns.get(sku, [])
         total_rev = 0.0
         mrp = float(mrp_lookup.get(sku, 0)) if mrp_lookup else 0
@@ -56,7 +56,7 @@ def compute_abc_classification(
             abc_map[sku] = "C"
 
     for m in metrics_batch:
-        sku = m["stock_item_name"]
+        sku = m["item_code"]
         m["abc_class"] = abc_map.get(sku, "C")
         m["total_revenue"] = revenue_by_sku.get(sku, 0)
 
@@ -79,7 +79,7 @@ def compute_xyz_classification(
     Mutates metrics_batch: sets xyz_class, demand_cv.
     """
     for m in metrics_batch:
-        sku = m["stock_item_name"]
+        sku = m["item_code"]
         positions = daily_positions_by_sku.get(sku, [])
 
         # Group positions by ISO calendar week (year, week_number)

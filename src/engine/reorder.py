@@ -58,7 +58,7 @@ def calculate_days_to_stockout(effective_stock: float, velocity: float) -> float
     return round(effective_stock / velocity, 1)
 
 
-def detect_import_history(stock_item_name: str, transactions: list[dict]) -> dict:
+def detect_import_history(item_code: str, transactions: list[dict]) -> dict:
     """Find import shipments (GRNs from suppliers)."""
     imports = [
         t for t in transactions

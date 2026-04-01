@@ -39,7 +39,7 @@ def process_override_drift(db_conn) -> dict:
 
         # 2. Fetch all active value overrides (not note-only)
         cur.execute("""
-            SELECT o.id, o.stock_item_name, o.field_name,
+            SELECT o.id, o.item_code, o.field_name,
                    o.override_value, o.computed_value_at_creation,
                    o.is_stale
             FROM overrides o
@@ -48,16 +48,16 @@ def process_override_drift(db_conn) -> dict:
         overrides = cur.fetchall()
 
         # Batch-fetch all sku_metrics for override items (eliminates N+1)
-        override_item_names = list({ovr["stock_item_name"] for ovr in overrides})
+        override_item_names = list({ovr["item_code"] for ovr in overrides})
         metrics_lookup = {}
         if override_item_names:
             cur.execute(
-                "SELECT stock_item_name, current_stock, total_velocity, wholesale_velocity, online_velocity "
-                "FROM sku_metrics WHERE stock_item_name = ANY(%s)",
+                "SELECT item_code, current_stock, total_velocity, wholesale_velocity, online_velocity "
+                "FROM sku_metrics WHERE item_code = ANY(%s)",
                 (override_item_names,),
             )
             for row in cur.fetchall():
-                metrics_lookup[row["stock_item_name"]] = dict(row)
+                metrics_lookup[row["item_code"]] = dict(row)
 
         for ovr in overrides:
             col = OVERRIDE_FIELD_TO_COLUMN.get(ovr["field_name"])
@@ -67,7 +67,7 @@ def process_override_drift(db_conn) -> dict:
 
             overrides_checked += 1
 
-            sm_row = metrics_lookup.get(ovr["stock_item_name"])
+            sm_row = metrics_lookup.get(ovr["item_code"])
             if not sm_row:
                 continue
 

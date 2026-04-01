@@ -101,7 +101,7 @@ def parse_stock_items(xml_bytes: bytes) -> list[dict]:
             "closing_balance": closing_balance,
             "closing_value": closing_value,
             "opening_balance": opening_balance,
-            "part_no": part_no,
+            "display_name": part_no,
         })
     return results
 
