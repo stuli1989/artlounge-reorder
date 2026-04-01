@@ -145,11 +145,11 @@ def universal_search(
             sku_count = cur.fetchone()["cnt"]
 
             # --- Prefix group ---
-            # Check if q looks like a part_no prefix (count SKUs whose part_no starts with q)
+            # Check if q matches as a stock_item_name prefix (item codes like 0102004)
             cur.execute(
                 "SELECT COUNT(*) AS cnt FROM sku_metrics sm "
                 "LEFT JOIN stock_items si ON si.name = sm.stock_item_name "
-                "WHERE COALESCE(si.part_no, '') ILIKE %(prefix_like)s "
+                "WHERE sm.stock_item_name ILIKE %(prefix_like)s "
                 "  AND " + _SKU_ACTIVE,
                 {"prefix_like": prefix_pattern},
             )
@@ -161,7 +161,7 @@ def universal_search(
                     "SELECT DISTINCT sm.category_name "
                     "FROM sku_metrics sm "
                     "LEFT JOIN stock_items si ON si.name = sm.stock_item_name "
-                    "WHERE COALESCE(si.part_no, '') ILIKE %(prefix_like)s "
+                    "WHERE sm.stock_item_name ILIKE %(prefix_like)s "
                     "  AND " + _SKU_ACTIVE + " "
                     "ORDER BY sm.category_name",
                     {"prefix_like": prefix_pattern},
@@ -187,7 +187,7 @@ def prefix_search(
     q: str = Query(None),
     user: dict = Depends(get_current_user),
 ):
-    """Return all active SKUs whose part_no starts with the given prefix."""
+    """Return all active SKUs whose stock_item_name starts with the given prefix."""
     if not q or len(q.strip()) < 2:
         raise HTTPException(400, "Query must be at least 2 characters")
     q = q.strip()
@@ -201,9 +201,9 @@ def prefix_search(
         with conn.cursor() as cur:
             cur.execute(
                 f"{_SKU_SELECT} "
-                f"WHERE COALESCE(si.part_no, '') ILIKE %(prefix_like)s "
+                f"WHERE sm.stock_item_name ILIKE %(prefix_like)s "
                 f"  AND {_SKU_ACTIVE} "
-                f"ORDER BY si.part_no, sm.stock_item_name",
+                f"ORDER BY sm.stock_item_name",
                 {"prefix_like": prefix_like},
             )
             skus = [_clean_row(r) for r in cur.fetchall()]

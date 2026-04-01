@@ -482,8 +482,8 @@ def po_data_by_prefix(req: PrefixPoRequest, user: dict = Depends(require_role("p
                 {_PO_FROM_JOINS}
                 LEFT JOIN brand_metrics bm ON bm.category_name = si.category_name
                 LEFT JOIN suppliers s ON UPPER(s.name) = UPPER(si.category_name)
-                WHERE si.is_active = TRUE
-                  AND COALESCE(si.part_no, '') ILIKE %s ESCAPE '\\'
+                WHERE COALESCE(si.is_active, TRUE) = TRUE
+                  AND sm.stock_item_name ILIKE %s ESCAPE '\\'
                   {status_clause}
                 {_PO_ORDER}
             """, query_params)

@@ -368,7 +368,7 @@ def list_skus_cross_brand(
     direction = "DESC" if sort_dir.lower() == "desc" else "ASC"
 
     escaped_prefix = _escape_ilike(prefix)
-    conditions = [f"COALESCE(si.part_no, '') ILIKE %s"]
+    conditions = ["sm.stock_item_name ILIKE %s"]
     params: list = [f"{escaped_prefix}%"]
 
     if hide_inactive:
