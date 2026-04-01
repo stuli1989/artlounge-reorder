@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -73,6 +72,7 @@ export default function PoBuilder() {
   const [bufferOverride, setBufferOverride] = useState(false)
   const [bufferValue, setBufferValue] = useState(1.3)
   const [coverageDays, setCoverageDays] = useState<number | null>(null)
+  const [coverageInput, setCoverageInput] = useState<string>('')  // string state for safe editing
   const [demandMode, setDemandMode] = useState<string | null>(null)
   const [includeWarning, setIncludeWarning] = useState(true)
   const [includeOk, setIncludeOk] = useState(false)
@@ -245,6 +245,35 @@ export default function PoBuilder() {
   // Extract the auto-calculated coverage from the first API response item
   const sourceData = subsetMode && subsetRawData ? subsetRawData : poData
   const defaultCoverage = sourceData?.[0]?.coverage_period ?? 180
+  const effectiveCoverageDays = coverageDays ?? defaultCoverage
+  const coverageMonths = Math.round(effectiveCoverageDays / 30)
+
+  // Sync coverageInput display when the effective value changes externally
+  useEffect(() => {
+    setCoverageInput(String(coverageMonths))
+  }, [coverageMonths])
+
+  // Resolve the supplier's lead time from API response for display
+  const resolvedSupplierLeadTime = sourceData?.[0]?.lead_time ?? 180
+
+  const handleCoverageBlur = () => {
+    const parsed = parseInt(coverageInput, 10)
+    if (!coverageInput.trim() || isNaN(parsed) || parsed <= 0) {
+      // Reset to auto
+      setCoverageDays(null)
+      setCoverageInput(String(Math.round(defaultCoverage / 30)))
+    } else {
+      setCoverageDays(parsed * 30)
+    }
+  }
+
+  // Show filter as a single segmented value
+  type ShowFilter = 'critical' | 'warning' | 'all'
+  const showFilter: ShowFilter = includeOk ? 'all' : includeWarning ? 'warning' : 'critical'
+  const setShowFilter = (f: ShowFilter) => {
+    setIncludeWarning(f === 'warning' || f === 'all')
+    setIncludeOk(f === 'all')
+  }
 
   const [overrides, setOverrides] = useState<Record<string, RowOverride>>({})
 
@@ -406,7 +435,7 @@ export default function PoBuilder() {
                 <CardTitle className="text-sm">Config</CardTitle>
                 {!configExpanded && (
                   <span className="text-xs text-muted-foreground ml-auto">
-                    {leadTimeType === 'sea' ? 'Sea 180d' : leadTimeType === 'air' ? 'Air 30d' : `${customLeadTime}d`}
+                    {leadTimeType === 'default' ? `Default ${resolvedSupplierLeadTime}d` : leadTimeType === 'sea' ? 'Sea 180d' : leadTimeType === 'air' ? 'Air 30d' : `${customLeadTime}d`} · {coverageMonths}mo
                   </span>
                 )}
               </div>
@@ -420,8 +449,9 @@ export default function PoBuilder() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sea">Sea Freight (180d)</SelectItem>
-                      <SelectItem value="air">Air Freight (30d)</SelectItem>
+                      <SelectItem value="default">Supplier Default ({resolvedSupplierLeadTime}d)</SelectItem>
+                      <SelectItem value="sea">Sea Freight (180 days)</SelectItem>
+                      <SelectItem value="air">Air Freight (30 days)</SelectItem>
                       <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
@@ -436,23 +466,25 @@ export default function PoBuilder() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Coverage Period</Label>
+                  <Label>Order Enough For</Label>
                   <div className="flex items-center gap-2">
                     <Input
-                      type="number"
+                      type="text"
                       inputMode="numeric"
-                      className="w-24"
-                      value={coverageDays ?? defaultCoverage}
-                      onChange={e => setCoverageDays(e.target.value ? Number(e.target.value) : null)}
+                      className="w-16"
+                      value={coverageInput}
+                      onChange={e => setCoverageInput(e.target.value)}
+                      onBlur={handleCoverageBlur}
+                      onKeyDown={e => { if (e.key === 'Enter') handleCoverageBlur() }}
                       placeholder="Auto"
                     />
                     <span className="text-xs text-muted-foreground">
-                      days = {Math.round((coverageDays ?? defaultCoverage) / 30)}mo
+                      months ({effectiveCoverageDays}d)
                     </span>
                   </div>
                   {coverageDays !== null && (
                     <button
-                      className="text-xs text-blue-600"
+                      className="text-xs text-primary"
                       onClick={() => setCoverageDays(null)}
                     >
                       Reset to auto
@@ -467,9 +499,9 @@ export default function PoBuilder() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="supplier_default">Supplier Default</SelectItem>
-                      <SelectItem value="full">Full (lead + coverage)</SelectItem>
-                      <SelectItem value="coverage_only">Coverage only</SelectItem>
+                      <SelectItem value="supplier_default">Supplier Setting</SelectItem>
+                      <SelectItem value="full">Full Order (lead + coverage)</SelectItem>
+                      <SelectItem value="coverage_only">Coverage Only</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -483,30 +515,52 @@ export default function PoBuilder() {
                         onValueChange={v => setBufferValue(Array.isArray(v) ? v[0] : v)}
                         min={1.0} max={2.0} step={0.1}
                       />
-                      <button className="text-xs text-blue-600" onClick={() => setBufferOverride(false)}>
+                      <button className="text-xs text-primary" onClick={() => setBufferOverride(false)}>
                         Reset to per-SKU
                       </button>
                     </>
                   ) : (
                     <Button variant="outline" size="sm" className="w-full" onClick={() => setBufferOverride(true)}>
-                      Override buffer (per-SKU)
+                      Override buffer (Auto per SKU)
                     </Button>
                   )}
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Switch checked={includeWarning} onCheckedChange={setIncludeWarning} />
-                    <Label className="text-sm">Include Warning</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch checked={includeOk} onCheckedChange={setIncludeOk} />
-                    <Label className="text-sm">Include OK</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Show SKUs</Label>
+                  <div className="flex border rounded-md overflow-hidden h-9">
+                    <button
+                      className={cn(
+                        'flex-1 text-xs font-medium border-r transition-colors',
+                        showFilter === 'critical' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'
+                      )}
+                      onClick={() => setShowFilter('critical')}
+                    >
+                      Critical
+                    </button>
+                    <button
+                      className={cn(
+                        'flex-1 text-xs font-medium border-r transition-colors',
+                        showFilter === 'warning' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'
+                      )}
+                      onClick={() => setShowFilter('warning')}
+                    >
+                      + Warning
+                    </button>
+                    <button
+                      className={cn(
+                        'flex-1 text-xs font-medium transition-colors',
+                        showFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'
+                      )}
+                      onClick={() => setShowFilter('all')}
+                    >
+                      All
+                    </button>
                   </div>
                 </div>
 
                 <Button variant="outline" className="w-full" onClick={() => setShowSkuInput(true)}>
-                  <ClipboardList className="h-4 w-4 mr-1" /> Import SKU List
+                  <ClipboardList className="h-4 w-4 mr-1" /> Import SKUs
                 </Button>
               </CardContent>
             )}
@@ -773,125 +827,149 @@ export default function PoBuilder() {
 
       {/* Settings */}
       <Card data-tour="po-config">
-        <CardContent className="pt-5 pb-4">
-          <div className="flex items-start gap-8">
+        <CardContent className="pt-3.5 pb-2.5 px-5">
+          {/* Row 1: Primary controls */}
+          <div className="flex items-end gap-7 pb-2.5 border-b">
             {/* Lead Time */}
-            <div className="space-y-1.5 min-w-[160px]">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Lead Time</Label>
+            <div>
+              <Label className="text-[11px] text-muted-foreground uppercase tracking-wide">Lead Time</Label>
               <Select value={leadTimeType} onValueChange={v => { if (v) { setLeadTimeType(v); if (v === 'sea') setCustomLeadTime(180); if (v === 'air') setCustomLeadTime(30); } }}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-8 min-w-[180px] mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">Default</SelectItem>
-                  <SelectItem value="sea">Sea Freight (180d)</SelectItem>
-                  <SelectItem value="air">Air Freight (30d)</SelectItem>
+                  <SelectItem value="default">Supplier Default ({resolvedSupplierLeadTime}d)</SelectItem>
+                  <SelectItem value="sea">Sea Freight (180 days)</SelectItem>
+                  <SelectItem value="air">Air Freight (30 days)</SelectItem>
                   <SelectItem value="custom">Custom</SelectItem>
                 </SelectContent>
               </Select>
               {leadTimeType === 'custom' && (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 mt-1">
                   <Input
                     type="number"
                     value={customLeadTime}
                     onChange={e => setCustomLeadTime(Number(e.target.value))}
-                    className="h-9 w-20"
+                    className="h-8 w-20"
                   />
                   <span className="text-xs text-muted-foreground">days</span>
                 </div>
               )}
             </div>
 
-            {/* Coverage Period */}
-            <div className="space-y-1.5 min-w-[140px]">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Coverage Period</Label>
-              <div className="flex items-center gap-2">
+            {/* Coverage Period — in months */}
+            <div>
+              <Label className="text-[11px] text-muted-foreground uppercase tracking-wide">Order Enough For</Label>
+              <div className="flex items-center gap-2 mt-1">
                 <Input
-                  type="number"
+                  type="text"
                   inputMode="numeric"
-                  className="w-20 h-9 text-sm"
-                  value={coverageDays ?? defaultCoverage}
-                  onChange={e => setCoverageDays(e.target.value ? Number(e.target.value) : null)}
+                  className="w-12 h-8 text-sm text-center font-medium"
+                  value={coverageInput}
+                  onChange={e => setCoverageInput(e.target.value)}
+                  onBlur={handleCoverageBlur}
+                  onKeyDown={e => { if (e.key === 'Enter') handleCoverageBlur() }}
                   placeholder="Auto"
                 />
-                <span className="text-xs text-muted-foreground">
-                  = {Math.round((coverageDays ?? defaultCoverage) / 30)}mo
-                </span>
+                <span className="text-[13px] text-muted-foreground">months</span>
+                <span className="text-[11px] text-muted-foreground">({effectiveCoverageDays}d)</span>
               </div>
               {coverageDays !== null && (
                 <button
-                  className="text-xs text-primary hover:underline"
+                  className="text-[11px] text-primary hover:underline mt-0.5"
                   onClick={() => setCoverageDays(null)}
                 >
-                  Reset
+                  Reset to auto
                 </button>
               )}
             </div>
 
-            {/* Demand Mode */}
-            <div className="space-y-1.5 min-w-[160px]">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Order Mode</Label>
-              <Select value={demandMode ?? 'supplier_default'} onValueChange={v => setDemandMode(v === 'supplier_default' ? null : v)}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="supplier_default">Supplier Default</SelectItem>
-                  <SelectItem value="full">Full (lead + coverage)</SelectItem>
-                  <SelectItem value="coverage_only">Coverage only</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Show filter — segmented */}
+            <div className="ml-auto">
+              <Label className="text-[11px] text-muted-foreground uppercase tracking-wide">Show</Label>
+              <div className="flex border rounded-md overflow-hidden mt-1 h-8">
+                <button
+                  className={cn(
+                    'px-3.5 text-xs font-medium border-r transition-colors',
+                    showFilter === 'critical' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'
+                  )}
+                  onClick={() => setShowFilter('critical')}
+                >
+                  Critical
+                </button>
+                <button
+                  className={cn(
+                    'px-3.5 text-xs font-medium border-r transition-colors',
+                    showFilter === 'warning' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'
+                  )}
+                  onClick={() => setShowFilter('warning')}
+                >
+                  + Warning
+                </button>
+                <button
+                  className={cn(
+                    'px-3.5 text-xs font-medium transition-colors',
+                    showFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'
+                  )}
+                  onClick={() => setShowFilter('all')}
+                >
+                  All
+                </button>
+              </div>
             </div>
+          </div>
 
-            {/* Safety Buffer */}
-            <div className="space-y-1.5 min-w-[200px]">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Safety Buffer</Label>
-              {bufferOverride ? (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{bufferValue.toFixed(1)}x override</span>
+          {/* Row 2: Secondary controls + Actions */}
+          <div className="flex items-center pt-2">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground flex-1">
+              <div className="flex items-center gap-1.5">
+                <span>Order Mode:</span>
+                <Select value={demandMode ?? 'supplier_default'} onValueChange={v => setDemandMode(v === 'supplier_default' ? null : v)}>
+                  <SelectTrigger className="h-6 w-auto border-none shadow-none px-1 text-xs font-medium text-foreground gap-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="supplier_default">Supplier Setting</SelectItem>
+                    <SelectItem value="full">Full Order (lead + coverage)</SelectItem>
+                    <SelectItem value="coverage_only">Coverage Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <span className="text-border">|</span>
+              <div className="flex items-center gap-1.5">
+                <span>Buffer:</span>
+                {bufferOverride ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-foreground">{bufferValue.toFixed(1)}x</span>
+                    <Slider
+                      value={[bufferValue]}
+                      onValueChange={v => setBufferValue(Array.isArray(v) ? v[0] : v)}
+                      min={0.1} max={3.0} step={0.1}
+                      className="w-24"
+                    />
                     <button
-                      className="text-xs text-primary hover:underline"
+                      className="text-[11px] text-primary hover:underline"
                       onClick={() => setBufferOverride(false)}
                     >
                       Reset
                     </button>
                   </div>
-                  <Slider
-                    value={[bufferValue]}
-                    onValueChange={v => setBufferValue(Array.isArray(v) ? v[0] : v)}
-                    min={0.1} max={3.0} step={0.1}
-                  />
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">Per-SKU (ABC-based)</span>
-                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setBufferOverride(true)}>
-                    Override
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Include filters */}
-            <div className="space-y-2 pt-1">
-              <div className="flex items-center gap-2">
-                <Switch checked={includeWarning} onCheckedChange={setIncludeWarning} />
-                <Label className="text-sm">Warning items</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={includeOk} onCheckedChange={setIncludeOk} />
-                <Label className="text-sm">OK items</Label>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-foreground">Auto per SKU</span>
+                    <Button variant="outline" size="sm" className="h-5 px-2 text-[11px]" onClick={() => setBufferOverride(true)}>
+                      Override
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Actions — pushed right */}
-            <div className="ml-auto flex items-center gap-2 pt-1">
-              <Button variant="outline" size="sm" onClick={() => setShowSkuInput(true)}>
-                <ClipboardList className="h-4 w-4 mr-1" /> Import SKU List
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setShowSkuInput(true)}>
+                <ClipboardList className="h-3.5 w-3.5 mr-1" /> Import SKUs
               </Button>
-              <Button size="sm" onClick={handleExport} disabled={totalItems === 0} data-tour="po-export">
-                <Download className="h-4 w-4 mr-1" /> Export Excel
+              <Button size="sm" className="h-8 text-xs" onClick={handleExport} disabled={totalItems === 0} data-tour="po-export">
+                <Download className="h-3.5 w-3.5 mr-1" /> Export Excel
               </Button>
             </div>
           </div>
