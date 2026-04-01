@@ -110,8 +110,8 @@ function TierCard({
                 const daysStr = daysLeft === null ? 'N/A' : daysLeft === 0 ? 'OUT' : `${daysLeft}d`
                 return (
                   <MobileListRow
-                    key={r.stock_item_name}
-                    title={r.part_no || r.stock_item_name}
+                    key={r.item_code}
+                    title={r.display_name || r.item_code}
                     subtitle={r.category_name}
                     status={r.reorder_status}
                     statusLabel={r.reorder_status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
@@ -145,7 +145,7 @@ function TierCard({
                     ? (r.wma_total_velocity || 0)
                     : (r.total_velocity || 0)
                   return (
-                    <Fragment key={r.stock_item_name}>
+                    <Fragment key={r.item_code}>
                       <TableRow
                         className="cursor-pointer hover:bg-muted/50"
                         tabIndex={0}
@@ -154,9 +154,9 @@ function TierCard({
                       >
                         <TableCell><StatusBadge status={r.reorder_status as 'urgent' | 'reorder' | 'healthy' | 'out_of_stock' | 'no_data'} /></TableCell>
                         <TableCell className="font-medium text-xs">{r.category_name}</TableCell>
-                        <TableCell className="max-w-[280px]" title={r.part_no || r.stock_item_name}>
-                          <div className="truncate font-medium">{r.part_no || r.stock_item_name}</div>
-                          <div className="text-xs text-muted-foreground">Part No: {r.stock_item_name}</div>
+                        <TableCell className="max-w-[280px]" title={r.display_name || r.item_code}>
+                          <div className="truncate font-medium">{r.display_name || r.item_code}</div>
+                          <div className="text-xs text-muted-foreground">Part No: {r.item_code}</div>
                         </TableCell>
                         <TableCell className="text-right">{r.current_stock}</TableCell>
                         <TableCell className="text-right">{vel(velValue)}</TableCell>
@@ -167,7 +167,7 @@ function TierCard({
                           <SkuSecondaryLine
                             abc_class={r.abc_class}
                             xyz_class={r.xyz_class}
-                            sku_code={r.stock_item_name}
+                            sku_code={r.item_code}
                           />
                         </TableCell>
                       </TableRow>

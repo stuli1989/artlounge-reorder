@@ -88,7 +88,7 @@ const SkuRow = memo(function SkuRow({
       {/* Primary row — 7 columns */}
       <TableRow
         className="cursor-pointer hover:bg-muted/50"
-        onClick={() => onToggle(s.stock_item_name)}
+        onClick={() => onToggle(s.item_code)}
       >
         <TableCell>
           {isExpanded
@@ -96,10 +96,10 @@ const SkuRow = memo(function SkuRow({
             : <ChevronRight className="h-4 w-4" />}
         </TableCell>
         <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
-        <TableCell className="font-mono text-xs text-muted-foreground">{s.stock_item_name}</TableCell>
-        <TableCell className="max-w-[280px]" title={s.part_no || s.stock_item_name}>
+        <TableCell className="font-mono text-xs text-muted-foreground">{s.item_code}</TableCell>
+        <TableCell className="max-w-[280px]" title={s.display_name || s.item_code}>
           <span className="inline-flex items-center gap-1">
-            {s.part_no || s.stock_item_name}
+            {s.display_name || s.item_code}
             {s.is_hazardous && (
               <Tooltip>
                 <TooltipTrigger><span className="text-amber-500 text-xs">{'\u25A0'}</span></TooltipTrigger>
@@ -275,7 +275,7 @@ const SkuRow = memo(function SkuRow({
                     <span>Intent</span>
                     <span onClick={e => e.stopPropagation()}>
                       <ReorderIntentSelector
-                        stockItemName={s.stock_item_name}
+                        stockItemName={s.item_code}
                         currentIntent={s.reorder_intent || 'normal'}
                       />
                     </span>
@@ -292,13 +292,13 @@ const SkuRow = memo(function SkuRow({
               </TabsList>
               <TabsContent value="timeline" className="pt-4">
                 <div data-tour="stock-timeline">
-                  <StockTimeline categoryName={decodedName} stockItemName={s.stock_item_name} />
+                  <StockTimeline categoryName={decodedName} stockItemName={s.item_code} />
                 </div>
               </TabsContent>
               <TabsContent value="calculation" className="pt-4">
                 <CalculationBreakdown
                   categoryName={decodedName}
-                  stockItemName={s.stock_item_name}
+                  stockItemName={s.item_code}
                   fromDate={analysisRange?.from}
                   toDate={analysisRange?.to}
                 />
@@ -312,7 +312,7 @@ const SkuRow = memo(function SkuRow({
 })
 
 const SKU_SORT_OPTIONS = [
-  { value: 'stock_item_name', label: 'Name' },
+  { value: 'item_code', label: 'Name' },
   { value: 'reorder_status', label: 'Status' },
   { value: 'current_stock', label: 'Stock' },
   { value: 'total_velocity', label: 'Velocity' },
@@ -631,9 +631,9 @@ export default function SkuDetail() {
                   : status.charAt(0).toUpperCase() + status.slice(1)
                 return (
                   <MobileListRow
-                    key={s.stock_item_name}
-                    title={s.part_no || s.stock_item_name}
-                    subtitle={`Part No: ${s.stock_item_name}`}
+                    key={s.item_code}
+                    title={s.display_name || s.item_code}
+                    subtitle={`Part No: ${s.item_code}`}
                     status={status}
                     statusLabel={statusLabel}
                     metrics={[
@@ -1042,11 +1042,11 @@ export default function SkuDetail() {
                   </TableHead>
                   <TableHead
                     className="w-[110px] cursor-pointer hover:text-foreground select-none"
-                    onClick={() => handleSort('stock_item_name')}
+                    onClick={() => handleSort('item_code')}
                   >
                     <span className="inline-flex items-center gap-1">
                       Part No
-                      {sort === 'stock_item_name'
+                      {sort === 'item_code'
                         ? <span className="text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>
                         : <ArrowUpDown className="h-3 w-3 opacity-40" />}
                     </span>
@@ -1092,9 +1092,9 @@ export default function SkuDetail() {
               <TableBody data-tour="sku-expand-hint">
                 {skus.map((s: SkuMetrics) => (
                   <SkuRow
-                    key={s.stock_item_name}
+                    key={s.item_code}
                     s={s}
-                    isExpanded={expandedRow === s.stock_item_name}
+                    isExpanded={expandedRow === s.item_code}
                     onToggle={handleToggleRow}
                     decodedName={decodedName}
                     analysisRange={analysisRange}

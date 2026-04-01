@@ -123,7 +123,7 @@ class TestUniversalSearchPrefixGroup:
         return effects
 
     def test_prefix_group_none_when_count_less_than_2(self):
-        """prefix_group should be None when fewer than 2 part_nos match."""
+        """prefix_group should be None when fewer than 2 display_names match."""
         effects = self._search_side_effects(prefix_count=1)
         fake_db, _ = _build_db_mock(effects)
 
@@ -136,7 +136,7 @@ class TestUniversalSearchPrefixGroup:
         assert data["prefix_group"] is None
 
     def test_prefix_group_none_when_count_zero(self):
-        """prefix_group should be None when no part_nos match."""
+        """prefix_group should be None when no display_names match."""
         effects = self._search_side_effects(prefix_count=0)
         fake_db, _ = _build_db_mock(effects)
 
@@ -200,8 +200,8 @@ class TestUniversalSearchPrefixGroup:
             "urgent_skus": 2,
         }
         sku_row = {
-            "stock_item_name": "WN OIL 37ML TITANIUM WHITE",
-            "part_no": "WN1234",
+            "item_code": "WN OIL 37ML TITANIUM WHITE",
+            "display_name": "WN1234",
             "category_name": "WINSOR & NEWTON",
             "reorder_status": "ok",
             "current_stock": 50.0,
@@ -281,8 +281,8 @@ class TestPrefixEndpoint:
         """total should equal len(skus) returned."""
         sku_rows = [
             _make_row(
-                stock_item_name=f"SKU {i}",
-                part_no=f"WN{i:04d}",
+                item_code=f"SKU {i}",
+                display_name=f"WN{i:04d}",
                 category_name="WINSOR & NEWTON",
                 reorder_status="ok",
                 current_stock=float(i * 10),
@@ -303,10 +303,10 @@ class TestPrefixEndpoint:
     def test_prefix_brands_correct(self):
         """brands list should reflect distinct categories derived from SKUs."""
         sku_rows = [
-            _make_row(stock_item_name="SKU A1", part_no="XX01", category_name="BRAND A", reorder_status="ok", current_stock=10),
-            _make_row(stock_item_name="SKU B1", part_no="XX02", category_name="BRAND B", reorder_status="ok", current_stock=20),
-            _make_row(stock_item_name="SKU C1", part_no="XX03", category_name="BRAND C", reorder_status="ok", current_stock=30),
-            _make_row(stock_item_name="SKU A2", part_no="XX04", category_name="BRAND A", reorder_status="ok", current_stock=15),
+            _make_row(item_code="SKU A1", display_name="XX01", category_name="BRAND A", reorder_status="ok", current_stock=10),
+            _make_row(item_code="SKU B1", display_name="XX02", category_name="BRAND B", reorder_status="ok", current_stock=20),
+            _make_row(item_code="SKU C1", display_name="XX03", category_name="BRAND C", reorder_status="ok", current_stock=30),
+            _make_row(item_code="SKU A2", display_name="XX04", category_name="BRAND A", reorder_status="ok", current_stock=15),
         ]
         effects = self._prefix_side_effects(skus=sku_rows)
         fake_db, _ = _build_db_mock(effects)
@@ -363,8 +363,8 @@ class TestPrefixEndpoint:
     def test_prefix_sku_fields_present(self):
         """Each SKU in the response should have the standard fields."""
         sku = _make_row(
-            stock_item_name="WN OIL 37ML TITANIUM WHITE",
-            part_no="WN1001",
+            item_code="WN OIL 37ML TITANIUM WHITE",
+            display_name="WN1001",
             category_name="WINSOR & NEWTON",
             reorder_status="critical",
             current_stock=5.0,
@@ -377,8 +377,8 @@ class TestPrefixEndpoint:
 
         assert resp.status_code == 200
         sku_resp = resp.json()["skus"][0]
-        assert sku_resp["stock_item_name"] == "WN OIL 37ML TITANIUM WHITE"
-        assert sku_resp["part_no"] == "WN1001"
+        assert sku_resp["item_code"] == "WN OIL 37ML TITANIUM WHITE"
+        assert sku_resp["display_name"] == "WN1001"
         assert sku_resp["category_name"] == "WINSOR & NEWTON"
         assert sku_resp["reorder_status"] == "critical"
         assert sku_resp["current_stock"] == 5.0

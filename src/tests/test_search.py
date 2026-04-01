@@ -58,7 +58,7 @@ class TestSearchResults:
         assert "scoped_skus" not in data
         assert "scoped_sku_count" not in data
 
-    def test_sku_results_include_part_no(self):
+    def test_sku_results_include_display_name(self):
         resp = client.get("/api/search?q=winsor")
         assert resp.status_code == 200
         data = resp.json()

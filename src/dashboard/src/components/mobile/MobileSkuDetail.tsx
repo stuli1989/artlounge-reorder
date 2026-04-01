@@ -63,8 +63,8 @@ export default function MobileSkuDetail({
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm truncate">{sku.part_no || sku.stock_item_name}</div>
-            <div className="text-xs text-muted-foreground">Part No: {sku.stock_item_name}</div>
+            <div className="font-semibold text-sm truncate">{sku.display_name || sku.item_code}</div>
+            <div className="text-xs text-muted-foreground">Part No: {sku.item_code}</div>
           </div>
           <StatusBadge status={status} />
         </div>
@@ -148,7 +148,7 @@ export default function MobileSkuDetail({
           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Stock Timeline</h4>
           <StockTimeline
             categoryName={categoryName}
-            stockItemName={sku.stock_item_name}
+            stockItemName={sku.item_code}
           />
         </div>
 
@@ -167,7 +167,7 @@ export default function MobileSkuDetail({
       <BottomSheet open={showCalculation} onOpenChange={setShowCalculation} title="Calculation Breakdown">
         <CalculationBreakdown
           categoryName={categoryName}
-          stockItemName={sku.stock_item_name}
+          stockItemName={sku.item_code}
           fromDate={analysisRange?.from}
           toDate={analysisRange?.to}
         />

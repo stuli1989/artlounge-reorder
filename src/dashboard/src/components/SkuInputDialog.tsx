@@ -67,7 +67,7 @@ export default function SkuInputDialog({ open, onOpenChange, onSubmit, isLoading
       if (result.total === 0) {
         setPrefixError(`No SKUs found with part number starting "${q}"`)
       } else {
-        setParsedNames(result.skus.map(s => s.stock_item_name))
+        setParsedNames(result.skus.map(s => s.item_code))
       }
     } catch {
       setPrefixError('Search failed — try again')
@@ -212,9 +212,9 @@ export default function SkuInputDialog({ open, onOpenChange, onSubmit, isLoading
                   </div>
                   <div className="max-h-48 overflow-y-auto border rounded text-xs">
                     {prefixResult.skus.slice(0, 50).map(s => (
-                      <div key={s.stock_item_name} className="px-3 py-1.5 border-b last:border-b-0 flex items-center justify-between">
-                        <span className="font-mono text-muted-foreground mr-2">{s.part_no}</span>
-                        <span className="truncate flex-1">{s.stock_item_name}</span>
+                      <div key={s.item_code} className="px-3 py-1.5 border-b last:border-b-0 flex items-center justify-between">
+                        <span className="font-mono text-muted-foreground mr-2">{s.display_name}</span>
+                        <span className="truncate flex-1">{s.item_code}</span>
                       </div>
                     ))}
                     {prefixResult.total > 50 && (

@@ -98,7 +98,7 @@ export default function OverrideReview() {
               return (
                 <MobileListRow
                   key={o.id}
-                  title={o.stock_item_name}
+                  title={o.item_code}
                   subtitle={`${fieldLabels[o.field_name] || o.field_name}: ${o.override_value !== null ? o.override_value : '-'}`}
                   status={o.is_stale ? 'reorder' : 'healthy'}
                   statusLabel={o.is_stale ? 'Stale' : 'Active'}
@@ -205,8 +205,8 @@ export default function OverrideReview() {
             <TableBody>
               {overrides.map((o: Override) => (
                 <TableRow key={o.id} className={o.is_stale ? 'bg-amber-50' : ''}>
-                  <TableCell className="max-w-[200px] truncate" title={o.stock_item_name}>
-                    {o.stock_item_name}
+                  <TableCell className="max-w-[200px] truncate" title={o.item_code}>
+                    {o.item_code}
                   </TableCell>
                   <TableCell>{fieldLabels[o.field_name] || o.field_name}</TableCell>
                   <TableCell className="text-right font-medium">

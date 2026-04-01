@@ -212,7 +212,7 @@ function OverrideForm({
           className={isMobile ? 'w-full' : ''}
           disabled={(!value && fieldName !== 'note') || !reason || createMut.isPending}
           onClick={() => createMut.mutate({
-            stock_item_name: stockItemName,
+            item_code: stockItemName,
             field_name: fieldName,
             override_value: fieldName !== 'note' ? parseFloat(value) : undefined,
             note: reason,

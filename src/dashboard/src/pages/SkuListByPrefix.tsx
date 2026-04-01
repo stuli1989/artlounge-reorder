@@ -112,18 +112,18 @@ export default function SkuListByPrefix() {
               <TableBody>
                 {items.map((item: SkuMetrics) => (
                   <TableRow
-                    key={item.stock_item_name}
+                    key={item.item_code}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => navigate(`/brands/${encodeURIComponent(item.category_name)}/skus?highlight=${encodeURIComponent(item.stock_item_name)}`)}
+                    onClick={() => navigate(`/brands/${encodeURIComponent(item.category_name)}/skus?highlight=${encodeURIComponent(item.item_code)}`)}
                   >
                     <TableCell>
                       <StatusBadge status={item.effective_status ?? item.reorder_status} />
                     </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
-                      {item.part_no || '—'}
+                      {item.display_name || '—'}
                     </TableCell>
-                    <TableCell className="max-w-[300px] truncate" title={item.stock_item_name}>
-                      {item.stock_item_name}
+                    <TableCell className="max-w-[300px] truncate" title={item.item_code}>
+                      {item.item_code}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {item.category_name}

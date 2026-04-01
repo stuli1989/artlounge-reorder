@@ -29,8 +29,8 @@ import { MobileListRow, MobileListRowSkeleton } from '@/components/mobile/Mobile
 import { BottomSheet } from '@/components/mobile/BottomSheet'
 
 interface PoRow {
-  stock_item_name: string
-  part_no: string | null
+  item_code: string
+  display_name: string | null
   is_hazardous: boolean
   current_stock: number
   total_velocity: number
@@ -100,14 +100,14 @@ export default function PoBuilder() {
       if (subsetMode) {
         // Config-change re-fetch: just update the data, keep subset active
         const kept = new Set(subsetSkuNames)
-        setSubsetRawData(data.po_data.filter((d: PoDataItem) => kept.has(d.stock_item_name)))
+        setSubsetRawData(data.po_data.filter((d: PoDataItem) => kept.has(d.item_code)))
       } else {
         setMatchResults({ matches: data.matches, summary: data.summary })
         if (data.summary.fuzzy === 0 && data.summary.unmatched === 0) {
           // All exact — skip review, go straight to PO table
           setSubsetMode(true)
           setSubsetRawData(data.po_data)
-          setSubsetSkuNames(data.po_data.map((d: PoDataItem) => d.stock_item_name))
+          setSubsetSkuNames(data.po_data.map((d: PoDataItem) => d.item_code))
           setShowSkuInput(false)
         } else {
           setShowMatchReview(true)
@@ -125,7 +125,7 @@ export default function PoBuilder() {
       setPrefixValue(data.prefix)
       setSubsetMode(true)
       setSubsetRawData(data.po_data)
-      setSubsetSkuNames(data.po_data.map(d => d.stock_item_name))
+      setSubsetSkuNames(data.po_data.map(d => d.item_code))
       setShowSkuInput(false)
     },
   })
@@ -161,11 +161,11 @@ export default function PoBuilder() {
   const activateSubsetFromReview = (acceptedNames: string[]) => {
     const accepted = new Set(acceptedNames)
     const filtered = (matchMutation.data?.po_data ?? []).filter(
-      item => accepted.has(item.stock_item_name)
+      item => accepted.has(item.item_code)
     )
     setSubsetMode(true)
     setSubsetRawData(filtered)
-    setSubsetSkuNames(filtered.map(d => d.stock_item_name))
+    setSubsetSkuNames(filtered.map(d => d.item_code))
     setShowMatchReview(false)
   }
 
@@ -251,7 +251,7 @@ export default function PoBuilder() {
   const rows: PoRow[] = useMemo(() => {
     const source = subsetMode && subsetRawData ? subsetRawData : (poData || [])
     return source.map(item => {
-      const o = overrides[item.stock_item_name] || {}
+      const o = overrides[item.item_code] || {}
       return {
         ...item,
         total_in_stock_days: item.total_in_stock_days ?? 0,
@@ -336,7 +336,7 @@ export default function PoBuilder() {
   const driftingIncluded = useMemo(() => rows.filter(r => r.included && r.has_drift), [rows])
   const hasHazardousConflict = leadTimeType === 'air' && hazardousIncluded.length > 0
 
-  const editingRow = editingSkuName ? rows.find(r => r.stock_item_name === editingSkuName) : null
+  const editingRow = editingSkuName ? rows.find(r => r.item_code === editingSkuName) : null
 
   const handleExport = async () => {
     try {
@@ -347,8 +347,8 @@ export default function PoBuilder() {
         coverage_days: coverageDays ?? defaultCoverage,
         buffer: bufferOverride ? bufferValue : (includedRows.length > 0 ? includedRows.reduce((s, r) => s + r.sku_buffer, 0) / includedRows.length : 1.3),
         items: includedRows.map(r => ({
-          stock_item_name: r.stock_item_name,
-          part_no: r.part_no || '',
+          item_code: r.item_code,
+          display_name: r.display_name || '',
           order_qty: r.order_qty,
           current_stock: r.current_stock,
           velocity_per_month: r.total_velocity * 30,
@@ -614,9 +614,9 @@ export default function PoBuilder() {
                 const statusLabel = (r.reorder_status as string).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
                 return (
                   <MobileListRow
-                    key={r.stock_item_name}
-                    title={r.part_no || r.stock_item_name}
-                    subtitle={isLowConfidence(r) ? `Part No: ${r.stock_item_name} · ${r.total_in_stock_days}d data` : `Part No: ${r.stock_item_name}`}
+                    key={r.item_code}
+                    title={r.display_name || r.item_code}
+                    subtitle={isLowConfidence(r) ? `Part No: ${r.item_code} · ${r.total_in_stock_days}d data` : `Part No: ${r.item_code}`}
                     status={r.reorder_status}
                     statusLabel={statusLabel}
                     metrics={[
@@ -624,7 +624,7 @@ export default function PoBuilder() {
                       { label: 'Qty', value: String(r.order_qty) },
                     ]}
                     className={cn(!r.included && 'opacity-40')}
-                    onClick={() => setEditingSkuName(r.stock_item_name)}
+                    onClick={() => setEditingSkuName(r.item_code)}
                   />
                 )
               })}
@@ -650,8 +650,8 @@ export default function PoBuilder() {
             {editingRow && (
               <div className="space-y-4">
                 <div>
-                  <p className="font-medium text-sm">{editingRow.part_no || editingRow.stock_item_name}</p>
-                  <p className="text-xs text-muted-foreground">Part No: {editingRow.stock_item_name}</p>
+                  <p className="font-medium text-sm">{editingRow.display_name || editingRow.item_code}</p>
+                  <p className="text-xs text-muted-foreground">Part No: {editingRow.item_code}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-center text-xs">
                   <div>
@@ -688,7 +688,7 @@ export default function PoBuilder() {
                 <div className="flex items-center gap-2">
                   <Checkbox
                     checked={editingRow.included}
-                    onCheckedChange={() => toggleRow(editingRow.stock_item_name)}
+                    onCheckedChange={() => toggleRow(editingRow.item_code)}
                   />
                   <Label className="text-sm">Include in PO</Label>
                 </div>
@@ -698,7 +698,7 @@ export default function PoBuilder() {
                     type="number"
                     inputMode="numeric"
                     value={editingRow.order_qty}
-                    onChange={e => updateQty(editingRow.stock_item_name, Number(e.target.value))}
+                    onChange={e => updateQty(editingRow.item_code, Number(e.target.value))}
                     disabled={!editingRow.included}
                   />
                 </div>
@@ -706,7 +706,7 @@ export default function PoBuilder() {
                   <Label>Notes</Label>
                   <Input
                     value={editingRow.notes}
-                    onChange={e => updateNotes(editingRow.stock_item_name, e.target.value)}
+                    onChange={e => updateNotes(editingRow.item_code, e.target.value)}
                     placeholder="Notes"
                     disabled={!editingRow.included}
                   />
@@ -721,7 +721,7 @@ export default function PoBuilder() {
                     <div className="px-3 pb-3 pt-1">
                       <CalculationBreakdown
                         categoryName={editingRow.category_name || decodedName}
-                        stockItemName={editingRow.stock_item_name}
+                        stockItemName={editingRow.item_code}
                         fromDate={fromDate || undefined}
                         toDate={toDate || undefined}
                       />
@@ -1063,34 +1063,34 @@ export default function PoBuilder() {
             </TableHeader>
             <TableBody>
               {rows.map(r => (
-                <Fragment key={r.stock_item_name}>
+                <Fragment key={r.item_code}>
                 <TableRow className={cn(!r.included && 'opacity-40', hasHazardousConflict && r.is_hazardous && r.included && 'bg-amber-50', r.reorder_intent === 'must_stock' && 'border-l-2 border-l-purple-400')}>
                   <TableCell className="w-8 px-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        setExpandedSku(expandedSku === r.stock_item_name ? null : r.stock_item_name)
+                        setExpandedSku(expandedSku === r.item_code ? null : r.item_code)
                       }}
                       className="p-0.5 hover:bg-muted rounded"
                     >
-                      {expandedSku === r.stock_item_name
+                      {expandedSku === r.item_code
                         ? <ChevronDown className="h-4 w-4" />
                         : <ChevronRight className="h-4 w-4" />
                       }
                     </button>
                   </TableCell>
                   <TableCell>
-                    <Checkbox checked={r.included} onCheckedChange={() => toggleRow(r.stock_item_name)} />
+                    <Checkbox checked={r.included} onCheckedChange={() => toggleRow(r.item_code)} />
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={r.reorder_status as 'urgent' | 'reorder' | 'healthy' | 'out_of_stock' | 'no_data'} />
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{r.stock_item_name}</TableCell>
-                  <TableCell className="max-w-[250px]" title={r.part_no || r.stock_item_name}>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{r.item_code}</TableCell>
+                  <TableCell className="max-w-[250px]" title={r.display_name || r.item_code}>
                     <div className="truncate">
                       <span className="inline-flex items-center gap-1">
                         {r.is_hazardous && <Flame className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
-                        {r.part_no || r.stock_item_name}
+                        {r.display_name || r.item_code}
                         {r.reorder_intent === 'must_stock' && (
                           <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px] px-1 py-0">Must Stock</Badge>
                         )}
@@ -1145,7 +1145,7 @@ export default function PoBuilder() {
                     <Input
                       type="number"
                       value={r.order_qty}
-                      onChange={e => updateQty(r.stock_item_name, Number(e.target.value))}
+                      onChange={e => updateQty(r.item_code, Number(e.target.value))}
                       className="w-20 text-right"
                       disabled={!r.included}
                     />
@@ -1153,19 +1153,19 @@ export default function PoBuilder() {
                   <TableCell>
                     <Input
                       value={r.notes}
-                      onChange={e => updateNotes(r.stock_item_name, e.target.value)}
+                      onChange={e => updateNotes(r.item_code, e.target.value)}
                       placeholder="Notes"
                       className="text-xs"
                       disabled={!r.included}
                     />
                   </TableCell>
                 </TableRow>
-                {expandedSku === r.stock_item_name && (r.category_name || decodedName) && (
+                {expandedSku === r.item_code && (r.category_name || decodedName) && (
                   <TableRow>
                     <TableCell colSpan={11} className="bg-muted/30 p-4 max-w-0 overflow-hidden">
                       <CalculationBreakdown
                         categoryName={r.category_name || decodedName}
-                        stockItemName={r.stock_item_name}
+                        stockItemName={r.item_code}
                         fromDate={fromDate || undefined}
                         toDate={toDate || undefined}
                       />

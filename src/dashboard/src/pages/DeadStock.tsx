@@ -267,9 +267,9 @@ export default function DeadStock() {
                 <div className="-mx-4">
                   {sorted.map((s: SkuMetrics) => (
                     <MobileListRow
-                      key={s.stock_item_name}
-                      title={s.part_no || s.stock_item_name}
-                      subtitle={`Part No: ${s.stock_item_name}`}
+                      key={s.item_code}
+                      title={s.display_name || s.item_code}
+                      subtitle={`Part No: ${s.item_code}`}
                       status="out_of_stock"
                       statusLabel={s.days_since_last_sale !== null ? `${s.days_since_last_sale}d idle` : 'Never sold'}
                       metrics={[
@@ -281,7 +281,7 @@ export default function DeadStock() {
                     >
                       <div className="mt-1.5" onClick={e => e.stopPropagation()}>
                         <ReorderIntentSelector
-                          stockItemName={s.stock_item_name}
+                          stockItemName={s.item_code}
                           currentIntent={s.reorder_intent || 'normal'}
                         />
                       </div>
@@ -303,9 +303,9 @@ export default function DeadStock() {
                 <div className="-mx-4">
                   {sorted.map((s: SkuMetrics) => (
                     <MobileListRow
-                      key={s.stock_item_name}
-                      title={s.part_no || s.stock_item_name}
-                      subtitle={`Part No: ${s.stock_item_name}`}
+                      key={s.item_code}
+                      title={s.display_name || s.item_code}
+                      subtitle={`Part No: ${s.item_code}`}
                       status="reorder"
                       statusLabel={`${vel(s.effective_velocity ?? s.total_velocity)}/mo`}
                       metrics={[
@@ -317,7 +317,7 @@ export default function DeadStock() {
                     >
                       <div className="mt-1.5" onClick={e => e.stopPropagation()}>
                         <ReorderIntentSelector
-                          stockItemName={s.stock_item_name}
+                          stockItemName={s.item_code}
                           currentIntent={s.reorder_intent || 'normal'}
                         />
                       </div>
@@ -474,24 +474,24 @@ export default function DeadStock() {
                   </TableHeader>
                   <TableBody>
                     {sorted.map((s: SkuMetrics) => (
-                      <Fragment key={s.stock_item_name}>
+                      <Fragment key={s.item_code}>
                         <TableRow
                           className="cursor-pointer hover:bg-muted/50"
                           tabIndex={0}
-                          onClick={() => setExpandedRow(expandedRow === s.stock_item_name ? null : s.stock_item_name)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedRow(expandedRow === s.stock_item_name ? null : s.stock_item_name) } }}
+                          onClick={() => setExpandedRow(expandedRow === s.item_code ? null : s.item_code)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedRow(expandedRow === s.item_code ? null : s.item_code) } }}
                         >
                           <TableCell>
-                            {expandedRow === s.stock_item_name
+                            {expandedRow === s.item_code
                               ? <ChevronDown className="h-4 w-4" />
                               : <ChevronRight className="h-4 w-4" />}
                           </TableCell>
                           <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
                           <TableCell><AbcBadge value={s.abc_class} /></TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{s.stock_item_name}</TableCell>
-                          <TableCell className="max-w-[250px] truncate" title={s.part_no || s.stock_item_name}>
+                          <TableCell className="text-xs text-muted-foreground">{s.item_code}</TableCell>
+                          <TableCell className="max-w-[250px] truncate" title={s.display_name || s.item_code}>
                             <span className="inline-flex items-center gap-1">
-                              {s.part_no || s.stock_item_name}
+                              {s.display_name || s.item_code}
                               <Tooltip>
                                 <TooltipTrigger>
                                   <Snowflake className="h-3.5 w-3.5 text-blue-500 shrink-0" />
@@ -511,16 +511,16 @@ export default function DeadStock() {
                           </TableCell>
                           <TableCell onClick={e => e.stopPropagation()}>
                             <ReorderIntentSelector
-                              stockItemName={s.stock_item_name}
+                              stockItemName={s.item_code}
                               currentIntent={s.reorder_intent || 'normal'}
                             />
                           </TableCell>
                           <TableCell className="text-right">{s.total_zero_activity_days}d</TableCell>
                         </TableRow>
-                        {expandedRow === s.stock_item_name && (
-                          <TableRow key={`${s.stock_item_name}-detail`}>
+                        {expandedRow === s.item_code && (
+                          <TableRow key={`${s.item_code}-detail`}>
                             <TableCell colSpan={10} className="bg-muted/30 p-4">
-                              {renderExpandedDetail(s.stock_item_name)}
+                              {renderExpandedDetail(s.item_code)}
                             </TableCell>
                           </TableRow>
                         )}
@@ -558,22 +558,22 @@ export default function DeadStock() {
                   </TableHeader>
                   <TableBody>
                     {sorted.map((s: SkuMetrics) => (
-                      <Fragment key={s.stock_item_name}>
+                      <Fragment key={s.item_code}>
                         <TableRow
                           className="cursor-pointer hover:bg-muted/50"
                           tabIndex={0}
-                          onClick={() => setExpandedRow(expandedRow === s.stock_item_name ? null : s.stock_item_name)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedRow(expandedRow === s.stock_item_name ? null : s.stock_item_name) } }}
+                          onClick={() => setExpandedRow(expandedRow === s.item_code ? null : s.item_code)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedRow(expandedRow === s.item_code ? null : s.item_code) } }}
                         >
                           <TableCell>
-                            {expandedRow === s.stock_item_name
+                            {expandedRow === s.item_code
                               ? <ChevronDown className="h-4 w-4" />
                               : <ChevronRight className="h-4 w-4" />}
                           </TableCell>
                           <TableCell><StatusBadge status={s.effective_status ?? s.reorder_status} /></TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{s.stock_item_name}</TableCell>
-                          <TableCell className="max-w-[250px] truncate" title={s.part_no || s.stock_item_name}>
-                            {s.part_no || s.stock_item_name}
+                          <TableCell className="text-xs text-muted-foreground">{s.item_code}</TableCell>
+                          <TableCell className="max-w-[250px] truncate" title={s.display_name || s.item_code}>
+                            {s.display_name || s.item_code}
                           </TableCell>
                           <TableCell className="text-right">{s.effective_stock ?? s.current_stock}</TableCell>
                           <TableCell className="text-right font-medium text-amber-600">
@@ -586,7 +586,7 @@ export default function DeadStock() {
                           </TableCell>
                           <TableCell onClick={e => e.stopPropagation()}>
                             <ReorderIntentSelector
-                              stockItemName={s.stock_item_name}
+                              stockItemName={s.item_code}
                               currentIntent={s.reorder_intent || 'normal'}
                             />
                           </TableCell>
@@ -596,10 +596,10 @@ export default function DeadStock() {
                               : 'Never'}
                           </TableCell>
                         </TableRow>
-                        {expandedRow === s.stock_item_name && (
-                          <TableRow key={`${s.stock_item_name}-detail`}>
+                        {expandedRow === s.item_code && (
+                          <TableRow key={`${s.item_code}-detail`}>
                             <TableCell colSpan={10} className="bg-muted/30 p-4">
-                              {renderExpandedDetail(s.stock_item_name)}
+                              {renderExpandedDetail(s.item_code)}
                             </TableCell>
                           </TableRow>
                         )}

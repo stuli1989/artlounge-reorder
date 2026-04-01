@@ -40,8 +40,8 @@ export interface BrandSummary {
 }
 
 export interface SkuMetrics {
-  stock_item_name: string
-  part_no: string | null
+  item_code: string
+  display_name: string | null
   is_hazardous: boolean
   category_name: string
   current_stock: number
@@ -191,7 +191,7 @@ export interface OverrideInfo {
 
 export interface Override {
   id: number
-  stock_item_name: string
+  item_code: string
   field_name: string
   override_value: number | null
   note: string
@@ -215,7 +215,7 @@ export interface Override {
 }
 
 export interface OverrideCreate {
-  stock_item_name: string
+  item_code: string
   field_name: string
   override_value?: number | null
   note: string
@@ -246,7 +246,7 @@ export interface BreakdownTransactionRow {
 }
 
 export interface BreakdownResponse {
-  stock_item_name: string
+  item_code: string
   data_source: {
     closing_balance_from_ledger: number | null
     last_computed: string | null
@@ -355,8 +355,8 @@ export interface DashboardSummary {
 }
 
 export interface PoDataItem {
-  stock_item_name: string
-  part_no: string | null
+  item_code: string
+  display_name: string | null
   is_hazardous: boolean
   current_stock: number
   total_velocity: number
@@ -398,7 +398,7 @@ export interface SkuMatchResponse {
 }
 
 export interface CriticalItem {
-  stock_item_name: string
+  item_code: string
   category_name: string
   current_stock: number
   total_velocity: number
@@ -412,7 +412,7 @@ export interface CriticalItem {
   xyz_class: string | null
   is_hazardous: boolean
   reorder_intent: string
-  part_no: string | null
+  display_name: string | null
   wma_total_velocity: number
   wma_wholesale_velocity: number
 }
@@ -444,8 +444,8 @@ export interface SearchBrandResult {
 }
 
 export interface SearchSkuResult {
-  stock_item_name: string
-  part_no: string | null
+  item_code: string
+  display_name: string | null
   category_name: string
   reorder_status: ReorderStatus
   current_stock: number

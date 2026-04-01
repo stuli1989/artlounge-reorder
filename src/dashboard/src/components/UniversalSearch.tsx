@@ -74,7 +74,7 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
     } else {
       const s = item as SearchSkuResult
       navigate(
-        `/brands/${encodeURIComponent(s.category_name)}/skus?highlight=${encodeURIComponent(s.stock_item_name)}`
+        `/brands/${encodeURIComponent(s.category_name)}/skus?highlight=${encodeURIComponent(s.item_code)}`
       )
     }
   }, [navigate])
@@ -224,7 +224,7 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
               const idx = flatIdx
               return (
                 <button
-                  key={`ss-${s.stock_item_name}`}
+                  key={`ss-${s.item_code}`}
                   className={`w-full text-left px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between gap-2
                     ${isMobile ? 'active:bg-muted/50 min-h-[44px]' : 'hover:bg-muted'}
                     ${!isMobile && highlightIdx === idx ? 'bg-muted' : ''}`}
@@ -232,8 +232,8 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
                 >
                   <span className="flex items-center gap-2 min-w-0">
                     <Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{s.part_no || s.stock_item_name}</span>
-                    <span className="text-xs text-muted-foreground shrink-0">{s.stock_item_name}</span>
+                    <span className="truncate">{s.display_name || s.item_code}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">{s.item_code}</span>
                   </span>
                   <StatusBadge status={s.reorder_status} />
                 </button>
@@ -252,7 +252,7 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
               const idx = flatIdx
               return (
                 <button
-                  key={`s-${s.stock_item_name}-${s.category_name}`}
+                  key={`s-${s.item_code}-${s.category_name}`}
                   className={`w-full text-left px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between gap-2
                     ${isMobile ? 'active:bg-muted/50 min-h-[44px]' : 'hover:bg-muted'}
                     ${!isMobile && highlightIdx === idx ? 'bg-muted' : ''}`}
@@ -260,8 +260,8 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
                 >
                   <span className="flex items-center gap-2 min-w-0">
                     <Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{s.part_no || s.stock_item_name}</span>
-                    <span className="text-xs text-muted-foreground shrink-0">{s.stock_item_name}</span>
+                    <span className="truncate">{s.display_name || s.item_code}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">{s.item_code}</span>
                   </span>
                   <span className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-muted-foreground">{s.category_name}</span>
