@@ -99,7 +99,7 @@ export const fetchPositions = (categoryName: string, itemName: string): Promise<
 export const fetchTransactions = (categoryName: string, itemName: string, limit = 50): Promise<Transaction[]> =>
   api.get(`/api/brands/${encodeURIComponent(categoryName)}/skus/${encodeURIComponent(itemName)}/transactions`, { params: { limit } }).then(r => r.data)
 
-export const fetchBreakdown = (categoryName: string, itemName: string, params?: { from_date?: string; to_date?: string }): Promise<BreakdownResponse> =>
+export const fetchBreakdown = (categoryName: string, itemName: string, params?: { from_date?: string; to_date?: string; lead_time_override?: number; coverage_days_override?: number; buffer_override?: number }): Promise<BreakdownResponse> =>
   api.get(`/api/brands/${encodeURIComponent(categoryName)}/skus/${encodeURIComponent(itemName)}/breakdown`, { params }).then(r => r.data)
 
 export const fetchPoData = (categoryName: string, params?: Record<string, string | number | boolean>): Promise<PoDataItem[]> =>

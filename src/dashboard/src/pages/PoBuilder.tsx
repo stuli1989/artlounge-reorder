@@ -724,6 +724,9 @@ export default function PoBuilder() {
                         stockItemName={editingRow.item_code}
                         fromDate={fromDate || undefined}
                         toDate={toDate || undefined}
+                        leadTimeOverride={leadTime}
+                        coverageDaysOverride={coverageDays ?? undefined}
+                        bufferOverride={bufferOverride ? bufferValue : undefined}
                       />
                     </div>
                   </details>
@@ -1168,6 +1171,9 @@ export default function PoBuilder() {
                         stockItemName={r.item_code}
                         fromDate={fromDate || undefined}
                         toDate={toDate || undefined}
+                        leadTimeOverride={leadTime}
+                        coverageDaysOverride={coverageDays ?? undefined}
+                        bufferOverride={bufferOverride ? bufferValue : undefined}
                       />
                     </TableCell>
                   </TableRow>

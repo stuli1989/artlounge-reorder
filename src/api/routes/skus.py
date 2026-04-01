@@ -842,6 +842,9 @@ def get_breakdown(
     item_code: str,
     from_date: str = Query(None),
     to_date: str = Query(None),
+    lead_time_override: int = Query(None, description="Override supplier lead time (days)"),
+    coverage_days_override: int = Query(None, description="Override coverage period (days)"),
+    buffer_override: float = Query(None, description="Override safety buffer multiplier"),
     user: dict = Depends(get_current_user),
 ):
     """Full calculation breakdown for a single SKU — ground-up transparency."""
@@ -867,7 +870,7 @@ def get_breakdown(
             sm_row = cur.fetchone()
             current_stock = float(sm_row["current_stock"]) if sm_row else 0.0
             computed_at = sm_row["computed_at"].isoformat() if sm_row and sm_row["computed_at"] else None
-            buffer_multiplier = float(sm_row["safety_buffer"]) if sm_row and sm_row["safety_buffer"] else 1.3
+            buffer_multiplier = buffer_override if buffer_override is not None else (float(sm_row["safety_buffer"]) if sm_row and sm_row["safety_buffer"] else 1.3)
 
             # 3. Global XYZ buffer setting
             cur.execute("SELECT value FROM app_settings WHERE key = 'use_xyz_buffer'")
@@ -1103,13 +1106,13 @@ def get_breakdown(
         "formula": f"{eff_stock} units / {eff_total_vel} units per day = {days_to_so} days" if days_to_so and eff_total_vel > 0 else ("Already out of stock" if eff_stock <= 0 else "No demand data — stockout cannot be estimated"),
     }
 
-    # Reorder — uses effective values
+    # Reorder — uses effective values, with optional PO builder overrides
     supplier_name = supplier_row["name"] if supplier_row else None
-    lead_time = supplier_row["lead_time_default"] if supplier_row else DEFAULT_LEAD_TIME
+    lead_time = lead_time_override if lead_time_override is not None else (supplier_row["lead_time_default"] if supplier_row else DEFAULT_LEAD_TIME)
     typical_months = supplier_row["typical_order_months"] if supplier_row else None
     supplier_demand_mode_bd = (supplier_row["lead_time_demand_mode"] or "full") if supplier_row else "full"
     include_lead_demand_bd = supplier_demand_mode_bd != "coverage_only"
-    coverage_days = compute_coverage_days(lead_time, typical_months)
+    coverage_days = coverage_days_override if coverage_days_override is not None else compute_coverage_days(lead_time, typical_months)
     total_coverage = lead_time + coverage_days
 
     status, suggested_qty = determine_reorder_status(

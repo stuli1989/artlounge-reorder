@@ -430,18 +430,27 @@ export default function CalculationBreakdown({
   stockItemName,
   fromDate,
   toDate,
+  leadTimeOverride,
+  coverageDaysOverride,
+  bufferOverride,
 }: {
   categoryName: string
   stockItemName: string
   fromDate?: string
   toDate?: string
+  leadTimeOverride?: number
+  coverageDaysOverride?: number
+  bufferOverride?: number
 }) {
   const isMobile = useIsMobile()
   const { data, isLoading, error } = useQuery({
-    queryKey: ['breakdown', categoryName, stockItemName, fromDate, toDate],
+    queryKey: ['breakdown', categoryName, stockItemName, fromDate, toDate, leadTimeOverride, coverageDaysOverride, bufferOverride],
     queryFn: () => fetchBreakdown(categoryName, stockItemName, {
       from_date: fromDate,
       to_date: toDate,
+      lead_time_override: leadTimeOverride,
+      coverage_days_override: coverageDaysOverride,
+      buffer_override: bufferOverride,
     }),
     staleTime: 5 * 60 * 1000,
   })
