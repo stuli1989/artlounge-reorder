@@ -222,7 +222,7 @@ def po_data(
             if include_warning:
                 statuses.append("reorder")
             if include_ok:
-                statuses.append("healthy")
+                statuses.extend(["healthy", "out_of_stock", "no_demand", "stocked_out"])
 
             status_clause = "AND sm.reorder_status = ANY(%s)" if not custom_range else ""
             query_params = [category_name]
@@ -462,7 +462,7 @@ def po_data_by_prefix(req: PrefixPoRequest, user: dict = Depends(require_role("p
     if req.include_warning:
         statuses.append("reorder")
     if req.include_ok:
-        statuses.append("healthy")
+        statuses.extend(["healthy", "out_of_stock", "no_demand", "stocked_out"])
 
     with get_db() as conn:
         with conn.cursor() as cur:
