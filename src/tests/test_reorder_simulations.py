@@ -4,7 +4,19 @@ business outcomes over full order cycles.
 
 Each test plays out a scenario forward in time, verifying that order
 quantities lead to appropriate coverage after arrival.
+
+New formula (F15):
+    wait_period  = velocity * lead_time          (no buffer)
+    post_arrival = velocity * coverage * buffer  (buffer on coverage only)
+
+    if stock <= wait_period:
+        order = ceil(post_arrival)               # wait gap is sunk cost
+    else:
+        order = ceil(wait_period + post_arrival - stock)  # deduct surplus
+
+Uses math.ceil instead of round. If result <= 0, returns None.
 """
+import math
 from engine.reorder import determine_reorder_status, compute_coverage_days
 
 
@@ -69,9 +81,9 @@ def test_sim1_critical_item_full_cycle():
         f"got {days_of_coverage:.1f} days (qty={suggested_qty})"
     )
 
-    # The formula: demand_during_lead + order_for_coverage - stock
-    # = velocity*lead_time + velocity*coverage*buffer - stock
-    expected_qty = round(velocity * lead_time + velocity * coverage * buffer - stock)
+    # New formula: stock(100) <= wait_period(240), so order = ceil(post_arrival)
+    # post_arrival = velocity * coverage * buffer = 2 * 180 * 1.3 = 468
+    expected_qty = math.ceil(velocity * coverage * buffer)  # 468
     assert suggested_qty == expected_qty, (
         f"Expected {expected_qty}, got {suggested_qty}"
     )
@@ -121,9 +133,9 @@ def test_sim2_ok_item_full_cycle():
         f"(stock_at_arrival={stock_at_arrival}, qty={suggested_qty})"
     )
 
-    # Formula: demand_during_lead (no buffer) + order_for_coverage (with buffer) - stock
-    # = velocity*LT + velocity*CP*buffer - stock
-    expected = round(velocity * lead_time + velocity * coverage * buffer - stock)
+    # New formula: stock(500) > wait_period(240), so deduct surplus
+    # order = ceil(wait + post_arrival - stock) = ceil(240 + 468 - 500) = ceil(208) = 208
+    expected = math.ceil(velocity * lead_time + velocity * coverage * buffer - stock)
     assert suggested_qty == expected, (
         f"For OK item, expected {expected}, got {suggested_qty}"
     )
@@ -137,7 +149,8 @@ def test_sim3_oos_item_not_inflated():
     """
     Day 0: stock=0, velocity=2/day, lead_time=120, coverage=180, buffer=1.3
     No sales during transit (nothing to sell).
-    Verify: order qty covers lead_time + coverage_period.
+    New formula: stock(0) <= wait_period(240), so order = ceil(post_arrival only).
+    Lead-time gap is sunk cost — order only covers post-arrival period.
     """
     stock = 0
     velocity = 2.0
@@ -165,14 +178,14 @@ def test_sim3_oos_item_not_inflated():
     new_stock = stock_at_arrival + suggested_qty
     days_of_coverage = new_stock / velocity
 
-    # qty = velocity * lead_time + velocity * coverage * buffer
-    # = 2*120 + 2*180*1.3 = 240 + 468 = 708
-    expected = round(velocity * lead_time + velocity * coverage * buffer)
+    # New formula: stock(0) <= wait(240) → order = ceil(velocity * coverage * buffer)
+    # = ceil(2 * 180 * 1.3) = ceil(468) = 468
+    expected = math.ceil(velocity * coverage * buffer)
     assert suggested_qty == expected, (
         f"OOS order should be {expected}, got {suggested_qty}"
     )
 
-    # Coverage should include lead_time demand plus buffered coverage
+    # Coverage should be >= coverage_period (post-arrival only)
     assert days_of_coverage >= coverage, (
         f"Must cover at least {coverage} days, got {days_of_coverage:.1f}"
     )
@@ -257,7 +270,7 @@ def test_sim4_repeated_order_cycles():
 def test_sim5_old_formula_over_orders():
     """
     Demonstrate that the OLD formula (buffer on BOTH lead and coverage)
-    orders more than the NEW formula (buffer on coverage only) for OOS items.
+    orders more than the NEW formula (post-arrival only) for OOS items.
     """
     velocity = 2.0
     lead_time = 150
@@ -265,7 +278,7 @@ def test_sim5_old_formula_over_orders():
     buffer = 1.3
     stock = 0
 
-    # New formula (current)
+    # New formula (current): stock(0) <= wait(300), order = ceil(post_arrival)
     status, new_qty = determine_reorder_status(
         current_stock=stock,
         days_to_stockout=0,
@@ -278,16 +291,15 @@ def test_sim5_old_formula_over_orders():
     # Old formula (buffer on both lead and coverage)
     old_qty = round(velocity * (lead_time + coverage) * buffer - stock)
 
-    # New qty = velocity * lead_time + velocity * coverage * buffer
-    # = 2*150 + 2*182*1.3 = 300 + 473.2 = 773.2 -> 773
-    expected_new = round(velocity * lead_time + velocity * coverage * buffer)
+    # New qty = ceil(velocity * coverage * buffer) = ceil(2*182*1.3) = ceil(473.2) = 474
+    expected_new = math.ceil(velocity * coverage * buffer)
     assert new_qty == expected_new, f"New formula: expected {expected_new}, got {new_qty}"
 
-    # Old qty: 2 * (150 + 182) * 1.3 = 863.2 -> 863
+    # Old qty: round(2 * (150 + 182) * 1.3) = round(863.2) = 863
     expected_old = round(velocity * (lead_time + coverage) * buffer)
     assert old_qty == expected_old
 
-    # Quantify the excess
+    # Quantify the excess: 863 - 474 = 389, pct = 389/474*100 = 82%
     excess_units = old_qty - new_qty
     excess_pct = (excess_units / new_qty) * 100
 
@@ -376,9 +388,12 @@ def test_sim6_air_vs_sea():
         f"Sea/air ratio only {ratio:.1f}x — expected >2.5x"
     )
 
-    # Expected values: demand_during_lead (NO buffer) + coverage * buffer
-    expected_sea = round(velocity * sea_lead + velocity * sea_coverage * buffer - stock)
-    expected_air = round(velocity * air_lead + velocity * air_coverage * buffer - stock)
+    # New formula: stock(20) <= wait_period for both sea(750) and air(150)
+    # So order = ceil(post_arrival) for both
+    # Sea: ceil(5 * 182 * 1.3) = ceil(1183) = 1183
+    # Air: ceil(5 * 60 * 1.3) = ceil(390) = 390
+    expected_sea = math.ceil(velocity * sea_coverage * buffer)
+    expected_air = math.ceil(velocity * air_coverage * buffer)
     assert sea_qty == expected_sea, f"Sea: expected {expected_sea}, got {sea_qty}"
     assert air_qty == expected_air, f"Air: expected {expected_air}, got {air_qty}"
 
@@ -413,10 +428,10 @@ def test_sim7_buffer_protects_against_spike():
         coverage_period=coverage,
     )
 
-    # Verify formula math
+    # Verify formula math: stock(400) > wait(240), so deduct surplus
     # demand_during_lead = 2 * 120 = 240  (NO buffer)
     # order_for_coverage = 2 * 180 * 1.3 = 468
-    # suggested = round(240 + 468 - 400) = 308
+    # suggested = ceil(240 + 468 - 400) = 308
     assert qty_buffered == 308, f"Expected 308, got {qty_buffered}"
 
     # But ACTUAL demand is 2.5/day during lead time
@@ -441,7 +456,7 @@ def test_sim7_buffer_protects_against_spike():
     )
 
     # demand_during_lead = 2*120 = 240, cov = 2*180*1.0 = 360
-    # suggested = round(240 + 360 - 400) = 200
+    # stock(400) > wait(240), so ceil(240 + 360 - 400) = 200
     assert qty_unbuffered == 200, f"Expected 200, got {qty_unbuffered}"
 
     # Same spike scenario
@@ -468,8 +483,9 @@ def test_sim7_buffer_protects_against_spike():
 def test_sim8_negative_stock():
     """
     stock=-50 (Tally rename artifact), velocity=2, lead_time=120, coverage=180.
-    Should be treated as stocked_out. Negative stock inflates the order
-    because the formula subtracts effective_stock (which is negative).
+    Should be treated as stocked_out. New formula: stock(-50) <= wait(240),
+    so order = ceil(post_arrival) only. Negative stock does NOT inflate the
+    order anymore — the sunk-cost rule means we only order post-arrival stock.
     """
     stock = -50
     velocity = 2.0
@@ -489,24 +505,23 @@ def test_sim8_negative_stock():
     assert status == "lost_sales"
     assert suggested_qty is not None
 
-    # demand_during_lead = 2*120 = 240, cov = 2*180*1.3 = 468
-    # suggested = round(240 + 468 - (-50)) = 758
-    expected = round(velocity * lead_time + velocity * coverage * buffer - stock)
+    # New formula: stock(-50) <= wait(240) → order = ceil(post_arrival)
+    # = ceil(2 * 180 * 1.3) = ceil(468) = 468
+    expected = math.ceil(velocity * coverage * buffer)
     assert suggested_qty == expected, (
         f"Negative stock order: expected {expected}, got {suggested_qty}"
     )
 
-    # Even if -50 represents a real backlog, arrival stock is reasonable
     # Scenario A: -50 is real backlog
-    stock_if_real = stock + suggested_qty  # -50 + 758 = 708
-    coverage_if_real = stock_if_real / velocity  # 354 days
+    stock_if_real = stock + suggested_qty  # -50 + 468 = 418
+    coverage_if_real = stock_if_real / velocity  # 209 days
     assert coverage_if_real >= coverage, (
         f"Even with real backlog: {coverage_if_real:.0f} days < {coverage} target"
     )
 
     # Scenario B: -50 is data artifact, real stock is 0
-    stock_if_artifact = 0 + suggested_qty  # 758
-    coverage_if_artifact = stock_if_artifact / velocity  # 379 days
+    stock_if_artifact = 0 + suggested_qty  # 468
+    coverage_if_artifact = stock_if_artifact / velocity  # 234 days
     assert coverage_if_artifact >= coverage, (
         f"As artifact: {coverage_if_artifact:.0f} days < {coverage} target"
     )
@@ -551,7 +566,7 @@ def test_sim9_auto_coverage_integration():
         f"Auto-coverage {coverage} days, but runway is only {runway:.1f}"
     )
 
-    # demand_during_lead = 3*120 = 360, order_for_coverage = 3*121*1.3 = 471.9
-    # total = round(360 + 471.9) = 832
-    expected = round(velocity * lead_time + velocity * coverage * buffer)
+    # New formula: stock(0) <= wait(360) → order = ceil(post_arrival)
+    # = ceil(3 * 121 * 1.3) = ceil(471.9) = 472
+    expected = math.ceil(velocity * coverage * buffer)
     assert qty == expected, f"Expected {expected}, got {qty}"

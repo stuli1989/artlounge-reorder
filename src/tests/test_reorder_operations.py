@@ -8,10 +8,16 @@ These tests model real Art Lounge scenarios:
 - Negative stock from Tally renames
 - Multi-turn ordering cycles and working capital efficiency
 
-The formula under test:
-    demand_during_lead = velocity * lead_time              (NO buffer)
-    order_for_coverage = velocity * coverage_period * buffer  (buffer on coverage only)
-    suggested_qty      = max(0, round(demand_during_lead + order_for_coverage - stock))
+The formula under test (two-case):
+    wait_period  = velocity * lead_time              (no buffer)
+    post_arrival = velocity * coverage * buffer       (buffer on coverage only)
+
+    if stock <= wait_period:
+        order = ceil(post_arrival)                    # wait gap is sunk cost
+    else:
+        order = ceil(wait_period + post_arrival - stock)  # deduct surplus
+
+    If order <= 0, returns None.
 """
 import math
 import pytest
@@ -24,10 +30,16 @@ from engine.reorder import compute_coverage_days, determine_reorder_status
 # ---------------------------------------------------------------------------
 
 def _raw_formula(stock, velocity, lead_time, coverage, buffer):
-    """Reproduce the formula outside the engine for clarity in assertions."""
-    demand_during_lead = velocity * lead_time  # NO buffer
-    order_for_coverage = velocity * coverage * buffer
-    return max(0, round(demand_during_lead + order_for_coverage - stock))
+    """Reproduce the two-case formula outside the engine for clarity in assertions."""
+    wait_period = velocity * lead_time          # no buffer
+    post_arrival = velocity * coverage * buffer  # buffer on coverage only
+
+    if stock <= wait_period:
+        order = math.ceil(post_arrival)          # wait gap is sunk cost
+    else:
+        order = math.ceil(wait_period + post_arrival - stock)  # deduct surplus
+
+    return max(0, order)
 
 
 # ===================================================================
@@ -57,9 +69,8 @@ class TestSeaFreightEuropeanSupplier:
         assert days_left < self.LEAD, "Stock should run out during lead time"
 
     def test_suggested_qty(self):
-        # demand_during_lead = 3 * 150 = 450  (NO buffer)
-        # order_for_coverage = 3 * 180 * 1.3 = 702
-        # suggested = max(0, round(450 + 702 - 50)) = 1102
+        # wait = 3 * 150 = 450, post = 3 * 180 * 1.3 = 702
+        # stock(50) <= wait(450) -> Case 1: ceil(702) = 702
         days_to_stockout = round(self.STOCK / self.VELOCITY, 1)  # 16.7
         status, qty = determine_reorder_status(
             current_stock=self.STOCK,
@@ -70,12 +81,12 @@ class TestSeaFreightEuropeanSupplier:
             coverage_period=self.COVERAGE,
         )
         assert status == "urgent"
-        assert qty == 1102
+        assert qty == 702
 
     def test_order_covers_6_months_of_demand(self):
-        # 1102 units at 3/day = 367 days
+        # 702 units at 3/day = 234 days
         # The order should cover well beyond 6 months of sales
-        raw_days = 1102 / self.VELOCITY
+        raw_days = 702 / self.VELOCITY
         assert raw_days > 180, "Order should cover at least 6 months of sales"
 
 
@@ -123,12 +134,10 @@ class TestAirFreightEmergency:
         )
 
         assert qty_air < qty_sea, "Air freight order should be smaller than sea"
-        # Air: demand_during_lead = 3*30 = 90 (NO buffer)
-        #      order_for_coverage = 3*60*1.3 = 234
-        #      suggested = round(90 + 234 - 10) = 314
-        assert qty_air == 314
-        # Sea: demand = 3*150=450, cov=702, suggested = round(450+702-10) = 1142
-        assert qty_sea == 1142
+        # Air: wait=90, post=3*60*1.3=234, stock(10)<=wait(90) -> ceil(234)=234
+        assert qty_air == 234
+        # Sea: wait=450, post=702, stock(10)<=wait(450) -> ceil(702)=702
+        assert qty_sea == 702
         assert qty_air < qty_sea * 0.5, "Air should be less than half of sea"
 
     def test_air_freight_status_is_critical(self):
@@ -179,10 +188,9 @@ class TestWholesaleSpikeSurvivor:
         # 100 days left vs 120 lead_time -> critical
         assert status == "urgent"
 
-        # demand_during_lead = 1 * 120 = 120  (NO buffer)
-        # order_for_coverage = 1 * 121 * 1.3 = 157.3
-        # suggested = max(0, round(120 + 157.3 - 100)) = round(177.3) = 177
-        assert qty == 177
+        # wait = 1*120 = 120, post = 1*121*1.3 = 157.3
+        # stock(100) <= wait(120) -> Case 1: ceil(157.3) = 158
+        assert qty == 158
 
         # Sanity: order should be LESS than 300 (not a panic buy)
         assert qty < 300, "Should not panic-buy after a wholesale spike"
@@ -231,10 +239,9 @@ class TestSlowMoverTonsOfStock:
             safety_buffer=1.3,
             coverage_period=self.COVERAGE,
         )
-        # demand_during_lead = 0.05 * 180 * 1.3 = 11.7
-        # stock_at_arrival = max(0, 200 - 11.7) = 188.3
-        # order_for_coverage = 0.05 * 182 * 1.3 = 11.83
-        # suggested = max(0, round(11.83 - 188.3)) = max(0, round(-176.47)) = 0 -> None
+        # wait = 0.05*180 = 9, post = 0.05*182*1.3 = 11.83
+        # stock(200) > wait(9) -> Case 2: ceil(9 + 11.83 - 200) = ceil(-179.17) = -179
+        # max(0, -179) -> 0 -> None
         assert status == "healthy"
         assert qty is None, "Should not order when you have 4000 days of stock"
 
@@ -265,15 +272,14 @@ class TestFastMoverRunningDry:
             safety_buffer=self.BUFFER,
             coverage_period=self.COVERAGE,
         )
-        # demand_during_lead = 10 * 90 = 900  (NO buffer)
-        # order_for_coverage = 10 * 91 * 1.5 = 1365
-        # suggested = max(0, round(900 + 1365 - 5)) = 2260
+        # wait = 10*90 = 900, post = 10*91*1.5 = 1365
+        # stock(5) <= wait(900) -> Case 1: ceil(1365) = 1365
         assert status == "urgent"
-        assert qty == 2260
+        assert qty == 1365
 
     def test_order_covers_roughly_one_quarter(self):
-        # 2260 / 10 = 226 raw days — covers both lead time and coverage
-        raw_days = 2260 / self.VELOCITY
+        # 1365 / 10 = 136.5 raw days — covers the coverage period
+        raw_days = 1365 / self.VELOCITY
         assert 90 < raw_days < 300, "Should cover lead time plus ~1 quarter of sales"
 
 
@@ -316,9 +322,9 @@ class TestJustRestocked:
             safety_buffer=self.BUFFER,
             coverage_period=self.COVERAGE,
         )
-        # demand_during_lead = 2 * 120 = 240  (NO buffer)
-        # order_for_coverage = 2 * 121 * 1.3 = 314.6
-        # suggested = max(0, round(240 + 314.6 - 600)) = max(0, round(-45.4)) = 0 → None
+        # wait = 2*120 = 240, post = 2*121*1.3 = 314.6
+        # stock(600) > wait(240) -> Case 2: ceil(240 + 314.6 - 600) = ceil(-45.4) = -45
+        # max(0, -45) -> 0 -> None
         assert qty is None
 
     def test_raw_formula_matches_engine(self):
@@ -369,11 +375,10 @@ class TestDomesticQuickRestock:
             safety_buffer=self.BUFFER,
             coverage_period=coverage,
         )
-        # demand_during_lead = 5 * 15 = 75  (NO buffer)
-        # order_for_coverage = 5 * 60 * 1.0 = 300
-        # suggested = max(0, round(75 + 300 - 30)) = 345
+        # wait = 5*15 = 75, post = 5*60*1.0 = 300
+        # stock(30) <= wait(75) -> Case 1: ceil(300) = 300
         assert status == "urgent"
-        assert qty == 345
+        assert qty == 300
 
 
 # ===================================================================
@@ -383,7 +388,8 @@ class TestDomesticQuickRestock:
 class TestNegativeStockTallyRename:
     """Scenario: Tally shows -50 stock due to SKU rename (FAVINI -> ART ESSENTIALS).
     This is a real data quality issue (5,574 items have negative closing balance).
-    Formula should treat as OOS and order for full coverage.
+    Formula should treat as OOS and order for post-arrival coverage only.
+    With the new formula, negative stock does NOT inflate orders.
     """
 
     STOCK = -50
@@ -412,15 +418,15 @@ class TestNegativeStockTallyRename:
             safety_buffer=self.BUFFER,
             coverage_period=self.COVERAGE,
         )
-        # demand_during_lead = 2 * 120 = 240  (NO buffer)
-        # order_for_coverage = 2 * 121 * 1.3 = 314.6
-        # suggested = max(0, round(240 + 314.6 - (-50))) = round(604.6) = 605
-        assert qty == 605
+        # wait = 2*120 = 240, post = 2*121*1.3 = 314.6
+        # stock(-50) <= wait(240) -> Case 1: ceil(314.6) = 315
+        assert qty == 315
 
-    def test_negative_stock_inflated_by_deficit(self):
-        """The -50 causes the order to be 50 more than zero-stock because
-        the formula subtracts effective_stock (which is negative)."""
-        _, qty = determine_reorder_status(
+    def test_negative_stock_does_not_inflate(self):
+        """With the new formula, negative stock does NOT inflate the order.
+        Both stock=-50 and stock=0 produce the same qty because Case 1
+        orders ceil(post_arrival) regardless of how negative stock is."""
+        _, qty_neg = determine_reorder_status(
             current_stock=self.STOCK,
             days_to_stockout=0,
             supplier_lead_time=self.LEAD,
@@ -436,11 +442,11 @@ class TestNegativeStockTallyRename:
             safety_buffer=self.BUFFER,
             coverage_period=self.COVERAGE,
         )
-        # stock=0: round(240 + 314.6 - 0) = 555
-        # stock=-50: round(240 + 314.6 + 50) = 605
-        assert qty_zero == 555
-        assert qty == 605
-        assert qty == qty_zero + 50
+        # stock=0: wait=240, stock(0)<=wait(240) -> ceil(314.6) = 315
+        # stock=-50: wait=240, stock(-50)<=wait(240) -> ceil(314.6) = 315
+        assert qty_zero == 315
+        assert qty_neg == 315
+        assert qty_neg == qty_zero, "Negative stock should NOT inflate orders"
 
 
 # ===================================================================
@@ -473,7 +479,7 @@ class TestMultiTurnOrderingCycle:
         velocity = 2.0
         buffer = 1.3
 
-        # Ideal scenario: stock at 0 each time, so each order = lead + coverage demand
+        # Ideal scenario: stock at 0 each time
         _, qty = determine_reorder_status(
             current_stock=0,
             days_to_stockout=0,
@@ -482,10 +488,9 @@ class TestMultiTurnOrderingCycle:
             safety_buffer=buffer,
             coverage_period=coverage,
         )
-        # demand_during_lead = 2 * 90 = 180
-        # order_for_coverage = 2 * 91 * 1.3 = 236.6
-        # suggested = round(180 + 236.6) = 417
-        assert qty == 417
+        # wait = 2*90 = 180, post = 2*91*1.3 = 236.6
+        # stock(0) <= wait(180) -> Case 1: ceil(236.6) = 237
+        assert qty == 237
 
 
 # ===================================================================
@@ -554,9 +559,9 @@ class TestNoImmediateReorderTrap:
 
 class TestWorkingCapitalSavings:
     """For OOS items, the old formula ordered velocity*(lead+coverage)*buffer,
-    which included lead_time demand TWICE (once in the formula, once as
-    the real-world consumption during wait). The new formula orders only
-    velocity*coverage*buffer, saving ~50% working capital for long lead times.
+    which included lead_time demand with buffer applied to everything.
+    The new formula orders only ceil(velocity*coverage*buffer) for Case 1
+    (stock <= wait), saving ~50% working capital for long lead times.
     """
 
     STOCK = 0
@@ -577,14 +582,12 @@ class TestWorkingCapitalSavings:
             safety_buffer=self.BUFFER,
             coverage_period=self.COVERAGE,
         )
-        # new = demand_during_lead + order_for_coverage
-        #     = 2*120 + 2*121*1.3 = 240 + 314.6 = 554.6 -> 555
+        # new: wait=240, post=314.6, stock(0)<=wait -> ceil(314.6) = 315
 
         assert old_qty == 627
-        assert new_qty == 555
+        assert new_qty == 315
         savings_pct = (old_qty - new_qty) / old_qty * 100
-        assert savings_pct > 10, f"Should save >10% working capital, saved {savings_pct:.1f}%"
-        assert savings_pct < 15, f"Savings shouldn't exceed 15%, got {savings_pct:.1f}%"
+        assert savings_pct > 45, f"Should save >45% working capital, saved {savings_pct:.1f}%"
 
     def test_savings_scale_with_lead_time(self):
         """Longer lead times = bigger savings (more lead-time demand avoided)."""
@@ -600,8 +603,6 @@ class TestWorkingCapitalSavings:
             savings_by_lead[lead] = (old - new) / old * 100
 
         # For longer leads, lead_time is a bigger fraction of total, so savings should be larger
-        # lead=30, coverage=60: old=2*(30+60)*1.3=234, new=2*60*1.3=156 -> 33%
-        # lead=180, coverage=182: old=2*(180+182)*1.3=941, new=2*182*1.3=473 -> ~50%
         assert savings_by_lead[180] > savings_by_lead[30], (
             "Longer lead times should yield bigger working capital savings"
         )
@@ -612,8 +613,9 @@ class TestWorkingCapitalSavings:
 # ===================================================================
 
 class TestBufferRangeSanity:
-    """Safety buffer should scale linearly. A 2x buffer = 2x the order
-    of a 1.0 buffer (approximately, modulo rounding).
+    """Safety buffer should scale linearly. For OOS items (Case 1),
+    the entire order IS the coverage portion: ceil(vel * cov * buf).
+    No lead-time demand is included in the order for Case 1.
     """
 
     VELOCITY = 2.0
@@ -634,17 +636,17 @@ class TestBufferRangeSanity:
             )
             results[buf] = qty
 
-        # demand_during_lead = 2*120 = 240 (constant, no buffer)
-        # Coverage portion = qty - 240 should scale linearly with buffer
-        demand_lead = self.VELOCITY * self.LEAD  # 240
-        base_coverage = results[1.0] - demand_lead  # 242
-        for buf, qty in results.items():
-            coverage_portion = qty - demand_lead
-            expected_coverage = round(base_coverage * buf)
-            assert abs(coverage_portion - expected_coverage) <= 1, (
-                f"Buffer {buf}: coverage portion {coverage_portion}, "
-                f"expected ~{expected_coverage} (linear from base {base_coverage})"
-            )
+        # All Case 1 (stock=0 <= wait). order = ceil(2 * 121 * buf)
+        # buf=0.5: ceil(121) = 121
+        # buf=1.0: ceil(242) = 242
+        # buf=1.3: ceil(314.6) = 315
+        # buf=1.5: ceil(363) = 363
+        # buf=2.0: ceil(484) = 484
+        assert results[0.5] == 121
+        assert results[1.0] == 242
+        assert results[1.3] == 315
+        assert results[1.5] == 363
+        assert results[2.0] == 484
 
     def test_double_buffer_doubles_coverage_portion(self):
         _, qty_1 = determine_reorder_status(
@@ -657,12 +659,10 @@ class TestBufferRangeSanity:
             supplier_lead_time=self.LEAD, total_velocity=self.VELOCITY,
             safety_buffer=2.0, coverage_period=self.COVERAGE,
         )
-        # demand_during_lead = 240 (constant)
-        # qty_1 = 240 + 2*121*1.0 = 482, coverage_portion = 242
-        # qty_2 = 240 + 2*121*2.0 = 724, coverage_portion = 484
-        assert qty_1 == 482
-        assert qty_2 == 724
-        assert (qty_2 - 240) == (qty_1 - 240) * 2  # coverage portion doubles
+        # ceil(2*121*1.0) = 242, ceil(2*121*2.0) = 484
+        assert qty_1 == 242
+        assert qty_2 == 484
+        assert qty_2 == qty_1 * 2  # entire order doubles
 
     def test_half_buffer_halves_coverage_portion(self):
         _, qty_1 = determine_reorder_status(
@@ -675,10 +675,9 @@ class TestBufferRangeSanity:
             supplier_lead_time=self.LEAD, total_velocity=self.VELOCITY,
             safety_buffer=0.5, coverage_period=self.COVERAGE,
         )
-        # qty_1 = 482, coverage = 242
-        # qty_half = 361, coverage = 121
-        assert qty_half == 361
-        assert (qty_half - 240) == round((qty_1 - 240) * 0.5)
+        # ceil(2*121*1.0) = 242, ceil(2*121*0.5) = ceil(121) = 121
+        assert qty_half == 121
+        assert qty_half == qty_1 // 2  # entire order halves
 
 
 # ===================================================================
@@ -845,11 +844,10 @@ class TestEdgeCases:
             supplier_lead_time=180, total_velocity=100.0,
             safety_buffer=1.3, coverage_period=182,
         )
-        # demand_during_lead = 100 * 180 = 18000
-        # order_for_coverage = 100 * 182 * 1.3 = 23660
-        # suggested = 18000 + 23660 = 41660
+        # wait = 100*180 = 18000, post = 100*182*1.3 = 23660
+        # stock(0) <= wait(18000) -> Case 1: ceil(23660) = 23660
         assert status == "lost_sales"
-        assert qty == 41660
+        assert qty == 23660
 
     def test_coverage_days_very_short_lead(self):
         """1-day lead time: 365//1 = 365 turns, capped at 6 -> 365//6 = 60."""
@@ -901,16 +899,15 @@ class TestEdgeCases:
             supplier_lead_time=180, total_velocity=0.1,
             safety_buffer=1.3, coverage_period=182,
         )
-        # demand_during_lead = 0.1 * 180 = 18
-        # order_for_coverage = 0.1 * 182 * 1.3 = 23.66
-        # suggested = round(18 + 23.66) = round(41.66) = 42
+        # wait = 0.1*180 = 18, post = 0.1*182*1.3 = 23.66
+        # stock(0) <= wait(18) -> Case 1: ceil(23.66) = 24
         assert status == "lost_sales"
-        assert qty == 42
+        assert qty == 24
 
     def test_po_builder_formula_matches_engine(self):
-        """The engine formula: demand_during_lead has NO buffer.
-        Note: the PO route (po.py) still applies buffer to lead demand
-        which is a known inconsistency — this test verifies the engine formula."""
+        """The engine formula: two-case with ceil.
+        Case 1 (stock <= wait): order = ceil(post_arrival)
+        Case 2 (stock > wait): order = ceil(wait + post - stock)"""
         stock = 100.0
         velocity = 2.0
         lead = 120
@@ -924,11 +921,12 @@ class TestEdgeCases:
             safety_buffer=buffer, coverage_period=coverage,
         )
 
-        # Engine formula (NO buffer on lead time)
-        demand_during_lead = velocity * lead  # NO buffer
-        order_for_coverage = velocity * coverage * buffer
-        expected = max(0, round(demand_during_lead + order_for_coverage - stock))
-        if expected == 0:
+        # Two-case formula with ceil
+        wait_period = velocity * lead  # 240
+        post_arrival = velocity * coverage * buffer  # 314.6
+        # stock(100) <= wait(240) -> Case 1: ceil(314.6) = 315
+        expected = math.ceil(post_arrival)
+        if expected <= 0:
             expected = None
 
         assert engine_qty == expected, (

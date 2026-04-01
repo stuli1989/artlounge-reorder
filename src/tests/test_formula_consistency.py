@@ -12,6 +12,7 @@ Code paths tested:
 Findings documented inline where bugs or inconsistencies are detected.
 """
 import inspect
+import math
 import random
 import textwrap
 
@@ -32,15 +33,23 @@ def po_route_formula(
     buffer: float,
 ) -> int | None:
     """
-    Replica of the engine formula (canonical).
-    Note: po.py still applies buffer to lead demand (a known inconsistency),
-    but this helper matches the engine (the source of truth).
+    Replica of the engine formula (canonical two-case formula with ceil).
+
+    wait_period = velocity * lead_time          (no buffer on lead)
+    post_arrival = velocity * coverage * buffer  (buffer on coverage only)
+
+    Case 1: stock <= wait_period → order = ceil(post_arrival)
+    Case 2: stock > wait_period  → order = ceil(wait + post - stock)
+    If result <= 0, return None.
     """
     if eff_total > 0:
-        demand_during_lead = eff_total * lead_time  # NO buffer
-        order_for_coverage = eff_total * coverage_period * buffer
-        suggested = max(0, round(demand_during_lead + order_for_coverage - eff_stock))
-        if suggested == 0:
+        wait_period = eff_total * lead_time
+        post_arrival = eff_total * coverage_period * buffer
+        if eff_stock <= wait_period:
+            suggested = math.ceil(post_arrival)
+        else:
+            suggested = math.ceil(wait_period + post_arrival - eff_stock)
+        if suggested <= 0:
             suggested = None
         return suggested
     else:
@@ -79,16 +88,12 @@ class TestCoreVsPOFormula:
         assert core_qty == po_qty, f"Core={core_qty}, PO={po_qty}"
 
     def test_out_of_stock_positive_velocity(self):
-        """Stock is 0 but there is velocity — the core formula has a special
-        case returning round(order_for_coverage) directly.  The PO route's
-        inline formula also correctly handles this (stock_at_arrival clamps
-        to 0, so suggested = order_for_coverage).  They should agree."""
+        """Stock is 0 but there is velocity — Case 1 (stock <= wait).
+        wait=2*90=180, post=2*180*1.3=468, stock(0)<=wait(180) → ceil(468)=468."""
         stock, vel, lt, cov, buf = 0, 2.0, 90, 180, 1.3
         _, core_qty = self._get_suggested_from_core(stock, vel, lt, cov, buf)
         po_qty = po_route_formula(stock, vel, lt, cov, buf)
-        # Core out_of_stock path returns round(order_for_coverage) = round(2*180*1.3) = 468
-        # PO path: demand_during_lead=2*90*1.3=234, stock_at_arrival=max(0,0-234)=0,
-        #   order_for_coverage=2*180*1.3=468, suggested=max(0,round(468-0))=468
+        assert core_qty == 468, f"Core={core_qty}, expected 468"
         assert core_qty == po_qty, f"Core={core_qty}, PO={po_qty}"
 
     def test_negative_stock(self):
@@ -238,18 +243,18 @@ class TestEffectiveValuesCoverageZero:
 # 4. Formula algebraic equivalence
 # ---------------------------------------------------------------------------
 class TestFormulaAlgebraicEquivalence:
-    """Prove that when stock > demand_during_lead, the two-step formula gives
-    the same result as the old formula: velocity * (LT + CP) * buffer - stock.
+    """Prove the two-case formula's algebraic properties.
 
-    Two-step:
-        stock_at_arrival = max(0, stock - vel * LT * buf)
-        order_qty = max(0, round(vel * CP * buf - stock_at_arrival))
+    New formula (no buffer on lead demand):
+        wait_period  = vel * LT               (no buffer)
+        post_arrival = vel * CP * buf          (buffer on coverage only)
 
-    When stock > vel * LT * buf:
-        stock_at_arrival = stock - vel * LT * buf
-        order_qty = vel * CP * buf - (stock - vel * LT * buf)
-                  = vel * CP * buf - stock + vel * LT * buf
-                  = vel * (LT + CP) * buf - stock
+        Case 1 (stock <= wait): order = ceil(post_arrival)
+        Case 2 (stock > wait):  order = ceil(wait + post - stock)
+                                      = ceil(vel*LT + vel*CP*buf - stock)
+
+    Case 2 is NOT equivalent to the old formula vel*(LT+CP)*buf - stock
+    because buffer is no longer applied to the lead-time term.
     """
 
     @pytest.mark.parametrize("stock,vel,lt,cov,buf", [
@@ -262,47 +267,53 @@ class TestFormulaAlgebraicEquivalence:
     def test_algebraic_equivalence_when_stock_exceeds_lead_demand(
         self, stock, vel, lt, cov, buf,
     ):
-        """When stock > vel * LT * buf, two-step == old formula."""
-        demand_during_lead = vel * lt * buf
-        # Only test cases where stock exceeds lead demand
-        if stock <= demand_during_lead:
-            pytest.skip("Stock does not exceed lead demand for this case")
+        """When stock > vel * LT (no buffer), Case 2 applies:
+        order = ceil(vel*LT + vel*CP*buf - stock).
+        Verify the engine agrees with this direct calculation."""
+        wait_period = vel * lt  # no buffer
+        # Only test cases where stock exceeds wait period
+        if stock <= wait_period:
+            pytest.skip("Stock does not exceed wait period for this case")
 
-        # New two-step formula
-        stock_at_arrival = stock - demand_during_lead
-        new_qty = round(vel * cov * buf - stock_at_arrival)
+        # Direct algebraic calculation (Case 2)
+        raw = vel * lt + vel * cov * buf - stock
+        expected = math.ceil(raw) if raw > 0 else None
 
-        # Old formula
-        old_qty = round(vel * (lt + cov) * buf - stock)
+        # Engine result
+        days = calculate_days_to_stockout(stock, vel)
+        _, engine_qty = determine_reorder_status(
+            stock, days, lt, vel, safety_buffer=buf, coverage_period=cov,
+        )
 
-        assert new_qty == old_qty, (
-            f"Algebraic mismatch: new={new_qty}, old={old_qty}"
+        assert engine_qty == expected, (
+            f"Algebraic mismatch: engine={engine_qty}, expected={expected}"
         )
 
     @pytest.mark.parametrize("stock,vel,lt,cov,buf", [
-        (10, 2.0, 90, 180, 1.3),   # stock << demand_during_lead
+        (10, 2.0, 90, 180, 1.3),   # stock << wait_period
         (0, 5.0, 60, 120, 1.0),    # zero stock
-        (50, 1.0, 120, 180, 1.5),  # stock < demand during lead
+        (50, 1.0, 120, 180, 1.5),  # stock < wait period
     ])
     def test_two_step_caps_when_stock_below_lead_demand(
         self, stock, vel, lt, cov, buf,
     ):
-        """When stock < vel * LT * buf, two-step caps at vel * CP * buf,
-        which is LESS than the old formula would produce (old formula could
-        give vel*(LT+CP)*buf - stock which double-counts the lead period)."""
-        demand_during_lead = vel * lt * buf
+        """When stock <= vel * LT (no buffer), Case 1 applies:
+        order = ceil(vel * CP * buf).  The wait gap is a sunk cost —
+        negative stock does NOT inflate orders."""
+        wait_period = vel * lt  # no buffer
 
-        # New two-step
-        stock_at_arrival = max(0, stock - demand_during_lead)
-        new_qty = max(0, round(vel * cov * buf - stock_at_arrival))
+        # New formula (Case 1): just post-arrival coverage
+        new_qty = math.ceil(vel * cov * buf)
 
-        # Old formula (would over-order for out-of-stock items)
-        old_qty = max(0, round(vel * (lt + cov) * buf - stock))
+        # Engine result
+        days = calculate_days_to_stockout(stock, vel)
+        _, engine_qty = determine_reorder_status(
+            stock, days, lt, vel, safety_buffer=buf, coverage_period=cov,
+        )
 
-        # New formula should be <= old formula (it caps the lead-time portion)
-        assert new_qty <= old_qty, (
-            f"New formula ({new_qty}) should be <= old formula ({old_qty}) "
-            f"when stock is below lead demand"
+        assert engine_qty == new_qty, (
+            f"Engine ({engine_qty}) should equal ceil(vel*cov*buf) = {new_qty} "
+            f"when stock ({stock}) is below wait period ({wait_period})"
         )
 
 
@@ -551,16 +562,13 @@ class TestEdgeCases:
     """Edge cases that exercise boundary conditions in the formula."""
 
     def test_coverage_zero_gives_no_order_when_stock_covers_lead(self):
-        """With coverage=0 and enough stock for lead time, no order needed."""
+        """With coverage=0 and enough stock for lead time, no order needed.
+        wait=1*90=90, post=1*0*1.3=0, stock(500)>wait(90) → ceil(90+0-500)=ceil(-410)→None."""
         stock, vel, lt, buf = 500, 1.0, 90, 1.3
         days = calculate_days_to_stockout(stock, vel)
         status, qty = determine_reorder_status(
             stock, days, lt, vel, safety_buffer=buf, coverage_period=0,
         )
-        # demand_during_lead = 1.0 * 90 * 1.3 = 117
-        # stock_at_arrival = 500 - 117 = 383
-        # order_for_coverage = 1.0 * 0 * 1.3 = 0
-        # suggested = max(0, round(0 - 383)) = max(0, -383) = 0 -> None
         assert qty is None, f"Expected None when coverage=0 and stock covers lead, got {qty}"
 
     def test_very_high_buffer(self):
@@ -573,39 +581,35 @@ class TestEdgeCases:
         assert qty is None or qty > 0
 
     def test_very_small_velocity(self):
-        """Very small velocity should produce a small order."""
+        """Very small velocity should produce a small order.
+        wait=0.01*90=0.9, post=0.01*180*1.3=2.34, stock(0)<=wait(0.9) → ceil(2.34)=3."""
         stock, vel, lt, cov, buf = 0, 0.01, 90, 180, 1.3
         days = calculate_days_to_stockout(stock, vel)
         status, qty = determine_reorder_status(
             stock, days, lt, vel, safety_buffer=buf, coverage_period=cov,
         )
-        # order_for_coverage = 0.01 * 180 * 1.3 = 2.34 -> round = 2
         assert qty is not None and qty > 0 and qty <= 5
 
     def test_lead_time_one_day(self):
-        """Minimum lead time."""
+        """Minimum lead time.
+        wait=5*1=5, post=5*30*1.3=195, stock(0)<=wait(5) → ceil(195)=195."""
         stock, vel, lt, cov, buf = 0, 5.0, 1, 30, 1.3
         days = calculate_days_to_stockout(stock, vel)
         status, qty = determine_reorder_status(
             stock, days, lt, vel, safety_buffer=buf, coverage_period=cov,
         )
-        # demand_during_lead = 5.0 * 1 = 5
-        # order_for_coverage = 5.0 * 30 * 1.3 = 195
-        # suggested = round(5 + 195) = 200
         assert status == "lost_sales"
-        assert qty == 200
+        assert qty == 195
 
     def test_matching_stock_and_demand(self):
-        """Stock exactly equals demand_during_lead: stock_at_arrival=0,
-        so order = full coverage amount."""
+        """Stock exactly equals wait_period (vel*lt): Case 1 applies
+        (stock <= wait), so order = ceil(post_arrival)."""
         vel, lt, buf = 1.0, 100, 1.0
-        stock = vel * lt * buf  # 100.0 exactly
+        stock = vel * lt  # 100.0 exactly = wait_period
         cov = 200
         days = calculate_days_to_stockout(stock, vel)
         _, qty = determine_reorder_status(
             stock, days, lt, vel, safety_buffer=buf, coverage_period=cov,
         )
-        # stock_at_arrival = max(0, 100 - 100) = 0
-        # order_for_coverage = 1.0 * 200 * 1.0 = 200
-        # suggested = max(0, round(200 - 0)) = 200
+        # wait=1*100=100, post=1*200*1=200, stock(100)<=wait(100) → ceil(200)=200
         assert qty == 200

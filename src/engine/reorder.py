@@ -4,9 +4,12 @@ Reorder computation for Unicommerce data.
 F2:  effective_stock = available_stock (no openPurchase)
 F11: days_to_stockout = effective_stock / recent_velocity
 F13: coverage_period from turns-per-year logic
-F15: reorder_qty — buffer on coverage only, NOT on lead time demand
+F15: reorder_qty — two-case formula: if stock <= wait-period demand,
+     order only post-arrival stock; otherwise order target minus current stock.
+     Buffer on coverage (post-arrival) only, NOT on lead time demand.
 F16: reorder_status — LOST_SALES, DEAD_STOCK, URGENT, REORDER, HEALTHY statuses
 """
+import math
 from datetime import date
 
 DEFAULT_LEAD_TIME = 180  # days (sea freight default)
@@ -142,10 +145,17 @@ def determine_reorder_status(
         order_for_coverage = total_velocity * coverage_period * safety_buffer  # buffer HERE only
         if include_lead_demand:
             demand_during_lead = total_velocity * supplier_lead_time  # NO buffer
-            suggested_qty = max(0, round(demand_during_lead + order_for_coverage - effective_stock))
+            # Two-case formula:
+            # If stock won't last the wait period, the gap is a sunk cost —
+            # just order what's needed after the shipment arrives.
+            # If stock exceeds wait-period demand, deduct the surplus from total target.
+            if effective_stock <= demand_during_lead:
+                suggested_qty = math.ceil(order_for_coverage)
+            else:
+                suggested_qty = math.ceil(demand_during_lead + order_for_coverage - effective_stock)
         else:
-            suggested_qty = max(0, round(order_for_coverage - effective_stock))
-        if suggested_qty == 0:
+            suggested_qty = max(0, math.ceil(order_for_coverage - effective_stock))
+        if suggested_qty <= 0:
             suggested_qty = None
 
     # Apply intent overrides

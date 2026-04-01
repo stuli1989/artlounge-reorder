@@ -34,12 +34,12 @@ def test_coverage_days_auto_very_long():
     assert compute_coverage_days(lead_time=300, typical_order_months=None) == 365
 
 
-def test_reorder_qty_plenty_of_stock():
-    """When stock exceeds lead_time demand, order covers lead + coverage - stock."""
+def test_reorder_qty_stock_exceeds_wait_period():
+    """When stock exceeds wait-period demand, order target minus stock."""
     # velocity=2, lead_time=120, coverage=180, buffer=1.3, stock=400
-    # demand_during_lead = 2 * 120 = 240  (NO buffer on lead time)
-    # order_for_coverage = 2 * 180 * 1.3 = 468
-    # suggested = max(0, round(240 + 468 - 400)) = 308
+    # wait_period = 2 * 120 = 240
+    # post_arrival = 2 * 180 * 1.3 = 468
+    # stock(400) > wait(240) → order = ceil(240 + 468 - 400) = ceil(308) = 308
     status, qty = determine_reorder_status(
         current_stock=400, days_to_stockout=200.0,
         supplier_lead_time=120, total_velocity=2.0,
@@ -49,48 +49,63 @@ def test_reorder_qty_plenty_of_stock():
     assert qty == 308
 
 
-def test_reorder_qty_will_stockout_before_arrival():
-    """Critical items that stock out before arrival: large order needed."""
+def test_reorder_qty_stock_below_wait_period():
+    """When stock won't last wait period, order only post-arrival needs."""
     # velocity=2, lead_time=120, coverage=180, buffer=1.3, stock=100
-    # demand_during_lead = 2 * 120 = 240  (NO buffer on lead time)
-    # order_for_coverage = 2 * 180 * 1.3 = 468
-    # suggested = max(0, round(240 + 468 - 100)) = 608
+    # wait_period = 2 * 120 = 240
+    # post_arrival = 2 * 180 * 1.3 = 468
+    # stock(100) <= wait(240) → order = ceil(468) = 468
     status, qty = determine_reorder_status(
         current_stock=100, days_to_stockout=50.0,
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
     assert status == "urgent"
-    assert qty == 608
+    assert qty == 468
 
 
 def test_reorder_qty_out_of_stock():
-    """Out-of-stock items with velocity: stocked_out status, order for lead + coverage."""
+    """Out-of-stock: wait gap is sunk cost, order post-arrival only."""
     # velocity=2, lead_time=120, coverage=180, buffer=1.3, stock=0
-    # demand_during_lead = 2 * 120 = 240
-    # order_for_coverage = 2 * 180 * 1.3 = 468
-    # suggested = max(0, round(240 + 468 - 0)) = 708
+    # wait_period = 2 * 120 = 240
+    # post_arrival = 2 * 180 * 1.3 = 468
+    # stock(0) <= wait(240) → order = ceil(468) = 468
     status, qty = determine_reorder_status(
         current_stock=0, days_to_stockout=0,
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
     assert status == "lost_sales"
-    assert qty == 708
+    assert qty == 468
 
 
-def test_reorder_qty_out_of_stock_not_inflated():
-    """Verify out-of-stock qty uses demand_during_lead WITHOUT buffer."""
-    # demand_during_lead = 2 * 120 = 240  (NO buffer)
-    # order_for_coverage = 2 * 180 * 1.3 = 468
-    # suggested = 240 + 468 - 0 = 708
-    # Old formula with buffer on lead: 2*120*1.3 + 2*180*1.3 = 312+468 = 780
+def test_reorder_qty_negative_stock_not_inflated():
+    """Negative stock should NOT inflate order — still just post-arrival."""
+    # velocity=2, lead_time=120, coverage=180, buffer=1.3, stock=-50
+    # wait_period = 2 * 120 = 240
+    # post_arrival = 2 * 180 * 1.3 = 468
+    # stock(-50) <= wait(240) → order = ceil(468) = 468
     status, qty = determine_reorder_status(
-        current_stock=0, days_to_stockout=0,
+        current_stock=-50, days_to_stockout=0,
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
-    assert qty == 708  # NOT 780 (no buffer on lead time)
+    assert qty == 468  # NOT inflated by negative stock
+
+
+def test_reorder_qty_stock_equals_wait_period():
+    """Boundary: stock exactly equals wait-period demand — use post-arrival only."""
+    # velocity=2, lead_time=120, stock=240
+    # wait_period = 2 * 120 = 240
+    # post_arrival = 2 * 180 * 1.3 = 468
+    # stock(240) <= wait(240) → order = ceil(468) = 468
+    # Also continuous: case 2 would give ceil(240+468-240) = 468
+    status, qty = determine_reorder_status(
+        current_stock=240, days_to_stockout=120.0,
+        supplier_lead_time=120, total_velocity=2.0,
+        safety_buffer=1.3, coverage_period=180,
+    )
+    assert qty == 468
 
 
 def test_reorder_qty_zero_coverage():
@@ -134,7 +149,7 @@ def test_coverage_only_mode_zero_stock():
         total_velocity=3.88, safety_buffer=1.3, coverage_period=90,
         include_lead_demand=False,
     )
-    # order_for_coverage = 3.88 * 90 * 1.3 ≈ 454
+    # order_for_coverage = ceil(3.88 * 90 * 1.3) = ceil(453.96) = 454
     assert qty == 454
     assert status == "lost_sales"
 
@@ -146,22 +161,22 @@ def test_coverage_only_mode_with_stock():
         total_velocity=3.88, safety_buffer=1.3, coverage_period=90,
         include_lead_demand=False,
     )
-    # order_for_coverage = 3.88 * 90 * 1.3 ≈ 454
-    # suggested = max(0, 454 - 100) = 354
+    # order_for_coverage = 3.88 * 90 * 1.3 = 453.96
+    # suggested = ceil(453.96 - 100) = ceil(353.96) = 354
     assert qty == 354
 
 
-def test_full_mode_unchanged():
-    """Full mode (default): same as before."""
+def test_full_mode_stock_below_wait():
+    """Full mode with stock below wait period: order post-arrival only."""
     status, qty = determine_reorder_status(
         current_stock=0, days_to_stockout=0, supplier_lead_time=90,
         total_velocity=3.88, safety_buffer=1.3, coverage_period=90,
         include_lead_demand=True,
     )
-    # demand_lead = 3.88 * 90 ≈ 349
-    # order_cov = 3.88 * 90 * 1.3 ≈ 454
-    # suggested = max(0, 349 + 454 - 0) = 803
-    assert qty == 803
+    # wait = 3.88 * 90 = 349.2
+    # post = 3.88 * 90 * 1.3 = 453.96
+    # stock(0) <= wait(349.2) → order = ceil(453.96) = 454
+    assert qty == 454
 
 
 def test_default_is_full_mode():
@@ -191,3 +206,27 @@ def test_coverage_only_status_unchanged():
         include_lead_demand=False,
     )
     assert status_full == status_cov  # both should be "urgent"
+
+
+def test_sku_0102016_example():
+    """Real-world example: SKU 0102016, velocity 0.0278/day, 90d lead, 90d coverage.
+    Ops team expects: post_arrival only = ceil(0.0278 * 90 * 1.3) = ceil(3.2526) = 4 units."""
+    status, qty = determine_reorder_status(
+        current_stock=0, days_to_stockout=0, supplier_lead_time=90,
+        total_velocity=0.0278, safety_buffer=1.3, coverage_period=90,
+        include_lead_demand=True,
+    )
+    assert status == "lost_sales"
+    assert qty == 4  # ceil(0.0278 * 90 * 1.3) = ceil(3.2526) = 4
+
+
+def test_rounding_up():
+    """Verify ceil rounding: 3.1 → 4, not 3."""
+    # velocity=0.5, lead=10, coverage=10, buffer=1.3, stock=0
+    # wait = 0.5*10 = 5, post = 0.5*10*1.3 = 6.5
+    # stock(0) <= wait(5) → order = ceil(6.5) = 7
+    status, qty = determine_reorder_status(
+        current_stock=0, days_to_stockout=0, supplier_lead_time=10,
+        total_velocity=0.5, safety_buffer=1.3, coverage_period=10,
+    )
+    assert qty == 7

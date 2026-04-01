@@ -1,5 +1,6 @@
 """Purchase Order data and Excel export endpoints."""
 import io
+import math
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -90,10 +91,13 @@ def _compute_po_items(
             order_for_coverage = vals["eff_total"] * coverage_period * effective_buffer
             if include_lead_demand:
                 demand_during_lead = vals["eff_total"] * lead_time  # NO buffer on lead
-                suggested = max(0, round((demand_during_lead + order_for_coverage) - vals["eff_stock"]))
+                if vals["eff_stock"] <= demand_during_lead:
+                    suggested = math.ceil(order_for_coverage)
+                else:
+                    suggested = math.ceil(demand_during_lead + order_for_coverage - vals["eff_stock"])
             else:
-                suggested = max(0, round(order_for_coverage - vals["eff_stock"]))
-            if suggested == 0:
+                suggested = max(0, math.ceil(order_for_coverage - vals["eff_stock"]))
+            if suggested <= 0:
                 suggested = None
         elif d.get("reorder_intent") == "must_stock":
             suggested = must_stock_fallback_qty(lead_time + coverage_period)
