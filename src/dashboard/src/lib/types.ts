@@ -451,6 +451,26 @@ export interface SearchSkuResult {
   current_stock: number
 }
 
+export interface PrefixGroup {
+  prefix: string
+  total: number
+  brands: string[]
+}
+
+export interface PrefixSearchResponse {
+  prefix: string
+  total: number
+  brands: string[]
+  skus: SearchSkuResult[]
+}
+
+export interface PrefixPoResponse {
+  po_data: PoDataItem[]
+  brands: string[]
+  prefix: string
+  total: number
+}
+
 export interface SearchResults {
   brands: SearchBrandResult[]
   brand_count: number
@@ -458,4 +478,5 @@ export interface SearchResults {
   sku_count: number
   scoped_skus?: SearchSkuResult[]
   scoped_sku_count?: number
+  prefix_group: PrefixGroup | null
 }

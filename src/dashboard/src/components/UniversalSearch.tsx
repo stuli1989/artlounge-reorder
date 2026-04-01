@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchSearch } from '@/lib/api'
 import type { SearchBrandResult, SearchSkuResult } from '@/lib/types'
 import { Input } from '@/components/ui/input'
-import { Search, Loader2, Package, Tag } from 'lucide-react'
+import { Search, Loader2, Package, Tag, Hash } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { BottomSheet } from '@/components/mobile/BottomSheet'
 import StatusBadge from '@/components/StatusBadge'
@@ -39,8 +40,9 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
   })
 
   // Build flat list for keyboard nav
-  const items: Array<{ type: 'brand' | 'scoped_sku' | 'sku'; item: SearchBrandResult | SearchSkuResult }> = []
+  const items: Array<{ type: 'prefix_group' | 'brand' | 'scoped_sku' | 'sku'; item: any }> = []
   if (data) {
+    if (data.prefix_group) items.push({ type: 'prefix_group', item: data.prefix_group })
     data.brands.forEach(b => items.push({ type: 'brand', item: b }))
     data.scoped_skus?.forEach(s => items.push({ type: 'scoped_sku', item: s }))
     data.skus.forEach(s => items.push({ type: 'sku', item: s }))
@@ -61,10 +63,11 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
     return () => document.removeEventListener('mousedown', handle)
   }, [isMobile])
 
-  const navigateTo = useCallback((type: string, item: SearchBrandResult | SearchSkuResult) => {
+  const navigateTo = useCallback((type: string, item: any) => {
     setOpen(false)
     setQuery('')
     setDebouncedQuery('')
+    if (type === 'prefix_group') return
     if (type === 'brand') {
       const b = item as SearchBrandResult
       navigate(`/brands/${encodeURIComponent(b.category_name)}/skus`)
@@ -109,7 +112,7 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
     if (isError) {
       return <div className="px-4 py-3 text-sm text-destructive">Search failed — try again</div>
     }
-    if (!data || (data.brands.length === 0 && data.skus.length === 0 && (!data.scoped_skus || data.scoped_skus.length === 0))) {
+    if (!data || (data.brands.length === 0 && data.skus.length === 0 && (!data.scoped_skus || data.scoped_skus.length === 0) && !data.prefix_group)) {
       return (
         <div className="px-4 py-3 text-sm text-muted-foreground">
           No brands or SKUs match &lsquo;{debouncedQuery}&rsquo;
@@ -120,6 +123,64 @@ export default function UniversalSearch({ scope, placeholder }: Props) {
     let flatIdx = -1
     return (
       <>
+        {/* Prefix Group */}
+        {data.prefix_group && (
+          <>
+            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider bg-muted/50">
+              Prefix Match
+            </div>
+            {(() => {
+              flatIdx++
+              const idx = flatIdx
+              const pg = data.prefix_group
+              return (
+                <div
+                  key="prefix-group"
+                  className={`px-4 py-3 text-sm ${!isMobile && highlightIdx === idx ? 'bg-muted' : ''}`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Hash className="h-4 w-4 shrink-0 text-blue-600" />
+                    <span className="font-medium">
+                      &ldquo;{pg.prefix}&rdquo; &rarr; {pg.total} SKUs across {pg.brands.length} brand{pg.brands.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mb-2">
+                    {pg.brands.join(', ')}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setOpen(false)
+                        setQuery('')
+                        setDebouncedQuery('')
+                        navigate(`/skus?prefix=${encodeURIComponent(pg.prefix)}`)
+                      }}
+                    >
+                      View SKUs
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setOpen(false)
+                        setQuery('')
+                        setDebouncedQuery('')
+                        navigate(`/po?prefix=${encodeURIComponent(pg.prefix)}`)
+                      }}
+                    >
+                      Build PO
+                    </Button>
+                  </div>
+                </div>
+              )
+            })()}
+          </>
+        )}
         {/* Brands */}
         {data.brands.length > 0 && (
           <>

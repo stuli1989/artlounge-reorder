@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse, CriticalSkusResponse, AuthUser, LoginResponse, SearchResults } from './types'
+import type { BrandMetrics, BrandSummary, DashboardSummary, SkuCounts, SkuMetrics, SkuPage, DailyPosition, Transaction, SyncStatus, Supplier, PoDataItem, BreakdownResponse, Override, OverrideCreate, ReorderIntent, SkuMatchResponse, CriticalSkusResponse, AuthUser, LoginResponse, SearchResults, PrefixSearchResponse, PrefixPoResponse } from './types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
@@ -214,5 +214,27 @@ export const resetUserPassword = (id: number, newPassword: string) =>
 
 export const fetchSearch = (q: string, scope?: string): Promise<SearchResults> =>
   api.get('/api/search', { params: { q, scope } }).then(r => r.data)
+
+export const fetchPrefixSearch = (prefix: string): Promise<PrefixSearchResponse> =>
+  api.get('/api/search/prefix', { params: { q: prefix } }).then(r => r.data)
+
+export const fetchPoDataByPrefix = (data: {
+  prefix: string
+  coverage_days?: number
+  buffer?: number
+  from_date?: string
+  to_date?: string
+  include_warning?: boolean
+  include_ok?: boolean
+}): Promise<PrefixPoResponse> =>
+  api.post('/api/po-data/prefix', data).then(r => r.data)
+
+export const fetchSkusByPrefix = (
+  prefix: string,
+  params?: Record<string, string | number | boolean>,
+): Promise<SkuPage> =>
+  api.get('/api/skus', {
+    params: { prefix, paginated: true, ...params },
+  }).then(r => r.data)
 
 export default api

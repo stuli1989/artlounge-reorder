@@ -2,8 +2,11 @@ import { useState, useCallback, useRef } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { ClipboardPaste, Upload, FileSpreadsheet, X, Loader2 } from 'lucide-react'
+import { ClipboardPaste, Upload, FileSpreadsheet, X, Loader2, Search, Hash } from 'lucide-react'
 import { parsePastedText, parseFile } from '@/lib/sku-parser'
+import { Input } from '@/components/ui/input'
+import { fetchPrefixSearch } from '@/lib/api'
+import type { PrefixSearchResponse } from '@/lib/types'
 
 interface SkuInputDialogProps {
   open: boolean
@@ -19,6 +22,10 @@ export default function SkuInputDialog({ open, onOpenChange, onSubmit, isLoading
   const [fileError, setFileError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [prefixQuery, setPrefixQuery] = useState('')
+  const [prefixLoading, setPrefixLoading] = useState(false)
+  const [prefixResult, setPrefixResult] = useState<PrefixSearchResponse | null>(null)
+  const [prefixError, setPrefixError] = useState<string | null>(null)
 
   const handlePasteChange = (text: string) => {
     setPasteText(text)
@@ -46,6 +53,29 @@ export default function SkuInputDialog({ open, onOpenChange, onSubmit, isLoading
     }
   }, [])
 
+  const handlePrefixSearch = async () => {
+    const q = prefixQuery.trim()
+    if (q.length < 2) {
+      setPrefixError('Enter at least 2 characters')
+      return
+    }
+    setPrefixLoading(true)
+    setPrefixError(null)
+    try {
+      const result = await fetchPrefixSearch(q)
+      setPrefixResult(result)
+      if (result.total === 0) {
+        setPrefixError(`No SKUs found with part number starting "${q}"`)
+      } else {
+        setParsedNames(result.skus.map(s => s.stock_item_name))
+      }
+    } catch {
+      setPrefixError('Search failed — try again')
+    } finally {
+      setPrefixLoading(false)
+    }
+  }
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setDragOver(false)
@@ -69,6 +99,9 @@ export default function SkuInputDialog({ open, onOpenChange, onSubmit, isLoading
     setParsedNames([])
     setFileName(null)
     setFileError(null)
+    setPrefixQuery('')
+    setPrefixResult(null)
+    setPrefixError(null)
     onOpenChange(false)
   }
 
@@ -85,7 +118,10 @@ export default function SkuInputDialog({ open, onOpenChange, onSubmit, isLoading
               <ClipboardPaste className="h-3.5 w-3.5" /> Paste
             </TabsTrigger>
             <TabsTrigger value="upload" className="flex-1 gap-1.5">
-              <Upload className="h-3.5 w-3.5" /> Upload File
+              <Upload className="h-3.5 w-3.5" /> Upload
+            </TabsTrigger>
+            <TabsTrigger value="prefix" className="flex-1 gap-1.5">
+              <Hash className="h-3.5 w-3.5" /> Code Prefix
             </TabsTrigger>
           </TabsList>
 
@@ -142,6 +178,54 @@ export default function SkuInputDialog({ open, onOpenChange, onSubmit, isLoading
             {fileError && (
               <p className="text-sm text-red-600 mt-2">{fileError}</p>
             )}
+          </TabsContent>
+
+          <TabsContent value="prefix" className="mt-3">
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter part number prefix, e.g. 0102"
+                  value={prefixQuery}
+                  onChange={e => {
+                    setPrefixQuery(e.target.value)
+                    setPrefixResult(null)
+                    setPrefixError(null)
+                  }}
+                  onKeyDown={e => { if (e.key === 'Enter') handlePrefixSearch() }}
+                  className="flex-1 font-mono"
+                />
+                <Button onClick={handlePrefixSearch} disabled={prefixLoading || prefixQuery.trim().length < 2}>
+                  {prefixLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              {prefixError && (
+                <p className="text-sm text-red-600">{prefixError}</p>
+              )}
+
+              {prefixResult && prefixResult.total > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm text-muted-foreground bg-muted/50 rounded px-3 py-2 border">
+                    <strong className="text-foreground">{prefixResult.total}</strong> SKU{prefixResult.total !== 1 ? 's' : ''} across{' '}
+                    <strong className="text-foreground">{prefixResult.brands.length}</strong> brand{prefixResult.brands.length !== 1 ? 's' : ''}:
+                    <div className="text-xs mt-1">{prefixResult.brands.join(', ')}</div>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto border rounded text-xs">
+                    {prefixResult.skus.slice(0, 50).map(s => (
+                      <div key={s.stock_item_name} className="px-3 py-1.5 border-b last:border-b-0 flex items-center justify-between">
+                        <span className="font-mono text-muted-foreground mr-2">{s.part_no}</span>
+                        <span className="truncate flex-1">{s.stock_item_name}</span>
+                      </div>
+                    ))}
+                    {prefixResult.total > 50 && (
+                      <div className="px-3 py-1.5 text-muted-foreground text-center">
+                        +{prefixResult.total - 50} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
 
