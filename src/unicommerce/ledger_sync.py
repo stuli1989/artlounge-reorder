@@ -475,10 +475,11 @@ def run_backfill(db_conn, from_csv_dir=None):
             for brand in brands:
                 with db_conn.cursor() as cur:
                     cur.execute("""INSERT INTO suppliers (name, lead_time_default, typical_order_months, notes)
-                                  VALUES (%s, 90, 3, 'Auto-seeded') ON CONFLICT (item_code) DO NOTHING""", (brand,))
+                                  VALUES (%s, 90, 3, 'Auto-seeded') ON CONFLICT (name) DO NOTHING""", (brand,))
             db_conn.commit()
             print(f"  Suppliers: {len(brands)} seeded")
     except Exception as e:
+        db_conn.rollback()
         print(f"  Catalog pull failed: {e} (continuing)")
 
     rules = _fetch_channel_rules(db_conn)
