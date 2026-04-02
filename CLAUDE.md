@@ -3,10 +3,13 @@
 ## Environment Commands
 
 - **Python:** Use `py` (not `python` or `python3`)
-- **PostgreSQL:** Binaries are at `"/c/Program Files/PostgreSQL/17/bin/"` — not in PATH
-  - psql: `"/c/Program Files/PostgreSQL/17/bin/psql"`
+- **PostgreSQL Server (v17):** `"/c/Program Files/PostgreSQL/17/bin/"` — local DB server
+  - psql (local): `"/c/Program Files/PostgreSQL/17/bin/psql"`
   - createdb: `"/c/Program Files/PostgreSQL/17/bin/createdb"`
-  - pg_dump: `"/c/Program Files/PostgreSQL/17/bin/pg_dump"`
+- **PostgreSQL Client (v18):** `"/c/Users/Kshitij Shah/pg18/pgsql/bin/"` — for Railway (v18 server)
+  - pg_dump (Railway): `"/c/Users/Kshitij Shah/pg18/pgsql/bin/pg_dump"`
+  - pg_restore: `"/c/Users/Kshitij Shah/pg18/pgsql/bin/pg_restore"`
+  - Use v18 client tools when connecting to Railway (v18 server requires matching client version)
   - Always use full path when invoking any pg tool
 
 ## Local Database
