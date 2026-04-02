@@ -446,7 +446,11 @@ export default function PoBuilder() {
                   <Label>Lead Time</Label>
                   <Select value={leadTimeType} onValueChange={v => { if (v) { setLeadTimeType(v); if (v === 'sea') setCustomLeadTime(180); if (v === 'air') setCustomLeadTime(30); } }}>
                     <SelectTrigger className="w-full">
-                      <SelectValue />
+                      <span className="truncate">
+                        {leadTimeType === 'default' ? `Supplier Default (${resolvedSupplierLeadTime}d)` :
+                         leadTimeType === 'sea' ? 'Sea Freight (180 days)' :
+                         leadTimeType === 'air' ? 'Air Freight (30 days)' : 'Custom'}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="default">Supplier Default ({resolvedSupplierLeadTime}d)</SelectItem>
@@ -496,7 +500,10 @@ export default function PoBuilder() {
                   <Label>Order Mode</Label>
                   <Select value={demandMode ?? 'supplier_default'} onValueChange={v => setDemandMode(v === 'supplier_default' ? null : v)}>
                     <SelectTrigger className="w-full">
-                      <SelectValue />
+                      <span className="truncate">
+                        {(demandMode ?? 'supplier_default') === 'supplier_default' ? 'Supplier Setting' :
+                         demandMode === 'full' ? 'Full Order (lead + coverage)' : 'Coverage Only'}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="supplier_default">Supplier Setting</SelectItem>
@@ -835,7 +842,11 @@ export default function PoBuilder() {
               <Label className="text-[11px] text-muted-foreground uppercase tracking-wide">Lead Time</Label>
               <Select value={leadTimeType} onValueChange={v => { if (v) { setLeadTimeType(v); if (v === 'sea') setCustomLeadTime(180); if (v === 'air') setCustomLeadTime(30); } }}>
                 <SelectTrigger className="h-8 min-w-[180px] mt-1">
-                  <SelectValue />
+                  <span className="truncate">
+                    {leadTimeType === 'default' ? `Supplier Default (${resolvedSupplierLeadTime}d)` :
+                     leadTimeType === 'sea' ? 'Sea Freight (180 days)' :
+                     leadTimeType === 'air' ? 'Air Freight (30 days)' : 'Custom'}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="default">Supplier Default ({resolvedSupplierLeadTime}d)</SelectItem>
@@ -926,7 +937,10 @@ export default function PoBuilder() {
                 <span>Order Mode:</span>
                 <Select value={demandMode ?? 'supplier_default'} onValueChange={v => setDemandMode(v === 'supplier_default' ? null : v)}>
                   <SelectTrigger className="h-6 w-auto border-none shadow-none px-1 text-xs font-medium text-foreground gap-1">
-                    <SelectValue />
+                    <span>
+                      {(demandMode ?? 'supplier_default') === 'supplier_default' ? 'Supplier Setting' :
+                       demandMode === 'full' ? 'Full Order' : 'Coverage Only'}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="supplier_default">Supplier Setting</SelectItem>
