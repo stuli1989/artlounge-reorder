@@ -279,22 +279,37 @@ export default function PoBuilder() {
 
   const rows: PoRow[] = useMemo(() => {
     const source = subsetMode && subsetRawData ? subsetRawData : (poData || [])
-    return source.map(item => {
-      const o = overrides[item.item_code] || {}
-      return {
-        ...item,
-        total_in_stock_days: item.total_in_stock_days ?? 0,
-        sku_buffer: item.sku_buffer ?? 1.3,
-        included: o.included ?? true,
-        order_qty: o.order_qty ?? (item.suggested_qty || 0),
-        notes: o.notes ?? '',
-        drift: item.drift ?? 0,
-        inventory_blocked: item.inventory_blocked ?? 0,
-        has_drift: item.has_drift ?? false,
-        category_name: (item as any).category_name || decodedName || '',
-      }
-    })
-  }, [poData, overrides, subsetMode, subsetRawData])
+
+    // Determine which statuses to show based on the Show filter
+    const visibleStatuses = new Set(['urgent', 'lost_sales'])
+    if (includeWarning) visibleStatuses.add('reorder')
+    if (includeOk) {
+      visibleStatuses.add('healthy')
+      visibleStatuses.add('out_of_stock')
+      visibleStatuses.add('no_demand')
+      visibleStatuses.add('stocked_out')
+      visibleStatuses.add('dead_stock')
+      visibleStatuses.add('no_data')
+    }
+
+    return source
+      .filter(item => visibleStatuses.has(item.reorder_status))
+      .map(item => {
+        const o = overrides[item.item_code] || {}
+        return {
+          ...item,
+          total_in_stock_days: item.total_in_stock_days ?? 0,
+          sku_buffer: item.sku_buffer ?? 1.3,
+          included: o.included ?? true,
+          order_qty: o.order_qty ?? (item.suggested_qty || 0),
+          notes: o.notes ?? '',
+          drift: item.drift ?? 0,
+          inventory_blocked: item.inventory_blocked ?? 0,
+          has_drift: item.has_drift ?? false,
+          category_name: (item as any).category_name || decodedName || '',
+        }
+      })
+  }, [poData, overrides, subsetMode, subsetRawData, includeWarning, includeOk])
 
   const toggleRow = (name: string) => {
     setOverrides(prev => {
