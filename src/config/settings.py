@@ -20,11 +20,8 @@ DATABASE_URL = os.environ.get(
     "postgresql://reorder_app:password@localhost:5432/artlounge_reorder_uc"
 )
 
-# Email notifications (for sync failure alerts)
-SMTP_HOST = os.environ.get("SMTP_HOST", "")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+# Email notifications via Resend API
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "")
 
 # Auth / JWT

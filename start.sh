@@ -11,6 +11,14 @@ if [ "$MODE" = "sync" ]; then
     exit 0
 fi
 
+# If MODE=reset, wipe all data and run fresh backfill
+if [ "$MODE" = "reset" ]; then
+    echo "Running full database reset and backfill..."
+    PYTHONPATH=. python -m unicommerce.ledger_sync --reset
+    echo "Reset complete. Exiting."
+    exit 0
+fi
+
 # If MODE=pipeline, recompute metrics only (no data pull)
 if [ "$MODE" = "pipeline" ]; then
     echo "Running computation pipeline only..."

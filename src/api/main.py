@@ -93,9 +93,38 @@ def health():
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1")
-        return {"status": "ok"}
-    except Exception:
-        return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Database unreachable"})
+                cur.execute("SELECT MAX(snapshot_date) FROM inventory_snapshots")
+                latest_snapshot = cur.fetchone()[0]
+                cur.execute("SELECT MAX(sync_completed) FROM sync_log WHERE status='completed'")
+                latest_sync = cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM sku_metrics")
+                sku_count = cur.fetchone()[0]
+
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        hours_since_sync = None
+        if latest_sync:
+            if latest_sync.tzinfo is None:
+                hours_since_sync = (now.replace(tzinfo=None) - latest_sync).total_seconds() / 3600
+            else:
+                hours_since_sync = (now - latest_sync).total_seconds() / 3600
+
+        data_status = "ok"
+        if hours_since_sync is None or hours_since_sync > 48:
+            data_status = "critical"
+        elif hours_since_sync > 26:
+            data_status = "stale"
+
+        return {
+            "status": "ok",
+            "data_status": data_status,
+            "latest_snapshot": str(latest_snapshot) if latest_snapshot else None,
+            "latest_sync": str(latest_sync) if latest_sync else None,
+            "hours_since_sync": round(hours_since_sync, 1) if hours_since_sync else None,
+            "sku_count": sku_count,
+        }
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": str(e)})
 
 
 # Serve React static build (production)

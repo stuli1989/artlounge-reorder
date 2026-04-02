@@ -7,11 +7,13 @@ Usage:
   cd src && PYTHONPATH=. ./venv/Scripts/python -m unicommerce.ledger_sync
   cd src && PYTHONPATH=. ./venv/Scripts/python -m unicommerce.ledger_sync --backfill
   cd src && PYTHONPATH=. ./venv/Scripts/python -m unicommerce.ledger_sync --dry-run
+  cd src && PYTHONPATH=. ./venv/Scripts/python -m unicommerce.ledger_sync --reset
 """
 import argparse
 import logging
 import os
 import glob
+import time
 import threading
 from datetime import datetime, timedelta, date
 
@@ -33,6 +35,28 @@ _sync_progress = {
     "error": None,
 }
 _sync_lock = threading.Lock()
+
+
+def _retry(fn, *args, max_attempts=3, backoff_base=5, **kwargs):
+    """Retry a callable with exponential backoff.
+
+    Attempts up to max_attempts times with delays of 5s, 15s, 45s (backoff_base * 3^i).
+    Logs each retry attempt. Re-raises on final failure.
+    """
+    last_exc = None
+    for attempt in range(max_attempts):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            last_exc = e
+            if attempt < max_attempts - 1:
+                delay = backoff_base * (3 ** attempt)
+                logger.warning("Retry %d/%d for %s after error: %s (waiting %ds)",
+                               attempt + 1, max_attempts, fn.__name__, e, delay)
+                time.sleep(delay)
+            else:
+                logger.error("All %d attempts failed for %s: %s", max_attempts, fn.__name__, e)
+    raise last_exc
 
 
 def get_sync_progress() -> dict:
@@ -229,34 +253,50 @@ def pull_ledger_for_facility(client, facility, start_date, end_date):
 
 
 def _send_sync_email(total_loaded, facilities_ok, total_facilities, error=None):
-    """Send email notification on sync completion."""
-    from config.settings import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, NOTIFY_EMAIL
-    if not SMTP_HOST or not NOTIFY_EMAIL:
+    """Send email notification on sync completion via Resend API."""
+    import json
+    import urllib.request
+    import urllib.error
+
+    resend_key = os.environ.get("RESEND_API_KEY", "")
+    notify_email = os.environ.get("NOTIFY_EMAIL", "")
+    if not resend_key or not notify_email:
+        logger.info("Email skipped: RESEND_API_KEY or NOTIFY_EMAIL not configured")
         return
 
-    import smtplib
-    from email.mime.text import MIMEText
+    status_label = "FAILED" if error else "SUCCESS"
+    subject = f"Art Lounge Sync {status_label} — {date.today()}"
 
-    status = "SUCCESS" if not error else "FAILED"
-    subject = f"Ledger Sync {status} - {date.today()}"
-    body = f"Ledger sync {status}\n\nRows loaded: {total_loaded}\nFacilities: {facilities_ok}/{total_facilities}\n"
+    body_lines = [
+        f"<h2>Nightly Sync {status_label}</h2>",
+        f"<p><b>Date:</b> {date.today()}</p>",
+        f"<p><b>Ledger rows loaded:</b> {total_loaded}</p>",
+        f"<p><b>Facilities:</b> {facilities_ok}/{total_facilities}</p>",
+    ]
     if error:
-        body += f"\nError: {error}\n"
+        body_lines.append(f"<p style='color:red'><b>Error:</b> {error}</p>")
 
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = SMTP_USER
-    msg["To"] = NOTIFY_EMAIL
+    payload = json.dumps({
+        "from": "Art Lounge Sync <onboarding@resend.dev>",
+        "to": [notify_email],
+        "subject": subject,
+        "html": "\n".join(body_lines),
+    }).encode()
+
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {resend_key}",
+            "Content-Type": "application/json",
+        },
+    )
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            if SMTP_USER and SMTP_PASSWORD:
-                server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_USER, [NOTIFY_EMAIL], msg.as_string())
-        logger.info("Sync notification email sent to %s", NOTIFY_EMAIL)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            logger.info("Sync email sent to %s (status %s)", notify_email, resp.status)
     except Exception as e:
-        logger.warning("Failed to send sync email: %s", e)
+        logger.warning("Failed to send sync email via Resend: %s", e)
 
 
 def run_validation_check(client, db_conn, sample_size=50):
@@ -358,19 +398,19 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
         client.authenticate()
         client.discover_facilities()
 
-        # 1. Pull catalog
+        # 1. Pull catalog (with retry)
         _set_progress("Pulling catalog...")
         print("Step 1: Pulling catalog...")
         try:
-            skus = pull_all_skus(client)
+            skus = _retry(pull_all_skus, client)
             if skus and not dry_run:
-                load_catalog(db_conn, skus)
+                _retry(load_catalog, db_conn, skus)
                 print(f"  Catalog: {len(skus)} SKUs loaded")
         except Exception as e:
             db_conn.rollback()
             print(f"  Catalog pull failed: {e} (continuing)")
 
-        # 2. Pull ledger per facility
+        # 2. Pull ledger per facility (with retry per facility)
         _set_progress("Pulling transaction ledger...")
         print(f"Step 2: Pulling ledger (last {days_back} days)...")
         end_dt = datetime.now().replace(hour=23, minute=59, second=59)
@@ -381,7 +421,7 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
         facilities_ok = 0
 
         for facility in client.facilities:
-            rows = pull_ledger_for_facility(client, facility, start_dt, end_dt)
+            rows = _retry(pull_ledger_for_facility, client, facility, start_dt, end_dt)
             if rows:
                 if not dry_run:
                     loaded = _load_transactions(db_conn, rows, rules)
@@ -395,24 +435,26 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
 
         print(f"  Total: {total_loaded} rows loaded, {facilities_ok}/{len(client.facilities)} facilities OK")
 
-        # 3. Pull KG shipping packages (demand)
+        # 3. Pull KG shipping packages (demand) (with retry)
         if not dry_run:
             _set_progress("Pulling KG shipping packages...")
             print("Step 3: Pulling KG shipping packages...")
             try:
-                kg_count = pull_and_store_kg_demand(client, db_conn)
+                kg_count = _retry(pull_and_store_kg_demand, client, db_conn)
                 print(f"  KG demand: {kg_count} rows")
             except Exception as e:
+                db_conn.rollback()
                 print(f"  KG demand pull failed: {e} (continuing)")
 
-        # 4. Pull inventory snapshots
+        # 4. Pull inventory snapshots (with retry)
         if not dry_run:
             _set_progress("Pulling inventory snapshots...")
             print("Step 4: Pulling inventory snapshots...")
             try:
-                snap_count = pull_and_store_snapshots(client, db_conn)
+                snap_count = _retry(pull_and_store_snapshots, client, db_conn)
                 print(f"  Snapshots: {snap_count} SKUs")
             except Exception as e:
+                db_conn.rollback()
                 print(f"  Snapshot pull failed: {e} (continuing)")
 
         # 5. Run pipeline
@@ -438,6 +480,7 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
             try:
                 run_validation_check(client, db_conn)
             except Exception as e:
+                db_conn.rollback()
                 logger.warning("Validation check failed: %s", e)
 
         # 8. Email notification
@@ -449,8 +492,23 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
         _set_progress(None, running=False)
         print("=== SYNC COMPLETE ===")
 
-    except Exception:
-        _set_progress(None, running=False, error="Sync failed")
+    except Exception as e:
+        _set_progress(None, running=False, error=str(e))
+        # Log failure to sync_log
+        try:
+            with db_conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO sync_log (source, sync_started, sync_completed, status, notes)
+                    VALUES ('ledger', NOW() - INTERVAL '1 minute', NOW(), 'failed', %s)
+                """, (str(e)[:500],))
+            db_conn.commit()
+        except Exception:
+            db_conn.rollback()
+        # Send failure email
+        try:
+            _send_sync_email(0, 0, 0, error=str(e))
+        except Exception:
+            pass
         raise
 
 
@@ -464,9 +522,9 @@ def run_backfill(db_conn, from_csv_dir=None):
         client = UnicommerceClient()
         client.authenticate()
         client.discover_facilities()
-        skus = pull_all_skus(client)
+        skus = _retry(pull_all_skus, client)
         if skus:
-            load_catalog(db_conn, skus)
+            _retry(load_catalog, db_conn, skus)
             print(f"  Catalog: {len(skus)} SKUs loaded")
 
             # Seed suppliers from brands
@@ -515,7 +573,7 @@ def run_backfill(db_conn, from_csv_dir=None):
 
             print(f"\nWindow: {start_dt.date()} to {end_dt.date()}")
             for facility in client.facilities:
-                rows = pull_ledger_for_facility(client, facility, start_dt, end_dt)
+                rows = _retry(pull_ledger_for_facility, client, facility, start_dt, end_dt)
                 if rows:
                     loaded = _load_transactions(db_conn, rows, rules)
                     total += loaded
@@ -525,19 +583,21 @@ def run_backfill(db_conn, from_csv_dir=None):
 
         print(f"\nTotal loaded: {total}")
 
-    # Pull KG demand and snapshots
+    # Pull KG demand and snapshots (with retry)
     print("\nPulling KG shipping packages...")
     try:
-        kg_count = pull_and_store_kg_demand(client, db_conn)
+        kg_count = _retry(pull_and_store_kg_demand, client, db_conn)
         print(f"  KG demand: {kg_count} rows")
     except Exception as e:
+        db_conn.rollback()
         print(f"  KG demand pull failed: {e}")
 
     print("Pulling inventory snapshots...")
     try:
-        snap_count = pull_and_store_snapshots(client, db_conn)
+        snap_count = _retry(pull_and_store_snapshots, client, db_conn)
         print(f"  Snapshots: {snap_count} SKUs")
     except Exception as e:
+        db_conn.rollback()
         print(f"  Snapshot pull failed: {e}")
 
     # Run full pipeline
@@ -554,11 +614,23 @@ def main():
     parser.add_argument("--backfill-csv", type=str, help="Backfill from local CSV directory")
     parser.add_argument("--dry-run", action="store_true", help="Pull data but don't write to DB")
     parser.add_argument("--days", type=int, default=OVERLAP_DAYS, help="Days to look back (default 3)")
+    parser.add_argument("--reset", action="store_true", help="Wipe all tables and run fresh backfill")
     args = parser.parse_args()
 
     db_conn = get_db_connection()
     try:
-        if args.backfill:
+        if args.reset:
+            print("=== FULL RESET ===")
+            with db_conn.cursor() as cur:
+                for table in ['daily_stock_positions', 'sku_metrics', 'brand_metrics', 'drift_log',
+                               'sync_log', 'kg_demand', 'inventory_snapshots', 'transactions',
+                               'stock_items', 'stock_categories', 'suppliers']:
+                    cur.execute(f"TRUNCATE {table} CASCADE")
+                    print(f"  Truncated {table}")
+            db_conn.commit()
+            print("All tables cleared.")
+            run_backfill(db_conn)
+        elif args.backfill:
             run_backfill(db_conn)
         elif args.backfill_csv:
             run_backfill(db_conn, from_csv_dir=args.backfill_csv)

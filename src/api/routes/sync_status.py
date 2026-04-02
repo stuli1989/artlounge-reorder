@@ -29,6 +29,21 @@ def sync_status(user: dict = Depends(get_current_user)):
             cur.execute("SELECT COUNT(*) AS cnt FROM parties WHERE channel = 'unclassified'")
             unclassified = cur.fetchone()["cnt"]
 
+            # Data freshness info
+            cur.execute("SELECT MAX(snapshot_date) FROM inventory_snapshots")
+            latest_snapshot_date = cur.fetchone()[0]
+
+            cur.execute("SELECT MAX(txn_date) FROM transactions")
+            latest_transaction_date = cur.fetchone()[0]
+
+            cur.execute("SELECT COUNT(*) FROM sku_metrics")
+            total_skus = cur.fetchone()[0]
+
+            cur.execute("SELECT COUNT(*) FROM brand_metrics")
+            total_brands = cur.fetchone()[0]
+
+    now = datetime.now(timezone.utc)
+
     if not last_sync:
         return {
             "last_sync_completed": None,
@@ -40,14 +55,20 @@ def sync_status(user: dict = Depends(get_current_user)):
             "is_running": progress["running"],
             "current_step": progress["step"],
             "sync_error": progress["error"],
+            "latest_snapshot_date": str(latest_snapshot_date) if latest_snapshot_date else None,
+            "latest_transaction_date": str(latest_transaction_date) if latest_transaction_date else None,
+            "total_skus": total_skus,
+            "total_brands": total_brands,
+            "days_since_sync": None,
         }
 
     completed = last_sync["sync_completed"]
-    now = datetime.now(timezone.utc)
     if completed.tzinfo is None:
         hours_ago = (now.replace(tzinfo=None) - completed).total_seconds() / 3600
     else:
         hours_ago = (now - completed).total_seconds() / 3600
+
+    days_since_sync = round(hours_ago / 24, 1)
 
     if hours_ago < 24:
         freshness = "fresh"
@@ -66,6 +87,11 @@ def sync_status(user: dict = Depends(get_current_user)):
         "is_running": progress["running"],
         "current_step": progress["step"],
         "sync_error": progress["error"],
+        "latest_snapshot_date": str(latest_snapshot_date) if latest_snapshot_date else None,
+        "latest_transaction_date": str(latest_transaction_date) if latest_transaction_date else None,
+        "total_skus": total_skus,
+        "total_brands": total_brands,
+        "days_since_sync": days_since_sync,
     }
 
 
