@@ -93,12 +93,12 @@ def health():
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1")
-                cur.execute("SELECT MAX(snapshot_date) FROM inventory_snapshots")
-                latest_snapshot = cur.fetchone()[0]
-                cur.execute("SELECT MAX(sync_completed) FROM sync_log WHERE status='completed'")
-                latest_sync = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM sku_metrics")
-                sku_count = cur.fetchone()[0]
+                cur.execute("SELECT MAX(snapshot_date) AS v FROM inventory_snapshots")
+                latest_snapshot = cur.fetchone()["v"]
+                cur.execute("SELECT MAX(sync_completed) AS v FROM sync_log WHERE status='completed'")
+                latest_sync = cur.fetchone()["v"]
+                cur.execute("SELECT COUNT(*) AS v FROM sku_metrics")
+                sku_count = cur.fetchone()["v"]
 
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
