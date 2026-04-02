@@ -252,7 +252,7 @@ def pull_ledger_for_facility(client, facility, start_date, end_date):
         return []
 
 
-def _send_sync_email(total_loaded, facilities_ok, total_facilities, error=None):
+def _send_sync_email(total_loaded, facilities_ok, total_facilities, db_conn=None, error=None):
     """Send email notification on sync completion via Resend API."""
     import json
     import urllib.request
@@ -264,23 +264,128 @@ def _send_sync_email(total_loaded, facilities_ok, total_facilities, error=None):
         logger.info("Email skipped: RESEND_API_KEY or NOTIFY_EMAIL not configured")
         return
 
-    status_label = "FAILED" if error else "SUCCESS"
-    subject = f"Art Lounge Sync {status_label} — {date.today()}"
+    is_success = not error
+    status_label = "SUCCESS" if is_success else "FAILED"
+    status_emoji = "\u2705" if is_success else "\u274c"
+    status_color = "#16a34a" if is_success else "#dc2626"
+    subject = f"{status_emoji} Art Lounge Sync {status_label} — {date.today()}"
 
-    body_lines = [
-        f"<h2>Nightly Sync {status_label}</h2>",
-        f"<p><b>Date:</b> {date.today()}</p>",
-        f"<p><b>Ledger rows loaded:</b> {total_loaded}</p>",
-        f"<p><b>Facilities:</b> {facilities_ok}/{total_facilities}</p>",
-    ]
+    # Gather DB metrics if connection available
+    metrics = {}
+    if db_conn and is_success:
+        try:
+            with db_conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM sku_metrics")
+                metrics["total_skus"] = cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM sku_metrics WHERE reorder_status IN ('urgent', 'lost_sales')")
+                metrics["critical_skus"] = cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM sku_metrics WHERE reorder_status = 'reorder'")
+                metrics["warning_skus"] = cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM sku_metrics WHERE reorder_status = 'healthy'")
+                metrics["healthy_skus"] = cur.fetchone()[0]
+                cur.execute("SELECT MAX(snapshot_date) FROM inventory_snapshots")
+                metrics["latest_snapshot"] = cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM brand_metrics")
+                metrics["total_brands"] = cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM transactions")
+                metrics["total_transactions"] = cur.fetchone()[0]
+        except Exception:
+            db_conn.rollback()
+
+    # Build HTML email
+    html = f"""
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
+      <div style="background: {status_color}; color: white; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 20px; font-weight: 600;">Nightly Sync {status_label}</h1>
+        <p style="margin: 6px 0 0; opacity: 0.9; font-size: 14px;">{date.today().strftime('%A, %d %B %Y')}</p>
+      </div>
+
+      <div style="border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 8px 8px; padding: 24px;">
+    """
+
     if error:
-        body_lines.append(f"<p style='color:red'><b>Error:</b> {error}</p>")
+        html += f"""
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 14px 16px; margin-bottom: 20px;">
+          <p style="margin: 0; font-size: 14px; color: #991b1b; font-weight: 600;">Error Details</p>
+          <p style="margin: 6px 0 0; font-size: 13px; color: #dc2626; font-family: monospace; word-break: break-all;">{str(error)[:300]}</p>
+        </div>
+        """
+
+    # Sync summary section
+    html += f"""
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <tr>
+            <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #666;">Ledger Rows Loaded</td>
+            <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; font-weight: 600; text-align: right;">{total_loaded:,}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #666;">Facilities Synced</td>
+            <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; font-weight: 600; text-align: right;">{facilities_ok} / {total_facilities}</td>
+          </tr>
+    """
+
+    if metrics.get("latest_snapshot"):
+        html += f"""
+          <tr>
+            <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #666;">Snapshot Date</td>
+            <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; font-weight: 600; text-align: right;">{metrics['latest_snapshot']}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #666;">Total Transactions</td>
+            <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; font-weight: 600; text-align: right;">{metrics.get('total_transactions', 0):,}</td>
+          </tr>
+        """
+
+    html += "</table>"
+
+    # Inventory health cards (only on success with metrics)
+    if metrics.get("total_skus"):
+        critical = metrics.get("critical_skus", 0)
+        warning = metrics.get("warning_skus", 0)
+        healthy = metrics.get("healthy_skus", 0)
+        total = metrics["total_skus"]
+
+        html += f"""
+        <p style="font-size: 13px; color: #666; margin: 0 0 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Inventory Health</p>
+        <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+          <div style="flex: 1; background: #fef2f2; border-radius: 6px; padding: 12px; text-align: center;">
+            <div style="font-size: 22px; font-weight: 700; color: #dc2626;">{critical:,}</div>
+            <div style="font-size: 11px; color: #991b1b; margin-top: 2px;">Critical</div>
+          </div>
+          <div style="flex: 1; background: #fffbeb; border-radius: 6px; padding: 12px; text-align: center;">
+            <div style="font-size: 22px; font-weight: 700; color: #d97706;">{warning:,}</div>
+            <div style="font-size: 11px; color: #92400e; margin-top: 2px;">Warning</div>
+          </div>
+          <div style="flex: 1; background: #f0fdf4; border-radius: 6px; padding: 12px; text-align: center;">
+            <div style="font-size: 22px; font-weight: 700; color: #16a34a;">{healthy:,}</div>
+            <div style="font-size: 11px; color: #166534; margin-top: 2px;">Healthy</div>
+          </div>
+          <div style="flex: 1; background: #f8fafc; border-radius: 6px; padding: 12px; text-align: center;">
+            <div style="font-size: 22px; font-weight: 700; color: #475569;">{total:,}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Total SKUs</div>
+          </div>
+        </div>
+        """
+
+    # Footer
+    html += f"""
+        <div style="border-top: 1px solid #f0f0f0; padding-top: 16px; margin-top: 8px;">
+          <a href="https://reorder.artlounge.in" style="display: inline-block; background: #18181b; color: white; text-decoration: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 500;">Open Dashboard</a>
+          <span style="margin-left: 12px; font-size: 12px; color: #999;">Brands: {metrics.get('total_brands', '—')} &middot; Next sync: 3:30 AM IST</span>
+        </div>
+      </div>
+
+      <p style="text-align: center; font-size: 11px; color: #aaa; margin-top: 16px;">
+        Art Lounge Stock Intelligence &middot; Sent from sync@artlounge.in
+      </p>
+    </div>
+    """
 
     payload = json.dumps({
         "from": "Art Lounge Sync <sync@artlounge.in>",
         "to": [notify_email],
         "subject": subject,
-        "html": "\n".join(body_lines),
+        "html": html,
     }).encode()
 
     req = urllib.request.Request(
@@ -289,6 +394,7 @@ def _send_sync_email(total_loaded, facilities_ok, total_facilities, error=None):
         headers={
             "Authorization": f"Bearer {resend_key}",
             "Content-Type": "application/json",
+            "User-Agent": "ArtLounge-Sync/1.0",
         },
     )
 
@@ -485,7 +591,7 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
 
         # 8. Email notification
         try:
-            _send_sync_email(total_loaded, facilities_ok, len(client.facilities))
+            _send_sync_email(total_loaded, facilities_ok, len(client.facilities), db_conn=db_conn)
         except Exception as e:
             logger.warning("Email notification failed: %s", e)
 
@@ -506,7 +612,7 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
             db_conn.rollback()
         # Send failure email
         try:
-            _send_sync_email(0, 0, 0, error=str(e))
+            _send_sync_email(0, 0, 0, db_conn=db_conn, error=str(e))
         except Exception:
             pass
         raise
