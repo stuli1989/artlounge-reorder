@@ -277,7 +277,7 @@ def _send_sync_email(total_loaded, facilities_ok, total_facilities, error=None):
         body_lines.append(f"<p style='color:red'><b>Error:</b> {error}</p>")
 
     payload = json.dumps({
-        "from": "Art Lounge Sync <onboarding@resend.dev>",
+        "from": "Art Lounge Sync <sync@artlounge.in>",
         "to": [notify_email],
         "subject": subject,
         "html": "\n".join(body_lines),
