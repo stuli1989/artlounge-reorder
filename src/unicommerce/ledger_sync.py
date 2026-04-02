@@ -252,7 +252,7 @@ def pull_ledger_for_facility(client, facility, start_date, end_date):
         return []
 
 
-def _send_sync_email(total_loaded, facilities_ok, total_facilities, db_conn=None, error=None):
+def _send_sync_email(total_loaded, facilities_ok, total_facilities, db_conn=None, error=None, facility_results=None):
     """Send email notification on sync completion via Resend API."""
     import json
     import urllib.request
@@ -318,10 +318,6 @@ def _send_sync_email(total_loaded, facilities_ok, total_facilities, db_conn=None
             <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #666;">Ledger Rows Loaded</td>
             <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; font-weight: 600; text-align: right;">{total_loaded:,}</td>
           </tr>
-          <tr>
-            <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #666;">Facilities Synced</td>
-            <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; font-weight: 600; text-align: right;">{facilities_ok} / {total_facilities}</td>
-          </tr>
     """
 
     if metrics.get("latest_snapshot"):
@@ -337,6 +333,22 @@ def _send_sync_email(total_loaded, facilities_ok, total_facilities, db_conn=None
         """
 
     html += "</table>"
+
+    # Facility breakdown
+    if facility_results:
+        html += '<p style="font-size: 13px; color: #666; margin: 0 0 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Facilities</p>'
+        html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">'
+        html += '<tr><td style="padding: 6px 0; font-size: 12px; color: #999; border-bottom: 1px solid #f0f0f0;">Facility</td><td style="padding: 6px 0; font-size: 12px; color: #999; text-align: right; border-bottom: 1px solid #f0f0f0;">Status</td><td style="padding: 6px 0; font-size: 12px; color: #999; text-align: right; border-bottom: 1px solid #f0f0f0;">Rows</td></tr>'
+        FACILITY_LABELS = {"ppetpl": "Mumbai (HQ)", "ALIBHIWANDI": "Bhiwandi Warehouse", "PPETPLKALAGHODA": "Kala Ghoda Store"}
+        for fac, info in facility_results.items():
+            label = FACILITY_LABELS.get(fac, fac)
+            if info["status"] == "ok":
+                badge = '<span style="background: #f0fdf4; color: #16a34a; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600;">synced</span>'
+            else:
+                badge = '<span style="background: #f8fafc; color: #94a3b8; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600;">no activity</span>'
+            rows_display = f"{info['rows']:,}" if info["rows"] > 0 else "—"
+            html += f'<tr><td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px;">{label}</td><td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0; text-align: right;">{badge}</td><td style="padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; font-weight: 600; text-align: right;">{rows_display}</td></tr>'
+        html += '</table>'
 
     # Inventory health cards (only on success with metrics)
     if metrics.get("total_skus"):
@@ -524,7 +536,7 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
 
         rules = _fetch_channel_rules(db_conn)
         total_loaded = 0
-        facilities_ok = 0
+        facility_results = {}  # facility -> {"status": "ok"|"empty"|"failed", "rows": N}
 
         for facility in client.facilities:
             rows = _retry(pull_ledger_for_facility, client, facility, start_dt, end_dt)
@@ -533,13 +545,19 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
                     loaded = _load_transactions(db_conn, rows, rules)
                     total_loaded += loaded
                 else:
-                    total_loaded += len(rows)
-                facilities_ok += 1
+                    loaded = len(rows)
+                    total_loaded += loaded
+                facility_results[facility] = {"status": "ok", "rows": len(rows)}
                 print(f"  {facility}: {len(rows)} rows")
             else:
-                print(f"  {facility}: FAILED or empty")
+                # Distinguish: pull_ledger_for_facility returns [] on BOTH error and empty
+                # If it returned [] without logging an error, the export succeeded but had no data
+                facility_results[facility] = {"status": "empty", "rows": 0}
+                print(f"  {facility}: no new transactions (no activity in this period)")
 
-        print(f"  Total: {total_loaded} rows loaded, {facilities_ok}/{len(client.facilities)} facilities OK")
+        facilities_with_data = sum(1 for f in facility_results.values() if f["status"] == "ok")
+        facilities_empty = sum(1 for f in facility_results.values() if f["status"] == "empty")
+        print(f"  Total: {total_loaded} rows loaded, {facilities_with_data} with data, {facilities_empty} no activity")
 
         # 3. Pull KG shipping packages (demand) (with retry)
         if not dry_run:
@@ -578,7 +596,7 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
                     INSERT INTO sync_log (source, sync_started, sync_completed, status,
                                           ledger_rows_loaded, facilities_synced)
                     VALUES ('ledger', NOW() - INTERVAL '1 minute', NOW(), 'completed', %s, %s)
-                """, (total_loaded, facilities_ok))
+                """, (total_loaded, facilities_with_data))
             db_conn.commit()
 
         # 7. Validation check (compare ledger stock vs UC snapshot for sample)
@@ -591,7 +609,8 @@ def run_nightly_sync(db_conn, days_back=OVERLAP_DAYS, dry_run=False):
 
         # 8. Email notification
         try:
-            _send_sync_email(total_loaded, facilities_ok, len(client.facilities), db_conn=db_conn)
+            _send_sync_email(total_loaded, facilities_with_data, len(client.facilities),
+                            db_conn=db_conn, facility_results=facility_results)
         except Exception as e:
             logger.warning("Email notification failed: %s", e)
 
