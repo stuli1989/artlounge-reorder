@@ -40,12 +40,13 @@ def test_reorder_qty_stock_exceeds_wait_period():
     # wait_period = 2 * 120 = 240
     # post_arrival = 2 * 180 * 1.3 = 468
     # stock(400) > wait(240) → order = ceil(240 + 468 - 400) = ceil(308) = 308
+    # threshold = 120 + max(180, 30) = 300. dts=200 < 300 → reorder
     status, qty = determine_reorder_status(
         current_stock=400, days_to_stockout=200.0,
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
-    assert status == "healthy"
+    assert status == "reorder"
     assert qty == 308
 
 
@@ -119,16 +120,16 @@ def test_reorder_qty_zero_coverage():
     assert qty is None
 
 
-def test_warning_thresholds_use_lead_time_not_coverage():
-    """Warning/critical thresholds based on lead_time only, not coverage."""
-    # 200 days of stock, lead_time=120, warning_buffer=max(30,60)=60
-    # threshold = 120+60 = 180. 200 > 180 → OK
+def test_warning_thresholds_use_coverage_period():
+    """Reorder threshold = lead_time + max(coverage_period, 30)."""
+    # 200 days of stock, lead_time=120, coverage=180
+    # threshold = 120 + max(180, 30) = 300. 200 < 300 → reorder
     status, qty = determine_reorder_status(
         current_stock=400, days_to_stockout=200.0,
         supplier_lead_time=120, total_velocity=2.0,
         safety_buffer=1.3, coverage_period=180,
     )
-    assert status == "healthy"
+    assert status == "reorder"
 
 
 def test_no_velocity_no_demand():

@@ -177,13 +177,13 @@ class TestExtremeValues:
         """Test 9: lead_time = 1 (instant delivery).
         wait = 2 * 1 = 2. post = 2 * 60 * 1.3 = 156.
         stock(100) > wait(2) → ceil(2 + 156 - 100) = ceil(58) = 58.
-        days_to_stockout=50. warning_buffer=max(30,0)=30. 50>1+30=31 → healthy.
+        days_to_stockout=50. threshold=1+max(60,30)=61. 50<61 → reorder.
         """
         status, qty = _reorder(
             stock=100, days_to_stockout=50.0,
             lead_time=1, velocity=2.0, buffer=1.3, coverage=60,
         )
-        assert status == "healthy"
+        assert status == "reorder"
         assert qty == 58
 
     def test_lead_time_365_days(self):
@@ -334,12 +334,13 @@ class TestRoundingAndPrecision:
         """Complementary: when the fractional difference ceils to 1.
         wait = 10. post = 50.
         stock(59.4) > wait(10) → ceil(10 + 50 - 59.4) = ceil(0.6) = 1.
+        threshold=10+max(50,30)=60. 59.4<60 → reorder.
         """
         status, qty = _reorder(
             stock=59.4, days_to_stockout=59.4,
             lead_time=10, velocity=1.0, buffer=1.0, coverage=50,
         )
-        assert status == "healthy"
+        assert status == "reorder"
         assert qty == 1
 
 
@@ -380,10 +381,10 @@ class TestStatusThresholds:
         assert status == "reorder"
 
     def test_days_to_stockout_one_above_warning_threshold_is_ok(self):
-        """Test 24: days_to_stockout = lead_time + warning_buffer + 1 → HEALTHY."""
-        # threshold = 135, days_to_stockout = 136.0, 136 > 135 → healthy
+        """Test 24: days_to_stockout = lead_time + max(coverage, 30) + 1 → HEALTHY."""
+        # threshold = 90 + max(91, 30) = 181, days_to_stockout = 182.0 → healthy
         status, qty = _reorder(
-            stock=272, days_to_stockout=136.0,
+            stock=364, days_to_stockout=182.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=91,
         )
         assert status == "healthy"
@@ -400,20 +401,20 @@ class TestStatusThresholds:
         assert status == "healthy"
         assert qty == 237
 
-    def test_warning_buffer_minimum_30_for_short_lead_time(self):
-        """Warning buffer should be at least 30 days even for very short lead times.
-        lead_time=10 → int(10*0.5)=5, max(30,5)=30. threshold = 10+30=40.
+    def test_warning_buffer_uses_coverage_with_minimum_30(self):
+        """Warning buffer = max(coverage_period, 30).
+        lead_time=10, coverage=50 → threshold = 10 + max(50, 30) = 60.
         """
-        # days_to_stockout=39 → 39 > 10 → not urgent. 39 <= 40 → reorder.
+        # days_to_stockout=59 → 59 <= 60 → reorder.
         status, _ = _reorder(
-            stock=39, days_to_stockout=39.0,
+            stock=59, days_to_stockout=59.0,
             lead_time=10, velocity=1.0, buffer=1.0, coverage=50,
         )
         assert status == "reorder"
 
-        # days_to_stockout=41 → 41 > 40 → healthy
+        # days_to_stockout=61 → 61 > 60 → healthy
         status2, _ = _reorder(
-            stock=41, days_to_stockout=41.0,
+            stock=61, days_to_stockout=61.0,
             lead_time=10, velocity=1.0, buffer=1.0, coverage=50,
         )
         assert status2 == "healthy"
@@ -482,18 +483,18 @@ class TestCoverageAutoCalculation:
 
 class TestStatusQuantityInteraction:
 
-    def test_ok_status_with_suggested_qty(self):
-        """Test 33: HEALTHY status should still have suggested_qty when
+    def test_reorder_status_with_suggested_qty(self):
+        """Test 33: REORDER status with suggested_qty when
         stock surplus doesn't cover full target.
         wait = 2 * 90 = 180. post = 2 * 182 * 1.3 = 473.2.
         stock(400) > wait(180) → ceil(180 + 473.2 - 400) = ceil(253.2) = 254.
-        days_to_stockout=200. warning_buffer=45. 200 > 135 → healthy.
+        days_to_stockout=200. threshold=90+max(182,30)=272. 200<272 → reorder.
         """
         status, qty = _reorder(
             stock=400, days_to_stockout=200.0,
             lead_time=90, velocity=2.0, buffer=1.3, coverage=182,
         )
-        assert status == "healthy"
+        assert status == "reorder"
         assert qty == 254
 
     def test_critical_status_coverage_zero_returns_none(self):

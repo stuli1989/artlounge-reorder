@@ -116,7 +116,7 @@ def determine_reorder_status(
         OUT_OF_STOCK = velocity = 0 AND stock <= 0
         DEAD_STOCK   = velocity = 0 AND stock > 0
         URGENT       = dts <= lead_time
-        REORDER      = dts <= lead_time + warning_buffer
+        REORDER      = dts <= lead_time + max(coverage_period, 30)
         HEALTHY      = otherwise
 
     Override logic:
@@ -134,7 +134,7 @@ def determine_reorder_status(
         raw_status = "dead_stock"
     elif days_to_stockout is not None and days_to_stockout <= supplier_lead_time:
         raw_status = "urgent"
-    elif days_to_stockout is not None and days_to_stockout <= supplier_lead_time + max(30, int(supplier_lead_time * 0.5)):
+    elif days_to_stockout is not None and days_to_stockout <= supplier_lead_time + max(coverage_period, 30):
         raw_status = "reorder"
     else:
         raw_status = "healthy"

@@ -875,9 +875,9 @@ class TestEdgeCases:
 
     def test_ok_status_just_above_boundary(self):
         """Just above warning boundary -> ok."""
-        # 180.1 > 180 -> ok
+        # threshold = 120 + max(121, 30) = 241. 241.5 > 241 → healthy
         status, _ = determine_reorder_status(
-            current_stock=361, days_to_stockout=180.5,
+            current_stock=483, days_to_stockout=241.5,
             supplier_lead_time=120, total_velocity=2.0,
             safety_buffer=1.3, coverage_period=121,
         )

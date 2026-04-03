@@ -116,10 +116,15 @@ def _compute_po_items(
             store_ovr=opt_float(d["store_vel_override"]),
             total_ovr=opt_float(d["total_vel_override"]),
         )
-        st = compute_effective_status(vals["eff_stock"], vals["eff_total"], lead_time)
 
         sku_buffer = float(d.get("safety_buffer") or 1.3)
         effective_buffer = buffer if buffer is not None else sku_buffer
+        st = compute_effective_status(
+            vals["eff_stock"], vals["eff_total"], lead_time,
+            safety_buffer=effective_buffer,
+            coverage_period=coverage_period,
+            include_lead_demand=include_lead_demand,
+        )
         if vals["eff_total"] > 0:
             order_for_coverage = vals["eff_total"] * coverage_period * effective_buffer
             if include_lead_demand:

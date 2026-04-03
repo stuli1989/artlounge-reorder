@@ -1120,7 +1120,7 @@ def get_breakdown(
         safety_buffer=buffer_multiplier, coverage_period=coverage_days,
         include_lead_demand=include_lead_demand_bd,
     )
-    warning_buffer = max(30, int(lead_time * 0.5))
+    warning_buffer = max(coverage_days, 30)
     threshold_warning = lead_time + warning_buffer
 
     if eff_total_vel > 0:

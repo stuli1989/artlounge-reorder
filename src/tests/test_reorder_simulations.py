@@ -116,7 +116,8 @@ def test_sim2_ok_item_full_cycle():
         coverage_period=coverage,
     )
 
-    assert status == "healthy"
+    # dts=250 < lead_time+max(coverage,30)=300 → reorder (stock won't last full horizon)
+    assert status == "reorder"
     assert suggested_qty is not None
 
     # Simulate: sell for 120 days
